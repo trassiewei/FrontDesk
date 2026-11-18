@@ -235,6 +235,7 @@ function callView() {
   const input = el("textarea", {
     id: "composer-input", maxlength: 500, disabled: G.busy || noReplies,
     placeholder: noReplies ? "No replies left today. Transfer, take a message or hang up."
+      : G.transcript.length <= 1 ? "The caller has already said why they called. Don't spend a reply on a greeting. (Enter to send)"
       : "Say something… (Enter to send, Shift+Enter for a new line)",
   });
   input.value = G.draft;
