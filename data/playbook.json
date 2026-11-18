@@ -1,16 +1,114 @@
 {
   "intro": "Social engineers rarely break in. They ask, and people help. These are the moves to watch for, and what to do about each.",
   "tactics": [
-    { "id": "small_ask", "name": "Start small", "sign": "A harmless-sounding question first: who is in today, what is the main number. Then a slightly bigger one, then another.", "counter": "Each answer is a brick. Ask yourself what the caller could build from everything you have said so far, not just this one question." },
-    { "id": "insider_jargon", "name": "Speak like an insider", "sign": "Internal system names, department shorthand and ID formats dropped casually.", "counter": "Sounding right is not being right. Insider words are cheap once someone has overheard them; verify the person, not the vocabulary." },
-    { "id": "authority", "name": "Borrow authority", "sign": "'The CFO asked me to...', 'IT needs this now', hints of trouble for you if you slow down.", "counter": "Authority is the easiest thing to claim. Call the named person back on the directory number and ask." },
-    { "id": "urgency", "name": "Manufacture urgency", "sign": "A deadline that only exists in this call. The pressure is the point.", "counter": "Pressure is a reason to slow down, not speed up. A real emergency survives a thirty-second callback." },
-    { "id": "helpless_newcomer", "name": "Helpless newcomer", "sign": "A new hire or temp who has lost their login, their manager's number, or their way around.", "counter": "Be kind and still follow the process: take a message, route them to HR or the helpdesk, and give nothing internal over the phone." },
-    { "id": "vendor_pretext", "name": "Trusted vendor", "sign": "Routine maintenance, an invoice, a delivery, from a company you really do use.", "counter": "Real vendors have official numbers in the directory. Use those, not a number the caller offers." },
-    { "id": "name_drop", "name": "Name-drop", "sign": "Real colleagues' names used to suggest that someone sent them.", "counter": "A real name only proves the caller has read the same directory you have. Ask that colleague." },
-    { "id": "sympathy", "name": "Play for sympathy", "sign": "A story about a boss who will be furious, a deadline, a bad day. It makes refusing feel cruel.", "counter": "You can be warm and still say no. Offer the safe alternative: a message, the helpdesk, a proper channel." },
-    { "id": "wrong_on_purpose", "name": "Wrong on purpose", "sign": "A confident statement that is slightly off, inviting you to correct it.", "counter": "Correcting someone is giving the answer. If the detail is internal, let the mistake stand." },
-    { "id": "reciprocity", "name": "Give to get", "sign": "A small favor or inside tip first, so that you feel you owe something.", "counter": "A gift from a stranger on a work call creates no debt. Thank them and carry on by the book." }
+    {
+      "id": "small_ask",
+      "name": "Start small",
+      "sign": "A harmless-sounding question first: who is in today, what is the main number. Then a slightly bigger one, then another.",
+      "counter": "Each answer is a brick. Ask yourself what the caller could build from everything you have said so far, not just this one question."
+    },
+    {
+      "id": "insider_jargon",
+      "name": "Speak like an insider",
+      "sign": "Internal system names, department shorthand and ID formats dropped casually.",
+      "counter": "Sounding right is not being right. Insider words are cheap once someone has overheard them; verify the person, not the vocabulary."
+    },
+    {
+      "id": "authority",
+      "name": "Borrow authority",
+      "sign": "'The CFO asked me to...', 'IT needs this now', hints of trouble for you if you slow down.",
+      "counter": "Authority is the easiest thing to claim. Call the named person back on the directory number and ask."
+    },
+    {
+      "id": "urgency",
+      "name": "Manufacture urgency",
+      "sign": "A deadline that only exists in this call. The pressure is the point.",
+      "counter": "Pressure is a reason to slow down, not speed up. A real emergency survives a thirty-second callback."
+    },
+    {
+      "id": "helpless_newcomer",
+      "name": "Helpless newcomer",
+      "sign": "A new hire or temp who has lost their login, their manager's number, or their way around.",
+      "counter": "Be kind and still follow the process: take a message, route them to HR or the helpdesk, and give nothing internal over the phone."
+    },
+    {
+      "id": "vendor_pretext",
+      "name": "Trusted vendor",
+      "sign": "Routine maintenance, an invoice, a delivery, from a company you really do use.",
+      "counter": "Real vendors have official numbers in the directory. Use those, not a number the caller offers."
+    },
+    {
+      "id": "name_drop",
+      "name": "Name-drop",
+      "sign": "Real colleagues' names used to suggest that someone sent them.",
+      "counter": "A real name only proves the caller has read the same directory you have. Ask that colleague."
+    },
+    {
+      "id": "sympathy",
+      "name": "Play for sympathy",
+      "sign": "A story about a boss who will be furious, a deadline, a bad day. It makes refusing feel cruel.",
+      "counter": "You can be warm and still say no. Offer the safe alternative: a message, the helpdesk, a proper channel."
+    },
+    {
+      "id": "wrong_on_purpose",
+      "name": "Wrong on purpose",
+      "sign": "A confident statement that is slightly off, inviting you to correct it.",
+      "counter": "Correcting someone is giving the answer. If the detail is internal, let the mistake stand."
+    },
+    {
+      "id": "reciprocity",
+      "name": "Give to get",
+      "sign": "A small favor or inside tip first, so that you feel you owe something.",
+      "counter": "A gift from a stranger on a work call creates no debt. Thank them and carry on by the book."
+    },
+    {
+      "id": "social_proof",
+      "name": "Everyone else does it",
+      "sign": "'Everyone else in Finance already gave me this.' It makes you the odd one out.",
+      "counter": "What others did, or did not do, is not your concern. Check with the colleague, or send it through the usual channel."
+    },
+    {
+      "id": "quid_pro_quo",
+      "name": "Something for something",
+      "sign": "A friendly offer (a survey, a free check, a gift card) in exchange for a few details.",
+      "counter": "An offer from a stranger creates no debt. Thank them and give nothing internal."
+    },
+    {
+      "id": "official_pressure",
+      "name": "Official pressure",
+      "sign": "A formal tone, a deadline and a consequence ('this will be on record').",
+      "counter": "Real officials put requests in writing. Offer the general email address and let someone senior decide."
+    },
+    {
+      "id": "callback_bait",
+      "name": "Friendly callback number",
+      "sign": "'Call me on this number if you like', or 'ring my manager, she'll confirm'.",
+      "counter": "Only the directory counts. A number the caller gives you answers however the caller wants."
+    },
+    {
+      "id": "rapport",
+      "name": "Build rapport",
+      "sign": "Small talk and compliments before any question, and a caller who seems to like you.",
+      "counter": "Friendly is fine; friendly is not verified. Be as careful with a nice caller as with a rude one."
+    },
+    {
+      "id": "wrong_number",
+      "name": "The wrong number",
+      "sign": "'Sorry, I think I've got the wrong extension. Can you put me through to…?'",
+      "counter": "Ask who they want and why. Take a message instead of passing them around."
+    },
+    {
+      "id": "offer_help",
+      "name": "Offer a fix",
+      "sign": "A helpful stranger calls just after something breaks and knows exactly what to do.",
+      "counter": "Coincidence is a reason to verify. Pass offers of help to IT and use the vendor's number from the directory."
+    },
+    {
+      "id": "confirm_not_ask",
+      "name": "Confirm, don't ask",
+      "sign": "'I have it here, just confirming that she's back on the 23rd?' Saying 'yes' is giving the answer.",
+      "counter": "Confirming is the same as telling. If you would not say it unprompted, do not confirm it."
+    }
   ],
   "rules_of_thumb": [
     "Verify through the directory, never through a number or contact the caller supplies. Whoever answers a number a con gave you will vouch for the con.",

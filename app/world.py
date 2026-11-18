@@ -6,7 +6,7 @@ from functools import lru_cache
 from typing import Any
 
 from .config import DATA_DIR, PROMPTS_DIR, SECONDARY_DOOR_BONUS
-from .models import Employee, Fact, GameState, LegitCall, Scenario, Tactic, Vendor, World
+from .models import Employee, Fact, Gambit, GameState, LegitCall, Scenario, Tactic, Vendor, World
 
 
 def _read_json(name: str) -> Any:
@@ -40,6 +40,15 @@ def scenario_of(state: GameState) -> Scenario:
 @lru_cache(maxsize=1)
 def load_tactics() -> list[Tactic]:
     return [Tactic.model_validate(t) for t in _read_json("tactics.json")]
+
+
+@lru_cache(maxsize=1)
+def load_gambits() -> list[Gambit]:
+    return [Gambit.model_validate(g) for g in _read_json("gambits.json")]
+
+
+def gambit_by_id(gambit_id: str) -> Gambit | None:
+    return next((g for g in load_gambits() if g.id == gambit_id), None)
 
 
 @lru_cache(maxsize=1)

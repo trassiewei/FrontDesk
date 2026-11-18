@@ -91,6 +91,19 @@ class Tactic(BaseModel):
     description: str
 
 
+class Gambit(BaseModel):
+    """A con method taken from the social-engineering playbook: how the crew works the whole week."""
+
+    id: str
+    name: str
+    summary: str  # the crew's view: how the method plays out over the three days
+    angle: str  # what kind of job it suits (fed to the director)
+    requires_incident: bool = False  # the method only works with a staged fault
+    tactics: list[str] = Field(default_factory=list)  # tactic ids that fit the method
+    sign: str  # what the player could have noticed
+    counter: str  # what to do about it
+
+
 # ---------------------------------------------------------------- LLM outputs (spec §8.2)
 
 
@@ -127,9 +140,11 @@ class PlannedCall(BaseModel):
     if_refused: str = ""
     if_verified: str = ""
     tells: list[str] = Field(default_factory=list)  # slips the caller makes that an attentive receptionist can notice
+    purpose: str = ""  # what this call sets up for the crew, and why it looks harmless
 
 
 class PlannerResult(BaseModel):
+    assessment: str = ""  # the crew's read of the receptionist and what it changes today
     notebook: str
     arc: str = ""  # how today's calls fit together
     calls: list[PlannedCall] = Field(default_factory=list)
@@ -154,6 +169,9 @@ class ScenarioResult(BaseModel):
     offstage_fact: str | None = None
     incident: IncidentDraft | None = None
     cutscenes: dict[str, str] = Field(default_factory=dict)
+    crew: str = ""
+    motive: str = ""
+    phases: list[str] = Field(default_factory=list)
 
 
 class ReportResult(BaseModel):
@@ -189,6 +207,10 @@ class Scenario(BaseModel):
     offstage_fact: str | None = None  # knowing this lets the con reach IT without the receptionist
     incident: Incident | None = None
     cutscenes: dict[str, str]  # keyed by outcome
+    gambit: str = ""  # id of the con method in data/gambits.json
+    crew: str = ""  # who the crew is
+    motive: str = ""  # who pays them, what for, and the deadline
+    phases: list[str] = Field(default_factory=list)  # the crew's objective for each day
 
 
 class Notice(BaseModel):

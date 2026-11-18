@@ -10,6 +10,8 @@ YOUR CHARACTER FOR THIS CALL
 - What you are trying to learn on this call: $target_descriptions
 - Skill level: $skill_note
 
+THE JOB: your crew's method is "$gambit_name". Today's call is one step of it. What this call is for: $purpose
+
 YOUR SCRIPT FOR THIS CALL (your crew planned it; follow it, but stay natural)
 $script_text
 

@@ -27,6 +27,7 @@ from .models import (
 from .roles import caller, director, extractor, planner, reporter
 from .world import (
     employee_by_id,
+    gambit_by_id,
     legit_call_by_id,
     load_legit_calls,
     load_story,
@@ -565,7 +566,11 @@ def _scenario_reveal(state: GameState) -> dict:
     if sc.incident:
         incident = {"day": sc.incident.day, "day_name": config.DAY_NAMES[sc.incident.day - 1],
                     "title": sc.incident.title, "method": sc.incident.method}
-    return {"title": sc.title, "premise": sc.premise, "con_goal": sc.con_goal, "incident": incident}
+    gambit = gambit_by_id(sc.gambit)
+    return {"title": sc.title, "premise": sc.premise, "con_goal": sc.con_goal, "incident": incident,
+            "crew": sc.crew, "motive": sc.motive, "phases": sc.phases,
+            "gambit": {"name": gambit.name, "summary": gambit.summary, "sign": gambit.sign,
+                       "counter": gambit.counter} if gambit else None}
 
 
 def get_report(state: GameState) -> dict:

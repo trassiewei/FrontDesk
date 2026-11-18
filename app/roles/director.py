@@ -7,19 +7,9 @@ import random
 
 from .. import config, llm, rules
 from ..models import Scenario, ScenarioResult, World
-from ..world import load_scenarios
+from ..world import load_gambits, load_scenarios
 
 log = logging.getLogger("frontdesk.director")
-
-ANGLES = [
-    "business email compromise: take over an executive's mailbox to order a fake payment",
-    "a fake contractor or vendor technician who needs remote access or credentials",
-    "diverting somebody's salary or a supplier payment to the crew's bank account",
-    "getting a password reset or new access card for a senior person who is hard to reach",
-    "stealing the customer list or pricing data for a competitor, through a believable insider",
-    "planting a malicious device or link by posing as an IT or facilities visitor-in-waiting",
-]
-
 
 def _employees_text(world: World) -> str:
     return "\n".join(
@@ -52,7 +42,8 @@ def design(game_id: str, world: World, difficulty: str, rng: random.Random, pres
             raise ValueError(f"Unknown scenario: {preset_id!r}")
         return found
     fallback = presets[0]
-    incident_day = rules.incident_chance_roll(rng)
+    gambit = rng.choice(load_gambits())
+    incident_day = rng.choice(config.INCIDENT_DAYS) if gambit.requires_incident else rules.incident_chance_roll(rng)
     example = presets[1]
     system = llm.render_prompt(
         "director",
@@ -61,14 +52,17 @@ def design(game_id: str, world: World, difficulty: str, rng: random.Random, pres
         employees=_employees_text(world),
         facts=_facts_text(world),
         threshold=config.get_difficulty(difficulty).breach_threshold,
-        angle=rng.choice(ANGLES),
+        gambit_name=gambit.name,
+        gambit_summary=gambit.summary,
+        angle=gambit.angle,
         incident_rule=_incident_rule(incident_day),
         example=json.dumps(
             {
                 "title": example.title, "premise": example.premise, "con_goal": example.con_goal,
                 "gate_facts": example.gate_facts, "doors": [d.employee_id for d in example.doors],
                 "offstage_fact": example.offstage_fact, "incident": example.incident.model_dump() if example.incident else None,
-                "cutscenes": example.cutscenes,
+                "cutscenes": example.cutscenes, "crew": example.crew, "motive": example.motive,
+                "phases": example.phases,
             },
             ensure_ascii=False,
         ),
@@ -78,7 +72,7 @@ def design(game_id: str, world: World, difficulty: str, rng: random.Random, pres
     except llm.LLMError as exc:
         log.warning("Director LLM failed, using the default scenario: %s", exc)
         return fallback
-    scenario = rules.clean_scenario(draft, world=world, fallback=fallback, incident_day=incident_day)  # type: ignore[arg-type]
+    scenario = rules.clean_scenario(draft, world=world, fallback=fallback, incident_day=incident_day, gambit=gambit.id)  # type: ignore[arg-type]
     if scenario is fallback:
         log.warning("Director output was unusable, using the default scenario.")
     return scenario

@@ -5,7 +5,7 @@ import logging
 
 from .. import config, llm, summary
 from ..models import CallRecord, GameState, ReportResult, World
-from ..world import name_of, scenario_of
+from ..world import gambit_by_id, name_of, scenario_of
 
 log = logging.getLogger("frontdesk.reporter")
 
@@ -18,7 +18,7 @@ def _true_identity(call: CallRecord, world: World) -> str:
     who = f"con artist using the persona '{call.caller_name}', claiming to be: {call.claims}"
     if impersonating:
         who += f" (impersonating {impersonating})"
-    return who + f"; tactic: {plan.tactic if plan else '?'}"
+    return who + f"; tactic: {plan.tactic if plan else '?'}" + (f"; its purpose in the plan: {plan.purpose}" if plan and plan.purpose else "")
 
 
 def _call_header(call: CallRecord, world: World) -> str:
@@ -75,6 +75,15 @@ def notebooks_text(state: GameState) -> str:
 def scenario_text(state: GameState) -> str:
     sc = scenario_of(state)
     lines = [f"Title: {sc.title}", f"Premise: {sc.premise}", f"The crew's goal: {sc.con_goal}"]
+    gambit = gambit_by_id(sc.gambit)
+    if gambit:
+        lines.append(f"The crew's method: {gambit.name} — {gambit.summary}")
+    if sc.crew:
+        lines.append(f"The crew: {sc.crew}")
+    if sc.motive:
+        lines.append(f"Why they were doing it: {sc.motive}")
+    if sc.phases:
+        lines.append("Their plan, day by day: " + " | ".join(f"Day {i}: {p}" for i, p in enumerate(sc.phases, 1)))
     if sc.incident:
         lines.append(
             f"Staged incident on {config.DAY_NAMES[sc.incident.day - 1]} ({sc.incident.title}): the crew caused it "

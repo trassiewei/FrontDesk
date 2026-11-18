@@ -1,12 +1,92 @@
 [
-  { "id": "small_ask", "name": "Start small", "description": "Ask for something trivial and harmless-sounding first, so the next request feels normal." },
-  { "id": "insider_jargon", "name": "Speak like an insider", "description": "Use internal names, system names and formats you already learned so you sound like you belong." },
-  { "id": "authority", "name": "Borrow authority", "description": "Claim to act on behalf of an executive or the IT lead, and imply consequences for delay." },
-  { "id": "urgency", "name": "Manufacture urgency", "description": "Create time pressure so the target skips verification." },
-  { "id": "helpless_newcomer", "name": "Helpless newcomer", "description": "Pose as a new employee or temp who just needs a little help." },
-  { "id": "vendor_pretext", "name": "Trusted vendor", "description": "Pose as a known vendor or contractor doing routine work." },
-  { "id": "name_drop", "name": "Name-drop", "description": "Mention real colleagues by name to imply you were sent by them." },
-  { "id": "sympathy", "name": "Play for sympathy", "description": "Appeal to kindness: you're in trouble, your boss will be angry, please help." },
-  { "id": "wrong_on_purpose", "name": "Wrong on purpose", "description": "State something slightly wrong so the target corrects you with the real detail." },
-  { "id": "reciprocity", "name": "Give to get", "description": "Offer a small favor or inside tip first, so the target feels like returning one." }
+  {
+    "id": "small_ask",
+    "name": "Start small",
+    "description": "Ask for something trivial and harmless-sounding first, so the next request feels normal."
+  },
+  {
+    "id": "insider_jargon",
+    "name": "Speak like an insider",
+    "description": "Use internal names, system names and formats you already learned so you sound like you belong."
+  },
+  {
+    "id": "authority",
+    "name": "Borrow authority",
+    "description": "Claim to act on behalf of an executive or the IT lead, and imply consequences for delay."
+  },
+  {
+    "id": "urgency",
+    "name": "Manufacture urgency",
+    "description": "Create time pressure so the target skips verification."
+  },
+  {
+    "id": "helpless_newcomer",
+    "name": "Helpless newcomer",
+    "description": "Pose as a new employee or temp who just needs a little help."
+  },
+  {
+    "id": "vendor_pretext",
+    "name": "Trusted vendor",
+    "description": "Pose as a known vendor or contractor doing routine work."
+  },
+  {
+    "id": "name_drop",
+    "name": "Name-drop",
+    "description": "Mention real colleagues by name to imply you were sent by them."
+  },
+  {
+    "id": "sympathy",
+    "name": "Play for sympathy",
+    "description": "Appeal to kindness: you're in trouble, your boss will be angry, please help."
+  },
+  {
+    "id": "wrong_on_purpose",
+    "name": "Wrong on purpose",
+    "description": "State something slightly wrong so the target corrects you with the real detail."
+  },
+  {
+    "id": "reciprocity",
+    "name": "Give to get",
+    "description": "Offer a small favor or inside tip first, so the target feels like returning one."
+  },
+  {
+    "id": "social_proof",
+    "name": "Everyone else does it",
+    "description": "Say that colleagues or other departments have already done the same thing, so refusing feels strange."
+  },
+  {
+    "id": "quid_pro_quo",
+    "name": "Something for something",
+    "description": "Offer a favour, a survey prize or a small gift in return for answers, so the target feels obliged."
+  },
+  {
+    "id": "official_pressure",
+    "name": "Official pressure",
+    "description": "Pose as an auditor, insurer or regulator and hint at penalties or paperwork problems if the target hesitates."
+  },
+  {
+    "id": "callback_bait",
+    "name": "Friendly callback number",
+    "description": "Offer your own number to call back on, or a colleague who will vouch, so a verification goes to your accomplice."
+  },
+  {
+    "id": "rapport",
+    "name": "Build rapport",
+    "description": "Chat, compliment, find common ground and use a warm tone, so the target relaxes and shares more than they planned."
+  },
+  {
+    "id": "wrong_number",
+    "name": "The wrong number",
+    "description": "Pretend to have dialled the wrong extension and ask to be sent on to the right person, one transfer at a time."
+  },
+  {
+    "id": "offer_help",
+    "name": "Offer a fix",
+    "description": "Turn up with a fix for a problem the company really has, so the target thanks you and lets you in."
+  },
+  {
+    "id": "confirm_not_ask",
+    "name": "Confirm, don't ask",
+    "description": "State the sensitive detail as if you know it already and ask only for a 'quick confirmation'."
+  }
 ]

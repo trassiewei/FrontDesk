@@ -1,0 +1,92 @@
+[
+  {
+    "id": "chain_of_favors",
+    "name": "The Chain of Small Favors",
+    "summary": "No single question is dangerous. Day 1 collects harmless names and system words, day 2 uses them to sound like an insider and ask for slightly more, day 3 asks for the one thing that matters while sounding like someone who has been on the phone with this desk all week.",
+    "angle": "taking over the mailbox or password of a senior person who is hard to reach",
+    "requires_incident": false,
+    "tactics": ["small_ask", "insider_jargon", "name_drop", "rapport"],
+    "sign": "Several calls from different voices, each with a small, harmless question; each one a little more inside than the last.",
+    "counter": "Count the bricks: ask what the caller could build from everything you have said this week, not just this call. Give out process, never names, schedules or system words."
+  },
+  {
+    "id": "fix_what_we_broke",
+    "name": "Fix What We Broke",
+    "summary": "Reverse social engineering: the crew first causes a fault, then phones in as the helpful expert who happens to know how to fix it. People who are already stressed hand over access to the person who offers relief.",
+    "angle": "getting an outside technician remote access or credentials during an outage the crew caused",
+    "requires_incident": true,
+    "tactics": ["offer_help", "vendor_pretext", "urgency", "insider_jargon"],
+    "sign": "A problem appears, and within hours a friendly stranger calls who knows exactly what is wrong.",
+    "counter": "A coincidence between an outage and a helpful outsider is a reason to verify, not to relax. Real vendors are in the directory; use that number and let IT decide."
+  },
+  {
+    "id": "borrowed_boss",
+    "name": "The Borrowed Boss",
+    "summary": "The caller speaks with the voice of an executive who cannot be reached: the CFO is travelling, the CEO is in a board meeting. Authority and urgency do the work, and the one person who could contradict the story is unavailable on purpose.",
+    "angle": "an urgent payment or approval 'on behalf of' an executive who is away",
+    "requires_incident": false,
+    "tactics": ["authority", "urgency", "confirm_not_ask", "name_drop"],
+    "sign": "'She asked me to call, it cannot wait, and she cannot be reached.' Everything hangs on someone who is conveniently out of reach.",
+    "counter": "The more senior the name and the tighter the deadline, the more a callback is worth. If the named person cannot be reached, nothing happens until they can."
+  },
+  {
+    "id": "friendly_survey",
+    "name": "The Friendly Survey",
+    "summary": "Quid pro quo: a cheerful survey (IT satisfaction, a benefits questionnaire, a vendor review) with a small prize or favour on offer. Each answer is a system name, an ID format or a procedure that makes a later, serious call sound legitimate.",
+    "angle": "harvesting how things work inside the company to prepare a believable password-reset or access request",
+    "requires_incident": false,
+    "tactics": ["quid_pro_quo", "rapport", "social_proof", "wrong_on_purpose"],
+    "sign": "A polite stranger who wants five minutes and offers something in return, and whose questions are all about how your company does things.",
+    "counter": "Surveys about internal systems are not a front-desk matter. Offer a general email address and keep processes to yourself."
+  },
+  {
+    "id": "lost_new_hire",
+    "name": "The Lost New Hire",
+    "summary": "Someone new, flustered and grateful: a temp whose login does not work, a hire whose manager is away. Sympathy and a little helplessness make every refusal feel cruel.",
+    "angle": "getting access, a reset or a colleague's details for 'a new starter' who does not exist",
+    "requires_incident": false,
+    "tactics": ["helpless_newcomer", "sympathy", "name_drop", "small_ask"],
+    "sign": "'It's my first week, nobody told me, I'll get in trouble.' New, apologetic, and in a hurry.",
+    "counter": "Be kind and keep to the process: take a message, point them to HR and the helpdesk, and give nothing internal over the phone."
+  },
+  {
+    "id": "surprise_inspector",
+    "name": "The Surprise Inspector",
+    "summary": "An outsider with official-sounding authority (an auditor, an insurer, a compliance officer) who creates a little fear: documents are overdue, a penalty is possible. Staff hand things over to avoid being the one who caused a problem.",
+    "angle": "getting staff lists, documents or access released to an 'official' who cannot be checked in the directory",
+    "requires_incident": false,
+    "tactics": ["official_pressure", "authority", "confirm_not_ask", "urgency"],
+    "sign": "A formal caller with a deadline and a consequence, asking for lists or documents to be sent outside the company.",
+    "counter": "Officials follow a paper trail: ask for it in writing through the general email address and let the right internal person decide."
+  },
+  {
+    "id": "wrong_number_funnel",
+    "name": "The Wrong Number Funnel",
+    "summary": "The caller 'misdials' and is sent on 'where they meant to go', one transfer at a time. Each transfer makes them look more internal, until the last person sees an internal number and assumes the caller belongs.",
+    "angle": "reaching a specific colleague as if from inside, to ask for something that outsiders would be refused",
+    "requires_incident": false,
+    "tactics": ["wrong_number", "small_ask", "confirm_not_ask", "rapport"],
+    "sign": "'Sorry, I think I have the wrong extension. Could you put me through to someone in…?' A caller who mostly wants to be transferred.",
+    "counter": "A transfer is a form of trust that you lend. Ask who they are trying to reach and why, and offer to take a message instead."
+  },
+  {
+    "id": "name_relay",
+    "name": "The Name Relay",
+    "summary": "Names are the credential. Call one collects a real colleague's name, call two drops it ('Paul said you were the right person to ask'), and by call three the crew sounds like an old acquaintance of the office.",
+    "angle": "turning a few real colleagues' names into a believable inside story that unlocks an introduction to someone important",
+    "requires_incident": false,
+    "tactics": ["name_drop", "small_ask", "rapport", "social_proof"],
+    "sign": "A caller who knows a colleague's name that you gave out earlier, and uses it like a password.",
+    "counter": "A name proves the caller has seen the same directory you have. Ask the colleague, and avoid handing out names in the first place."
+  },
+  {
+    "id": "vouching_accomplice",
+    "name": "The Vouching Accomplice",
+    "summary": "The crew expects to be checked and plans for it: they give a callback number that an accomplice answers. A careful receptionist who 'verifies' through the caller's own number gets a friendly confirmation from the con's own team.",
+    "angle": "getting an impersonated insider or vendor believed by steering verification toward the crew's own phone",
+    "requires_incident": false,
+    "tactics": ["callback_bait", "vendor_pretext", "authority", "insider_jargon"],
+    "sign": "A caller who, unprompted, offers a number to call back on, or a colleague who will 'vouch for me'.",
+    "counter": "Verify only through the company directory, never through a number the caller offers. Whoever answers there will say what the con needs them to say."
+  }
+]

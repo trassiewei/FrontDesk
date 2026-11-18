@@ -472,13 +472,15 @@ def clean_plan(
                     "opening_line": scrub_placeholders(call.opening_line),
                     "if_refused": scrub_placeholders(call.if_refused).strip()[: config.MAX_SCRIPT_TEXT],
                     "if_verified": scrub_placeholders(call.if_verified).strip()[: config.MAX_SCRIPT_TEXT],
+                    "purpose": scrub_placeholders(call.purpose).strip()[: config.MAX_SCRIPT_TEXT],
                     "claimed_identity": identity,
                     "target_facts": [t for t in call.target_facts if t in valid_facts and t not in known_set],
                     "tactic": call.tactic if call.tactic in tactics else "small_ask",
                 }
             )
         )
-    return result.model_copy(update={"calls": cleaned})
+    return result.model_copy(update={
+        "calls": cleaned, "assessment": scrub_placeholders(result.assessment).strip()[: config.MAX_SCRIPT_TEXT * 2]})
 
 
 _PERSONA_POOL = ["Dana", "Ellis", "Morgan", "Tessa", "Brent", "Nora", "Leo", "Claire", "Victor", "Ivy", "Hugo", "Jade"]
@@ -547,7 +549,7 @@ def incident_chance_roll(rng: random.Random) -> int | None:
 
 
 def clean_scenario(
-    draft: ScenarioResult, *, world: World, fallback: Scenario, incident_day: int | None
+    draft: ScenarioResult, *, world: World, fallback: Scenario, incident_day: int | None, gambit: str = ""
 ) -> Scenario:
     """Validate the director's draft. Anything unusable falls back to `fallback`; a broken core falls back entirely.
 
@@ -573,12 +575,18 @@ def clean_scenario(
                                 method=inc.method.strip())
 
     offstage = draft.offstage_fact if draft.offstage_fact in non_public else None
+    phases = [p.strip() for p in draft.phases if text_ok(p)][: config.NUM_DAYS]
+    if len(phases) < config.NUM_DAYS:
+        phases = []  # a half-written campaign is worse than none: the planner then plans day by day
+    crew = draft.crew.strip() if text_ok(draft.crew) else ""
+    motive = draft.motive.strip() if text_ok(draft.motive) else ""
     return Scenario(
         id="director", source="director", title=draft.title.strip(), premise=draft.premise.strip(),
         con_goal=draft.con_goal.strip(),
         gate_facts=gate,
         doors=[Door(employee_id=d, bonus=0 if i == 0 else config.SECONDARY_DOOR_BONUS) for i, d in enumerate(door_ids)],
         offstage_fact=offstage, incident=incident, cutscenes=cutscenes,
+        gambit=gambit, crew=crew, motive=motive, phases=phases,
     )
 
 
@@ -661,3 +669,59 @@ def generate_caller_id(
     if vendor:
         return f"{number} ({vendor.name})"
     return number
+
+
+# ------------------------------------------------------------------ what the crew knows about the receptionist
+
+
+def receptionist_profile(calls: Iterable[CallRecord]) -> str:
+    """What the crew has noticed about the receptionist from its own finished calls (nothing it could not know).
+
+    The crew sees how each call ended and what it learned. It does not see flags or Security.
+    """
+    cons = [c for c in calls if c.is_con and c.status == "ended"]
+    if not cons:
+        return "Nothing yet: this is the first day, you have never spoken to her."
+    n = len(cons)
+    lines = []
+    checked = [c for c in cons if c.callbacks]
+    if checked:
+        exposed = sum(1 for c in checked if c.result == "exposed")
+        lines.append(f"- She checked {len(checked)} of your {n} calls by phoning the directory"
+                     + (f"; {exposed} fell apart" if exposed else "; none fell apart") + ".")
+    else:
+        lines.append(f"- She never phoned anyone to check your {n} call(s).")
+    if any(c.number_checked for c in cons):
+        lines.append("- She once dialled the number you offered, and your accomplice vouched for you.")
+    told = sum(1 for c in cons if c.gained_facts)
+    lines.append(f"- She told you something useful in {told} of {n} calls"
+                 + ("." if told else ": she is tight-lipped."))
+    questions = 0
+    for c in cons:
+        player = [m.text for m in c.messages if m.speaker == "player"]
+        if player and sum(1 for t in player if "?" in t) * 2 >= len(player):
+            questions += 1
+    if questions:
+        lines.append(f"- In {questions} of {n} calls she mostly answered with questions of her own (who, which team, what number).")
+    hung = sum(1 for c in cons if c.end_reason == "hung_up")
+    taken = sum(1 for c in cons if c.end_reason == "message")
+    sent = sum(1 for c in cons if c.end_reason == "transferred")
+    if hung or taken or sent:
+        bits = [f"{hung} hung up on" if hung else "", f"{taken} had a message taken" if taken else "",
+                f"{sent} sent elsewhere" if sent else ""]
+        lines.append("- Of your calls: " + ", ".join(b for b in bits if b) + ".")
+    slipped = sum(1 for c in cons if c.slip_shown)
+    if slipped:
+        lines.append(f"- You made a slip on {slipped} call(s) and cannot be sure she did not notice.")
+    return "\n".join(lines)
+
+
+def crew_heat(exposures: int, limit: int) -> str:
+    """How close the crew is to pulling out (it quits at `limit` exposures)."""
+    left = limit - exposures
+    if exposures <= 0:
+        return f"Clean so far. The crew pulls out after {limit} exposure(s)."
+    if left <= 1:
+        return (f"HOT: you have been exposed {exposures} time(s). One more and the buyer pulls the plug. "
+                "Play safe: use a fresh outsider with a quiet, believable reason to call.")
+    return f"Warm: exposed {exposures} time(s) of {limit} allowed. Change your approach rather than repeat it."

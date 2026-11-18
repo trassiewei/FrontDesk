@@ -109,7 +109,7 @@ def test_playbook_covers_every_tactic_and_outcome():
 
 def test_world_endpoint_serves_the_playbook_without_outcome_texts(fake):
     data = TestClient(app).get("/api/world").json()
-    assert len(data["playbook"]["tactics"]) == 10 and "outcomes" not in data["playbook"]
+    assert len(data["playbook"]["tactics"]) == len(load_tactics()) and "outcomes" not in data["playbook"]
 
 
 def test_call_reveal_lists_every_call_with_its_truth(fake):

@@ -5,7 +5,7 @@ import logging
 
 from .. import config, llm, rules
 from ..models import GameState, PlannedCall, PlannerResult, World
-from ..world import employee_by_id, fact_by_id, load_tactics, name_of, non_public_facts, scenario_of
+from ..world import employee_by_id, fact_by_id, gambit_by_id, load_tactics, name_of, non_public_facts, scenario_of
 from .common import fact_lines, incident_plan_text, intel_text, public_info_text
 
 log = logging.getLogger("frontdesk.planner")
@@ -39,7 +39,7 @@ def history_text(state: GameState) -> str:
         gained = ", ".join(call.gained_facts) or "nothing"
         lines.append(
             f"Day {call.day} | {call.plan.persona_name} | claimed: {call.claims} | tactic: {call.plan.tactic} "
-            f"| result: {call.result} | gained: {gained}"
+            f"| purpose: {call.plan.purpose or '-'} | result: {call.result} | gained: {gained}"
         )
     return "\n".join(lines) if lines else "none yet"
 
@@ -64,14 +64,31 @@ def _offstage_rule(state: GameState, world: World) -> str:
     )
 
 
+def campaign_text(state: GameState, day: int) -> str:
+    phases = scenario_of(state).phases
+    if not phases:
+        return "  (no fixed campaign: plan each day yourself, building towards the goal)"
+    return "\n".join(f"  Day {i}{' (TODAY)' if i == day else ''}: {text}" for i, text in enumerate(phases, 1))
+
+
 def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     """Cleaned plan for `day`, based on everything learned so far. Falls back to a fixed call on failure."""
     diff = config.get_difficulty(state.difficulty)
     tactics = load_tactics()
     unknown = [f for f in non_public_facts(world) if f.id not in state.intel]
     scenario = scenario_of(state)
+    gambit = gambit_by_id(scenario.gambit)
+    fitting = [t for t in tactics if gambit and t.id in gambit.tactics]
     system = llm.render_prompt(
         "planner",
+        crew=scenario.crew or "a small, professional fraud crew",
+        motive=scenario.motive or "a client is paying them for a result by the end of the week",
+        gambit_name=gambit.name if gambit else "Your own method",
+        gambit_summary=gambit.summary if gambit else "Choose the approach that fits the job.",
+        gambit_tactics=", ".join(f"{t.id} ({t.name})" for t in fitting) or "any",
+        campaign=campaign_text(state, day),
+        profile=rules.receptionist_profile(state.calls),
+        heat=rules.crew_heat(state.exposures, diff.exposures_to_give_up),
         premise=scenario.premise,
         con_goal=scenario.con_goal,
         gate_facts=", ".join(

@@ -549,7 +549,7 @@ def test_planner_sees_what_the_con_learned_and_last_notebook(fake):
     prompt = fake.calls_for("planner")[-1]["messages"][0]["content"]
     assert "it_lead_name | Raj Patel | " in prompt and "She is away" in prompt
     assert "Day one page" in prompt and "Day 2 of 3" in prompt
-    assert "Day 1 | Alex | claimed: Alex, new temp in Finance | tactic: small_ask | result: hung_up" in prompt
+    assert "Day 1 | Alex | claimed: Alex, new temp in Finance | tactic: small_ask | purpose: - | result: hung_up" in prompt
     unknown_section = prompt.split("FACTS YOU COULD STILL LEARN")[1].split("INTEL YOU HAVE")[0]
     assert "it_lead_name" not in unknown_section and "Raj Patel" not in unknown_section
     assert "erp_name | Name of the internal ERP system | 2" in unknown_section

@@ -538,6 +538,12 @@ function renderEnd() {
       el("b", {}, sc.title),
       el("p", {}, sc.premise),
       el("p", {}, el("span", { class: "label" }, "Their goal: "), sc.con_goal),
+      sc.crew ? el("p", {}, el("span", { class: "label" }, "The crew: "), sc.crew) : null,
+      sc.motive ? el("p", {}, el("span", { class: "label" }, "Why now: "), sc.motive) : null,
+      sc.gambit ? el("p", {}, el("span", { class: "label" }, `Their method, “${sc.gambit.name}”: `), sc.gambit.summary) : null,
+      sc.phases && sc.phases.length ? el("p", {}, el("span", { class: "label" }, "Their plan: "),
+        sc.phases.map((p, i) => `Day ${i + 1}: ${p}`).join("  ")) : null,
+      sc.gambit ? el("p", {}, el("span", { class: "label" }, "How to spot it: "), `${sc.gambit.sign} ${sc.gambit.counter}`) : null,
       sc.incident ? el("p", {}, el("span", { class: "label" }, `The ${sc.incident.title.toLowerCase()} (${sc.incident.day_name}): `), sc.incident.method) : null)));
   }
 
@@ -593,6 +599,7 @@ function revealCard(c) {
     rows.push(el("p", {}, el("span", { class: "label" }, "Move: "), `${c.tactic.name}. ${c.tactic.sign}`),
       el("p", {}, el("span", { class: "label" }, "Counter: "), c.tactic.counter));
   }
+  if (c.purpose) rows.push(el("p", {}, el("span", { class: "label" }, "What it was for: "), c.purpose));
   if (c.slip) rows.push(el("p", {}, el("span", { class: "label" }, "Their slip: "), c.slip));
   if (c.script && c.script.length) {
     rows.push(el("p", {}, el("span", { class: "label" }, "Their script: "), c.script.map((b, i) => `${i + 1}. ${b}`).join("  ")));

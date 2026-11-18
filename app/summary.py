@@ -94,6 +94,7 @@ def call_reveal(state: GameState, world: World) -> list[dict]:
             "impersonating": name_of(world, call.claimed_identity) if call.is_con and call.claimed_identity else None,
             "tactic": {"name": tactic["name"], "sign": tactic["sign"], "counter": tactic["counter"]} if tactic else None,
             "script": call.plan.beats if call.is_con and call.plan else [],
+            "purpose": call.plan.purpose if call.is_con and call.plan else "",
             "outcome": playbook["outcomes"].get(call.result or "", call.result or ""),
             "learned": [facts[f] for f in call.gained_facts if f in facts],
             "player": player,

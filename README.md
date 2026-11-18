@@ -59,9 +59,11 @@ Five LLM roles, all language work:
 
 1. **Caller** plays every caller. The con artist improvises against your questions and pushes back on your challenges.
 2. **Extractor** reads each of your free-text replies and decides which non-public facts you disclosed, with the quote.
-3. **Planner** (the con artist's planning side) reads everything learned so far before each day, writes the notebook and the day's arc, and writes each call as a short script (beats, a fallback if refused, a reaction to being verified). The caller follows the script, and the code decides which beat is current.
+3. **Planner** (the con artist's planning side) reads everything learned so far before each day, writes the notebook, an assessment of the receptionist and the day's arc, and writes each call as a short script (a purpose in the plan, beats, a fallback if refused, a reaction to being verified). The caller follows the script, and the code decides which beat is current. It is told how the crew works (see below), what the receptionist has shown so far (never a flag, only what a caller could notice: callbacks, hang-ups, questions, what she let slip) and how close the crew is to quitting.
 4. **Reporter** turns the real transcript into a cause-and-effect incident report after the game.
-5. **Director** designs the con artist's scenario for each new game: the pretext, the goal, which facts they must learn first, who they are trying to reach, and sometimes a staged incident. Its output is checked by code (`rules.clean_scenario`); if it is invalid or the call fails, a built-in preset is used. `data/scenarios.json` holds three presets; `python cli.py --scenario fake_vendor` plays one directly.
+5. **Director** designs the con artist's scenario for each new game: the pretext, the goal, which facts they must learn first, who they are trying to reach, and sometimes a staged incident. Its output is checked by code (`rules.clean_scenario`); if it is invalid or the call fails, a built-in preset is used. `data/scenarios.json` holds six presets; `python cli.py --scenario fake_vendor` plays one directly.
+
+Each game is an *operation*: the code picks one of nine **gambits** from `data/gambits.json` (chain of favours, fixing what we broke, the borrowed boss, the friendly survey, the lost new hire, the surprise inspector, the wrong-number funnel, the name relay, the vouching accomplice), and the director writes the crew (a codename and a profile), the motive (who is paying and the deadline) and a three-day campaign around it. The planner follows the campaign, chains each call onto the last, and the end page and report reveal the method, the motive, each call's purpose and how to spot that kind of attack.
 
 Every rule is ordinary deterministic code in `app/rules.py`: callback and transfer results, breach checks, intel merging, scoring and ratings. The engine applies those results to the game state, and the LLM never decides them. That keeps the game predictable and testable (the engine and API tests run on a scripted fake LLM) and means a random LLM mood cannot change who wins. The extractor's output is merged with plain string matching on a list of patterns per fact, so one miss from the model does not hide a real leak. The browser only ever gets a filtered public view of the state, so nothing about the con artist is visible before the game is over.
 
@@ -106,7 +108,7 @@ Results: _to be added_.
 - Typing is not a phone call. Tone of voice, hesitation and background noise are missing.
 - LLMs are random. Two games with the same choices can play out differently, and a caller can occasionally slip out of character.
 - The extractor can misjudge a reply, in both directions. The pattern matcher reduces misses but can also add false hits.
-- There is only one company; scenarios vary the con artist's angle, not the company.
+- There is only one company; scenarios vary the con artist's method, crew and motive, not the company.
 - Different models can behave very differently as the caller and as the extractor, so check a new provider with `check_llm.py` and the evaluation script before relying on it.
 
 ## Next steps
