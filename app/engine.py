@@ -348,11 +348,15 @@ def _apply_leaks(state: GameState, call: CallRecord, msg: Message, extracted: Ex
 def callback(state: GameState, target_id: str) -> dict:
     call = _active(state)
     world = load_world()
-    if employee_by_id(world, target_id) is None and vendor_by_id(world, target_id) is None:
+    own_number = target_id == rules.CALLER_NUMBER
+    if not own_number and employee_by_id(world, target_id) is None and vendor_by_id(world, target_id) is None:
         raise EngineError("Unknown directory entry.", 422)
-    scenario = scenario_of(state)
-    result = rules.callback(call, target_id, world, it_busy=rules.incident_active(scenario, state.day))
-    call.callbacks.append(target_id)
+    if own_number:
+        result = rules.callback_caller_number(call)
+        call.number_checked = True
+    else:
+        result = rules.callback(call, target_id, world, it_busy=rules.incident_active(scenario_of(state), state.day))
+        call.callbacks.append(target_id)
     state.callbacks_made += 1
     call.messages.append(Message(speaker="system", text=result.text, time=call.time))
     call.patience -= effects(state).callback_cost
@@ -380,10 +384,17 @@ def callback(state: GameState, target_id: str) -> dict:
         else:
             _finish(state, call, reason, "patience", satisfied=False, angry=True)
     else:
-        note = (
-            f"The receptionist put you on hold to verify by calling {name_of(world, target_id)}. "
-            f"Result: {result.text}."
-        )
+        if own_number:
+            note = (
+                "The receptionist put you on hold and dialled the number you gave. "
+                + ("Your accomplice answered and vouched for you; the receptionist sounds more at ease."
+                   if call.is_con else "Someone there confirmed who you are.")
+            )
+        else:
+            note = (
+                f"The receptionist put you on hold to verify by calling {name_of(world, target_id)}. "
+                f"Result: {result.text}."
+            )
         turn = caller.take_turn(state, call, world, note)
         reply, reason = _conclude_caller_turn(state, call, turn)
         out["debug"] = {"private_thought": turn.private_thought}
@@ -518,6 +529,7 @@ def get_report(state: GameState) -> dict:
             "outcome": state.outcome,
             "stats": summary.stats(state),
             "scenario": _scenario_reveal(state),
+            "calls": summary.call_reveal(state, world),
         }
     return state.report
 

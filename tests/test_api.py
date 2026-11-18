@@ -143,6 +143,19 @@ def test_nothing_secret_leaks_through_any_response(client):
     assert state["security"] == 90  # LLM leak + the 'Raj' pattern leak, 5 each
 
 
+def test_number_check_looks_the_same_for_every_call_and_leaks_nothing(client):
+    game = Game(client)
+    game.act("day/start")
+    shapes = set()
+    while game.state()["calls_remaining_today"]:
+        game.act("call/next")
+        out = game.act("call/callback", {"target_id": "CALLER_NUMBER"})
+        shapes.add(tuple(sorted(out)))
+        assert out["callback_result"].startswith("You dialled ") and out["call_ended"] is False
+        game.act("call/hangup")
+    assert len(shapes) == 1
+
+
 def test_public_state_never_tells_a_con_from_a_legit_call(client):
     game = Game(client)
     game.act("day/start")

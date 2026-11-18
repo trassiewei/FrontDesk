@@ -22,7 +22,8 @@ def _true_identity(call: CallRecord, world: World) -> str:
 
 
 def _call_header(call: CallRecord, world: World) -> str:
-    return f"{config.DAY_NAMES[call.day - 1]}, {call.time} — {_true_identity(call, world)} — result: {call.result}"
+    note = " — the receptionist dialled the number the caller gave (the con's accomplice vouched)" if call.is_con and call.number_checked else ""
+    return f"{config.DAY_NAMES[call.day - 1]}, {call.time} — {_true_identity(call, world)} — result: {call.result}{note}"
 
 
 def call_log_text(state: GameState, world: World) -> str:

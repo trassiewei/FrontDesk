@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from . import rules
 from .models import GameState, World
+from .world import load_playbook, name_of
 
 
 def scores(state: GameState) -> dict:
@@ -56,3 +57,33 @@ def intel_timeline(state: GameState, world: World) -> list[dict]:
         }
         for r in state.intel.values()
     ]
+
+
+def call_reveal(state: GameState, world: World) -> list[dict]:
+    """Every call with its hidden truth, for the end page. Only ever built after the game is over."""
+    playbook = load_playbook()
+    tactics = {t["id"]: t for t in playbook["tactics"]}
+    facts = {f.id: f.description for f in world.facts}
+    rows = []
+    for call in state.calls:
+        tactic = tactics.get(call.plan.tactic) if call.is_con and call.plan else None
+        player = [f"Called back {name_of(world, t) or t}" for t in call.callbacks]
+        if call.number_checked:
+            player.append("Dialled the number the caller gave")
+        if call.flagged:
+            player.append("Flagged as suspicious")
+        rows.append({
+            "call_id": call.id,
+            "day": call.day,
+            "time": call.time,
+            "caller": call.caller_name,
+            "claims": call.claims,
+            "is_con": call.is_con,
+            "impersonating": name_of(world, call.claimed_identity) if call.is_con and call.claimed_identity else None,
+            "tactic": {"name": tactic["name"], "sign": tactic["sign"], "counter": tactic["counter"]} if tactic else None,
+            "outcome": playbook["outcomes"].get(call.result or "", call.result or ""),
+            "learned": [facts[f] for f in call.gained_facts if f in facts],
+            "player": player,
+            "vouched": call.is_con and call.number_checked,
+        })
+    return rows

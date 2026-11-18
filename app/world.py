@@ -43,6 +43,11 @@ def load_tactics() -> list[Tactic]:
 
 
 @lru_cache(maxsize=1)
+def load_playbook() -> dict:
+    return _read_json("playbook.json")
+
+
+@lru_cache(maxsize=1)
 def load_story() -> dict:
     return _read_json("story.json")
 

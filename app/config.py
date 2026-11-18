@@ -34,6 +34,7 @@ INCIDENT_DAYS = (2, 3)
 INCIDENT_CHANCE = 0.6  # chance that the director is asked to stage an incident
 PENALTY_UNVERIFIED_IT_TRANSFER = 4
 CALLBACK_PATIENCE_COST_FAST = 2
+VOUCH_CREDIBILITY = 2  # credibility a con gains on a call after the receptionist dials the number the caller gave
 EXPOSURES_TO_GIVE_UP = 2
 PENALTY_INTERNAL = 5
 PENALTY_CONFIDENTIAL = 15

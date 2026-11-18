@@ -22,6 +22,7 @@ END_REASON_TEXT = {
 HELP = """Commands:
   <text>            say something to the caller
   /callback E04     hold and call back a directory entry (employee or vendor id)
+  /number           hold and dial the number the caller gave (whoever answers vouches, con or not)
   /transfer E05     transfer the call to an employee
   /message          take a message
   /hangup           hang up
@@ -142,6 +143,14 @@ def finish_game(state: GameState, cutscene: str | None) -> None:
         out(f"\nWhat was really going on: {sc['title']}\n{sc['premise']}\nTheir goal: {sc['con_goal']}")
         if sc["incident"]:
             out(f"The {sc['incident']['title'].lower()} ({sc['incident']['day_name']}): {sc['incident']['method']}")
+    out("\nEvery call, revealed:")
+    for c in report["calls"]:
+        out(f"  Day {c['day']} {c['time']}  [{'CON' if c['is_con'] else 'real'}]  {c['claims']}")
+        if c["tactic"]:
+            out(f"      move: {c['tactic']['name']} — counter: {c['tactic']['counter']}")
+        out(f"      ended: {c['outcome']}" + (f"  | you: {'; '.join(c['player'])}" if c["player"] else ""))
+        if c["vouched"]:
+            out("      (the number they gave you was their accomplice)")
     out("\nWhat they learned:")
     for row in report["intel_timeline"]:
         out(f"  Day {row['day']} {row['time']}  {row['fact_id']}  \"{row['quote']}\"  ({row['source']})")
@@ -212,8 +221,8 @@ def play(state: GameState, debug: bool) -> None:
                 else:
                     out("Between calls: /next, /flag, /endday, /dir, /desk, /state.")
             elif state.phase == "CALL_ACTIVE":
-                if cmd == "/callback":
-                    result = engine.callback(state, arg.upper())
+                if cmd in ("/callback", "/number"):
+                    result = engine.callback(state, rules.CALLER_NUMBER if cmd == "/number" else arg.upper())
                     out(f"[hold] {result['callback_result']}")
                     after_call_event(state, result, debug)
                     if result["game_over"]:

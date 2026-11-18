@@ -39,6 +39,7 @@ CALLBACK_EXPOSED = "{speaker}: 'No, I didn't call — and I didn't send anyone. 
 CALLBACK_SELF = "{speaker}: 'Yes, that was me calling. Put me back through.'"
 CALLBACK_LEGIT = "{speaker}: 'Yes, that's legit.'"
 CALLBACK_UNKNOWN = "{speaker}: 'Sorry, I don't know anything about that call.'"
+CALLBACK_NUMBER = "You dialled {number}. A voice answers: 'Yes, that's right — {name} is here with us.'"
 CALLBACK_BUSY = "{speaker}: 'I can't talk — the outage has the whole floor on fire. Is it urgent? Call me later.'"
 
 # ------------------------------------------------------------------ pattern matching (spec §5.2)
@@ -131,10 +132,13 @@ def door_for(scenario: Scenario, employee_id: str) -> Door | None:
 # ------------------------------------------------------------------ callback (spec §7.2)
 
 
+CALLER_NUMBER = "CALLER_NUMBER"  # callback target meaning "the number the caller gave", not a directory entry
+
+
 @dataclass(frozen=True)
 class CallbackResult:
     text: str
-    kind: str  # "voicemail" | "busy" | "exposed" | "confirmed" | "unknown"
+    kind: str  # "voicemail" | "busy" | "exposed" | "confirmed" | "unknown" | "number"
     exposed: bool = False
     it_alert: bool = False
 
@@ -147,6 +151,12 @@ def _speaker(world: World, target_id: str) -> str:
     if vendor:
         return f"{vendor.name} service desk"
     raise ValueError(f"Unknown callback target: {target_id!r}")
+
+
+def callback_caller_number(call: CallRecord) -> CallbackResult:
+    """Dialling the caller's own number proves nothing: whoever answers vouches, for a con and a real caller alike."""
+    number = call.caller_id.split(" (")[0]
+    return CallbackResult(CALLBACK_NUMBER.format(number=number, name=call.caller_name), "number")
 
 
 def callback(call: CallRecord, target_id: str, world: World, *, it_busy: bool = False) -> CallbackResult:
@@ -211,7 +221,8 @@ def transfer(
     if door is None:
         return TransferResult(text, "transferred_away")
 
-    if check_breach(intel, threshold + door.bonus, it_alert, world.facts, scenario.gate_facts):
+    needed = threshold + door.bonus - (config.VOUCH_CREDIBILITY if call.number_checked else 0)
+    if check_breach(intel, max(1, needed), it_alert, world.facts, scenario.gate_facts):
         return TransferResult(text, "breached", breached=True)
     return TransferResult(text, "refused_by_it", it_alert=True)
 

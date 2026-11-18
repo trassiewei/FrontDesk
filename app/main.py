@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from . import config, engine, rules, storage, summary
 from .engine import EngineError
 from .models import GameState
-from .world import load_story, load_world
+from .world import load_playbook, load_story, load_world
 
 log = logging.getLogger("uvicorn.error")
 
@@ -269,6 +269,7 @@ def world() -> dict:
         "vendors": [v.model_dump() for v in w.vendors],
         "sticky_notes": w.desk.sticky_notes,
         "internal_notes": w.desk.internal_notes,
+        "playbook": {k: v for k, v in load_playbook().items() if k != "outcomes"},
         "policies": {level: engine.policy_text(level) for level in ("easy", "normal", "hard")},
         "ui": {"start_page": load_story()["start_page"], "llm_banner": load_story()["llm_not_configured_banner"]},
     }

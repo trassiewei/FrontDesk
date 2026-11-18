@@ -247,6 +247,7 @@ class CallRecord(BaseModel):
     player_turns: int = 0
     references: list[str] = Field(default_factory=list)  # employee/vendor ids the caller claims or mentions
     callbacks: list[str] = Field(default_factory=list)  # target ids the player called back
+    number_checked: bool = False  # the player dialled the number the caller gave (a con's accomplice vouches)
     gained_facts: list[str] = Field(default_factory=list)
 
 

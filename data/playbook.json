@@ -1,0 +1,32 @@
+{
+  "intro": "Social engineers rarely break in. They ask, and people help. These are the moves to watch for, and what to do about each.",
+  "tactics": [
+    { "id": "small_ask", "name": "Start small", "sign": "A harmless-sounding question first: who is in today, what is the main number. Then a slightly bigger one, then another.", "counter": "Each answer is a brick. Ask yourself what the caller could build from everything you have said so far, not just this one question." },
+    { "id": "insider_jargon", "name": "Speak like an insider", "sign": "Internal system names, department shorthand and ID formats dropped casually.", "counter": "Sounding right is not being right. Insider words are cheap once someone has overheard them; verify the person, not the vocabulary." },
+    { "id": "authority", "name": "Borrow authority", "sign": "'The CFO asked me to...', 'IT needs this now', hints of trouble for you if you slow down.", "counter": "Authority is the easiest thing to claim. Call the named person back on the directory number and ask." },
+    { "id": "urgency", "name": "Manufacture urgency", "sign": "A deadline that only exists in this call. The pressure is the point.", "counter": "Pressure is a reason to slow down, not speed up. A real emergency survives a thirty-second callback." },
+    { "id": "helpless_newcomer", "name": "Helpless newcomer", "sign": "A new hire or temp who has lost their login, their manager's number, or their way around.", "counter": "Be kind and still follow the process: take a message, route them to HR or the helpdesk, and give nothing internal over the phone." },
+    { "id": "vendor_pretext", "name": "Trusted vendor", "sign": "Routine maintenance, an invoice, a delivery, from a company you really do use.", "counter": "Real vendors have official numbers in the directory. Use those, not a number the caller offers." },
+    { "id": "name_drop", "name": "Name-drop", "sign": "Real colleagues' names used to suggest that someone sent them.", "counter": "A real name only proves the caller has read the same directory you have. Ask that colleague." },
+    { "id": "sympathy", "name": "Play for sympathy", "sign": "A story about a boss who will be furious, a deadline, a bad day. It makes refusing feel cruel.", "counter": "You can be warm and still say no. Offer the safe alternative: a message, the helpdesk, a proper channel." },
+    { "id": "wrong_on_purpose", "name": "Wrong on purpose", "sign": "A confident statement that is slightly off, inviting you to correct it.", "counter": "Correcting someone is giving the answer. If the detail is internal, let the mistake stand." },
+    { "id": "reciprocity", "name": "Give to get", "sign": "A small favor or inside tip first, so that you feel you owe something.", "counter": "A gift from a stranger on a work call creates no debt. Thank them and carry on by the book." }
+  ],
+  "rules_of_thumb": [
+    "Verify through the directory, never through a number or contact the caller supplies. Whoever answers a number a con gave you will vouch for the con.",
+    "Caller ID shows a number, not a person, and numbers can be faked.",
+    "Be helpful about process, not about information."
+  ],
+  "outcomes": {
+    "exposed": "You called the person they claimed to be, and the story fell apart.",
+    "gave_up": "They could not get what they wanted and moved on.",
+    "completed": "The call ran its course.",
+    "patience": "They ran out of patience and left.",
+    "transferred_away": "You sent them to someone who could not give them what they wanted.",
+    "took_message": "You took a message instead of giving anything away.",
+    "hung_up": "You ended the call.",
+    "breached": "They got through to the person they were after. This is how the attack succeeded.",
+    "satisfied": "You helped them.",
+    "unsatisfied": "They left without the help they needed."
+  }
+}

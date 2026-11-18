@@ -271,7 +271,14 @@ function menuButton(name, label, build) {
 
 function callbackMenu() {
   const w = G.world;
-  const menu = el("div", { class: "menu" }, el("div", { class: "group" }, "Employees"));
+  const call = G.state && G.state.active_call;
+  const menu = el("div", { class: "menu" });
+  if (call) {
+    menu.append(el("div", { class: "group" }, "The caller"),
+      el("button", { onclick: () => pick(() => callbackTo("CALLER_NUMBER")) },
+        el("span", { class: "num" }, call.caller_id.split(" (")[0]), "Number the caller gave"));
+  }
+  menu.append(el("div", { class: "group" }, "Employees"));
   for (const e of w.employees) {
     menu.append(el("button", { onclick: () => pick(() => callbackTo(e.id)) },
       el("span", { class: "num" }, e.dept), e.name));
@@ -345,6 +352,14 @@ function renderTabs() {
     policyTab.push(el("h3", {}, "Standing policy"));
   }
   policyTab.push(el("div", { class: "policy" }, w.policies[level] || w.policies.normal));
+  if (level !== "hard" && w.playbook) {
+    policyTab.push(el("h3", {}, "Playbook: how con artists work"), el("p", { class: "fine-print" }, w.playbook.intro),
+      ...w.playbook.tactics.map((t) => el("details", { class: "entry" },
+        el("summary", {}, el("span", {}, t.name)),
+        el("div", { class: "detail" }, el("div", {}, el("span", { class: "label" }, "Sounds like"), t.sign),
+          el("div", {}, el("span", { class: "label" }, "What to do"), t.counter)))),
+      el("ul", { class: "internal" }, w.playbook.rules_of_thumb.map((n) => el("li", {}, n))));
+  }
   $("#tab-policy").replaceChildren(...policyTab);
 }
 
@@ -504,6 +519,11 @@ function renderEnd() {
       sc.incident ? el("p", {}, el("span", { class: "label" }, `The ${sc.incident.title.toLowerCase()} (${sc.incident.day_name}): `), sc.incident.method) : null)));
   }
 
+  if (r.calls && r.calls.length) {
+    parts.push(fade(el("h2", { class: "section-title" }, "Every call, revealed")));
+    for (const c of r.calls) parts.push(fade(revealCard(c)));
+  }
+
   parts.push(fade(el("h2", { class: "section-title" }, "The con artist's notebook")));
   for (const [day, text] of Object.entries(r.notebooks)) {
     parts.push(fade(el("div", { class: "notebook-page" }, el("h4", {}, `Day ${day}`), text)));
@@ -534,6 +554,29 @@ function renderEnd() {
       "Download game log (JSON)"),
     el("button", { class: "primary", onclick: playAgain }, "Play again"))));
   root.replaceChildren(...parts);
+}
+
+function revealCard(c) {
+  if (!c.is_con && !c.player.length) {
+    return el("div", { class: "reveal reveal-line" }, el("span", { class: "tag legit" }, "REAL"),
+      ` Day ${c.day} · ${c.time} ${c.claims} — ${c.outcome}`);
+  }
+  const rows = [
+    el("div", { class: "reveal-head" },
+      el("span", { class: `tag ${c.is_con ? "con" : "legit"}` }, c.is_con ? "CON" : "REAL"),
+      el("b", {}, `Day ${c.day} · ${c.time}`), ` ${c.claims}`),
+  ];
+  if (c.impersonating) rows.push(el("p", {}, el("span", { class: "label" }, "Pretending to be: "), c.impersonating));
+  if (c.tactic) {
+    rows.push(el("p", {}, el("span", { class: "label" }, "Move: "), `${c.tactic.name}. ${c.tactic.sign}`),
+      el("p", {}, el("span", { class: "label" }, "Counter: "), c.tactic.counter));
+  }
+  rows.push(el("p", {}, el("span", { class: "label" }, "How it ended: "), c.outcome));
+  if (c.player.length) rows.push(el("p", {}, el("span", { class: "label" }, "You: "), c.player.join("; ")));
+  if (c.vouched) rows.push(el("p", {}, el("span", { class: "label" }, "Careful: "),
+    "the number they gave you was their accomplice. Whoever answers there will vouch for a con."));
+  if (c.learned.length) rows.push(el("p", {}, el("span", { class: "label" }, "They learned: "), c.learned.join("; ")));
+  return el("div", { class: "reveal" }, ...rows);
 }
 
 function sourceLabel(source) {

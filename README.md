@@ -39,10 +39,12 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 
 - Each day starts with a briefing, then five calls arrive. Click **Answer next call**, read the call card (who they claim to be and the caller ID), and type your replies.
 - During a call you can **Hold & call back** a person or vendor from the directory, **Transfer** to an employee, **Take a message**, or **Hang up**. Most of these end the call except the callback, which gives you a way to check a claim and costs the caller some patience.
+- The callback menu also has **Number the caller gave**. It looks like a check, but whoever answers there will vouch for the caller, and a con's accomplice answers too, so it can make a con more convincing. Check people through the directory.
 - Between calls you can **Flag last call** as suspicious. A right flag earns Security points; a wrong one costs Service points.
 - Two scores run all game. **Security** drops when you reveal internal or confidential facts to the con artist and when the company is breached. **Service** is how many real callers you actually helped.
 - From day 2 the briefing can carry a **policy update** that reacts to how the last day went (for example, double Security penalties after a leak, or a rule against transferring unverified callers to IT). Some days also open with a **heads-up** about something odd at the company, such as an outage. Both stay readable in the Policy tab.
 - You get 12 replies per day, shared across all calls, and at most 5 per call. Spend them on checking suspicious callers, but keep some for real colleagues who need help.
+- On Easy and Normal the Policy tab also holds a **Playbook** of common con-artist moves and how to counter them. After the game, the report lists every call with its hidden truth ("Every call, revealed").
 - The **Policy** tab and the directory, desk notes and your own notes tab are on the right. Use them.
 - The game ends when the con artist gets what they need (breach), gives up after being exposed enough times, or when Wednesday ends.
 - Difficulty changes how much intel the con artist needs, how patient they are, how many exposures make them give up, how skilled they sound, and how much help the Policy tab gives.
