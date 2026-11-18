@@ -489,7 +489,7 @@ def flag_last_call(state: GameState) -> dict:
         raise EngineError("There is no call to flag.", 409)
     if call.flagged:
         raise EngineError("You already flagged that call.", 409)
-    result = rules.flag(call)
+    result = rules.flag(call, state.false_flags)
     call.flagged = True
     if result.correct:
         state.correct_flags += 1
@@ -499,8 +499,7 @@ def flag_last_call(state: GameState) -> dict:
             state.exposures += 1
             if call.claimed_identity and call.claimed_identity not in state.burned_identities:
                 state.burned_identities.append(call.claimed_identity)
-            if state.exposures >= _diff(state).exposures_to_give_up:
-                _game_over(state, "con_gave_up")
+            # Whether the crew gives up is only decided when the day ends, so a flag never answers itself.
     else:
         state.false_flags += 1
         state.service_penalty += -result.service_delta
@@ -521,11 +520,20 @@ def end_day(state: GameState) -> dict:
     plan = state.planned.get(day)
 
     scenario = scenario_of(state)
-    if plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(state.intel, scenario.offstage_fact):
+    before = (state.settled_security, state.settled_service)
+    if state.exposures >= diff.exposures_to_give_up:
+        _game_over(state, "con_gave_up")
+    elif plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(state.intel, scenario.offstage_fact):
         if rules.check_breach(state.intel, diff.breach_threshold, state.it_alert, world.facts, scenario.gate_facts):
             _breach(state, "offstage", "after hours")
         else:
             state.it_alert = True
+
+    settled = summary.scores(state)
+    state.settled_security, state.settled_service = settled["security"], settled["service"]
+    state.settled_exposures = state.exposures
+    day_scores = {"security": settled["security"], "service": settled["service"],
+                  "security_delta": settled["security"] - before[0], "service_delta": settled["service"] - before[1]}
 
     day_summary = briefing_text = None
     if not state.game_over:
@@ -538,7 +546,8 @@ def end_day(state: GameState) -> dict:
             day_summary = story["day_summary"].format(day_name=config.DAY_NAMES[day - 1], n=handled) + " " + flavor
             _enter_day(state, day + 1)
             briefing_text = briefing(state)
-    return {"day_summary": day_summary, "briefing": briefing_text, "game_over": state.game_over,
+    return {"day_summary": day_summary, "briefing": briefing_text, "day_scores": day_scores,
+            "game_over": state.game_over,
             "cutscene": cutscene(state)}
 
 

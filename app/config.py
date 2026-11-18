@@ -48,6 +48,7 @@ PENALTY_BREACH = 40
 BONUS_EXPOSURE = 15
 BONUS_CORRECT_FLAG = 5
 PENALTY_FALSE_FLAG_SERVICE = 5
+PENALTY_FALSE_FLAG_ESCALATION = 3  # each earlier false flag makes the next one cost this much more (crying wolf)
 SERVICE_ANGRY_HANGUP_PENALTY = 10
 COLD_SERVICE_BELOW = 50  # a 'survived' ending below this Service score gets the 'turned everyone away' coda
 

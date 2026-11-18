@@ -6,7 +6,7 @@ from dataclasses import replace
 import pytest
 from fastapi.testclient import TestClient
 
-from app import config, engine, rules
+from app import config, engine, rules, summary
 from app.main import app, public_state
 from app.models import Fact, Leak, PlannedCall, PlannerResult
 from app.roles import caller
@@ -150,7 +150,37 @@ def test_catching_enough_slips_ends_the_game_and_the_flag_reports_it(fake):
     call.slip_shown = True
     engine.hang_up(state)
     out = engine.flag_last_call(state)
-    assert state.game_over and state.outcome == "con_gave_up" and out["game_over"] and out["cutscene"]
+    assert not state.game_over and not out["game_over"]  # the flag never answers itself
+    assert state.exposures == 1 and state.settled_exposures == 0
+    state.queue.clear()
+    result = engine.end_day(state)
+    assert state.game_over and state.outcome == "con_gave_up" and result["game_over"] and result["cutscene"]
+
+
+def test_scores_only_settle_when_the_day_ends(fake):
+    state = begin(fake, "normal", slip_plan())
+    take_con(state)
+    engine.hang_up(state)
+    state.security = 70
+    state.service_penalty = 10
+    shown = summary.shown_scores(state)
+    assert shown["security"] == 100 and shown["service"] == 100
+    state.queue.clear()
+    out = engine.end_day(state)
+    shown = summary.shown_scores(state)
+    assert shown["security"] == 70 and shown["service"] == out["day_scores"]["service"]
+    assert out["day_scores"]["security_delta"] == -30 and out["day_scores"]["service_delta"] < 0
+
+
+def test_false_flags_cost_more_each_time(fake):
+    from app.models import CallRecord
+
+    def legit():
+        return CallRecord(id="c", day=1, slot=1, time="10:00", is_con=False, caller_name="A", claims="c",
+                          caller_id="x", patience=5)
+
+    costs = [-rules.flag(legit(), n).service_delta for n in range(3)]
+    assert costs == [config.PENALTY_FALSE_FLAG_SERVICE + config.PENALTY_FALSE_FLAG_ESCALATION * n for n in range(3)]
 
 
 def test_the_flag_text_never_hints_at_a_slip():

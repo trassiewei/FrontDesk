@@ -21,6 +21,18 @@ def scores(state: GameState) -> dict:
     }
 
 
+def shown_scores(state: GameState) -> dict:
+    """The scores the player sees: the true ones once the game is over, otherwise those settled at the last day end."""
+    if state.game_over:
+        return scores(state)
+    security = state.settled_security
+    service = state.settled_service
+    security_label = rules.security_label(security, False)
+    service_label = rules.service_label(service)
+    return {"security": security, "service": service, "security_label": security_label,
+            "service_label": service_label, "title_badge": rules.title_badge(security_label, service_label)}
+
+
 def stats(state: GameState) -> dict:
     return {
         "calls_taken": len(state.calls),

@@ -66,7 +66,7 @@ def public_call(state: GameState) -> dict | None:
 
 def public_state(state: GameState) -> dict:
     last = next((c for c in state.calls if c.id == state.last_call_id), None)
-    scores = summary.scores(state)
+    scores = summary.shown_scores(state)
     return {
         "game_id": state.game_id,
         "player_name": state.player_name,
@@ -82,7 +82,7 @@ def public_state(state: GameState) -> dict:
         "callbacks_left_today": max(0, config.get_difficulty(state.difficulty).callbacks_per_day - state.callbacks_today),
         "active_call": public_call(state),
         "can_flag_last_call": state.phase == "BETWEEN_CALLS" and last is not None and not last.flagged,
-        "exposures": state.exposures,
+        "exposures": state.exposures if state.game_over else state.settled_exposures,
         "bulletin": [{"day": n.day, "kind": n.kind, "title": n.title, "text": n.text} for n in state.notices],
         "game_over": state.game_over,
         "outcome": state.outcome if state.game_over else None,
@@ -259,6 +259,7 @@ def day_end(game_id: str) -> dict:
             "state": public_state(state),
             "day_summary": result["day_summary"],
             "briefing": result["briefing"],
+            "day_scores": result["day_scores"],
             "game_over": result["game_over"],
             "cutscene": result["cutscene"],
         }

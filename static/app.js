@@ -184,10 +184,15 @@ function noticeBox(n) {
     el("div", {}, n.text));
 }
 
+function fmtDelta(n) { return n > 0 ? `+${n}` : `${n}`; }
+
 function summaryView() {
   return el("div", { class: "briefing" },
     el("h2", {}, "End of day"),
     el("div", { class: "body" }, G.summary.text),
+    G.summary.scores ? el("div", { class: "body" },
+      `Tonight's tally: Security ${G.summary.scores.security} (${fmtDelta(G.summary.scores.security_delta)}), ` +
+      `Service ${G.summary.scores.service} (${fmtDelta(G.summary.scores.service_delta)})`) : null,
     el("div", { class: "row" },
       el("button", { class: "primary big", onclick: () => { G.summary = null; render(); } }, "Next day")));
 }
@@ -491,7 +496,7 @@ async function endDay() {
   G.notice = "";
   if (data.game_over) { G.cutscene = data.cutscene; return; }
   G.briefing = data.briefing;
-  G.summary = data.day_summary ? { text: data.day_summary } : null;
+  G.summary = data.day_summary ? { text: data.day_summary, scores: data.day_scores } : null;
 }
 
 // ------------------------------------------------------------------ end page

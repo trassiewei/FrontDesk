@@ -288,6 +288,10 @@ class GameState(BaseModel):
     correct_flags: int = 0
     false_flags: int = 0
     callbacks_made: int = 0
+    # What the player is shown: scores are only settled when a day ends, so a drop never gives away who was a con.
+    settled_security: int = 100
+    settled_service: int = 100
+    settled_exposures: int = 0
     callbacks_today: int = 0  # holds used today (a hold that reached nobody is refunded)
     overshare_count: int = 0
 

@@ -307,13 +307,14 @@ class FlagResult:
     caught: bool = False  # the con had made a slip and the player flagged the call: the crew is burned
 
 
-def flag(call: CallRecord) -> FlagResult:
+def flag(call: CallRecord, earlier_false_flags: int = 0) -> FlagResult:
     """Same text in both cases so the player cannot infer whether the call was a con."""
     if call.is_con:
         if call.slip_shown:
             return FlagResult(FLAG_TEXT, True, True, config.BONUS_EXPOSURE, 0, caught=True)
         return FlagResult(FLAG_TEXT, True, True, config.BONUS_CORRECT_FLAG, 0)
-    return FlagResult(FLAG_TEXT, False, False, 0, -config.PENALTY_FALSE_FLAG_SERVICE)
+    cost = config.PENALTY_FALSE_FLAG_SERVICE + config.PENALTY_FALSE_FLAG_ESCALATION * earlier_false_flags
+    return FlagResult(FLAG_TEXT, False, False, 0, -cost)
 
 
 @dataclass(frozen=True)

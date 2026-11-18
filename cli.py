@@ -44,10 +44,11 @@ def clock(state: GameState) -> str:
     return f"{config.DAY_NAMES[state.day - 1]} · {time}".rstrip(" ·")
 
 
-def show_state(state: GameState) -> None:
-    s = summary.scores(state)
+def show_state(state: GameState, debug: bool = False) -> None:
+    s = summary.scores(state) if debug else summary.shown_scores(state)
     out(f"[{state.phase}] {clock(state)} | Security {s['security']} | Service {s['service']} | "
-        f"calls left today: {len(state.queue)} | replies left today: {state.replies_left} | exposures: {state.exposures}")
+        f"calls left today: {len(state.queue)} | replies left today: {state.replies_left} | "
+        f"exposures: {state.exposures if debug or state.game_over else state.settled_exposures}")
 
 
 def show_directory(world) -> None:
@@ -157,13 +158,13 @@ def finish_game(state: GameState, cutscene: str | None) -> None:
     out("\nStats: " + summary.stats_line(state))
 
 
-def handle_common(cmd: str, state: GameState, world) -> bool:
+def handle_common(cmd: str, state: GameState, world, debug: bool = False) -> bool:
     if cmd == "/dir":
         show_directory(world)
     elif cmd == "/desk":
         show_desk(world)
     elif cmd == "/state":
-        show_state(state)
+        show_state(state, debug)
     elif cmd == "/help":
         out(HELP)
     else:
@@ -197,7 +198,7 @@ def play(state: GameState, debug: bool) -> None:
         if cmd == "/quit":
             return
         try:
-            if handle_common(cmd, state, world):
+            if handle_common(cmd, state, world, debug):
                 continue
             if state.phase == "BETWEEN_CALLS":
                 if cmd == "/next":
@@ -210,6 +211,9 @@ def play(state: GameState, debug: bool) -> None:
                     result = engine.end_day(state)
                     if result["day_summary"]:
                         out(f"\n{result['day_summary']}")
+                    tally = result["day_scores"]
+                    out(f"Tonight's tally: Security {tally['security']} ({tally['security_delta']:+d}), "
+                        f"Service {tally['service']} ({tally['service_delta']:+d})")
                     if result["game_over"]:
                         finish_game(state, result["cutscene"])
                         return

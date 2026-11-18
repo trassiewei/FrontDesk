@@ -140,7 +140,7 @@ def test_nothing_secret_leaks_through_any_response(client, full_reach):
                           "service", "calls_remaining_today", "replies_left_today", "callbacks_left_today", "active_call", "can_flag_last_call", "exposures",
                           "bulletin",
                           "game_over", "outcome"}
-    assert state["security"] == 90  # LLM leak + the 'Raj' pattern leak, 5 each
+    assert state["security"] == 100 and state["service"] == 100  # scores only settle at day end
 
 
 def test_number_check_looks_the_same_for_every_call_and_leaks_nothing(client, full_reach):
