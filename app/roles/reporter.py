@@ -98,7 +98,8 @@ def outcome_text(state: GameState) -> str:
             f"({state.breach_method}, {state.breach_time})"
         )
     if state.outcome == "con_gave_up":
-        return "The con artist was exposed too many times and gave up"
+        return (f"The con artist was exposed too many times and gave up at the end of {config.DAY_NAMES[state.day - 1]}; "
+                "nothing after that day happened")
     return "The con artist never got in; the three days ended safely"
 
 

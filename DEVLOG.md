@@ -91,6 +91,6 @@
 - 决定：真人来电新增 `goal_met`（模型在目标达成的那一句报告，`CallerTurn.goal_met`/`CallRecord.goal_met`；`outcome == "satisfied"` 也算）。玩家在目标已达成后挂电话记为满意；目标未达成时挂电话仍是不满意；来电者明确 `unsatisfied`/`gave_up` 时不被 `goal_met` 覆盖。真人提示词要求：目标达成后最多再追问一个小问题，然后道谢结束，不再无限追加请求。原因：试玩里一位应聘者答完就被追问第二个问题，礼貌挂断被算成失败，第 2 天 Service 一次掉 17 分，且不公平。
 - 决定：Service 加先验平滑：`(satisfied + 3) / (handled + 3)`（`SERVICE_PRIOR`），一次失败在样本少时不再是断崖（5/6 为 89 而不是 83）。全部拒绝的玩家仍会落到很低（0/9 为 25）。原因：每天只有 3 通左右的真人来电，原公式单通波动 11–17 分。这是对 SPEC 评分公式的有意改动。
 - 决定：日终汇总多一句 "N caller(s) left unhappy today."（`day_scores.unhappy_callers`）。原因：玩家看到 Service 下降却不知道发生了什么；这个数本来就能从 Service 变化推出，所以不增加信息泄露，也不指明哪一通。
-- 决定：normal/hard 的 `spoof_chance`（0.5；easy 0）：冒充列表供应商（`claimed_identity` 为供应商，或 `claims` 里出现供应商名）的骗子有一定概率显示该供应商的真实号码。内部分机和员工手机号仍不伪造。原因：试玩里"来电显示号码对不上"过于直白，normal 的谨慎玩家完全不需要对话就能挡掉；现在号码一致也不能证明身份，仍要靠对话或回拨。
+- 决定：normal 的 `spoof_chance`（0.5；easy 0；hard 的骗子本就不冒充厂商，用不上）：冒充列表供应商（`claimed_identity` 为供应商，或 `claims` 里出现供应商名）的骗子有一定概率显示该供应商的真实号码。内部分机和员工手机号仍不伪造。原因：试玩里"来电显示号码对不上"过于直白，normal 的谨慎玩家完全不需要对话就能挡掉；现在号码一致也不能证明身份，仍要靠对话或回拨。
 - 决定：策划者的角色名由代码去重（`rules.dedupe_personas`）：与目录员工同名的名字（除非是在冒充该员工）、此前来电用过的名字、同一天重复的名字，都换成名字池里的新名字，并在 claims/pretext/开场白/beats/tells 等所有台本文字里替换；策划者提示词也要求"不重复角色名、同一雇主或套路不连续用三次"。原因：试玩里出现了叫 Marcus 的快递员和员工 Marcus Lee 撞名，连续三天都是"NetCore 的 Marcus"。
 - 决定：报告提示词收紧：只有 INTEL TIMELINE/OVERSHARING 中出现的才能叫泄露；来电者先说出的词、对来电者本人复述其名字都不算；"Where it slipped"可以写流程错误（对真人提前挂断、不必要的回拨、转接可疑来电）；每通来电用日期、时间、名字区分，不得串线。原因：试玩的报告把 "I couldn't verify you with NetCore" 当泄露（NetCore 是对方先说的），还批评对 Raj 本人说 "thanks Raj"。
