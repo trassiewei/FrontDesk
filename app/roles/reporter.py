@@ -23,6 +23,15 @@ def _true_identity(call: CallRecord, world: World) -> str:
 
 def _call_header(call: CallRecord, world: World) -> str:
     note = " — the receptionist dialled the number the caller gave (the con's accomplice vouched)" if call.is_con and call.number_checked else ""
+    if call.is_con and call.plan and call.plan.tells:
+        note += (
+            f" — the caller made this slip: {' / '.join(call.plan.tells)}" if call.slip_shown
+            else " — the caller never got to make a slip"
+        )
+    if call.callbacks and not call.is_con:
+        note += " — the receptionist put this genuine caller on hold to check them (it annoyed them)"
+    if call.flagged:
+        note += " — the receptionist flagged this call"
     return f"{config.DAY_NAMES[call.day - 1]}, {call.time} — {_true_identity(call, world)} — result: {call.result}{note}"
 
 

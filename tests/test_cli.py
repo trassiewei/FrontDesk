@@ -40,7 +40,7 @@ def test_cli_debug_shows_hidden_state_and_survives_to_the_report(fake_llm, monke
     script(fake_llm)
     fake_llm.script("extractor", {"leaks": [{"fact_id": "cfo_on_leave", "quote": "away", "explicitness": "explicit",
                                              "confidence": 0.9}]})
-    inputs = ["", "/next", "/hangup", "/next", "She is away, ask Raj.", "/callback E04", "/message"]
+    inputs = ["", "/next", "/hangup", "/next", "She is away, ask Patel.", "/callback E04", "/message"]
     code, text = run_cli(monkeypatch, capsys, inputs + ["/quit"], argv=("--seed", "5", "--debug"))
     assert "[debug] llm leaks: cfo_on_leave" in text and "pattern leaks: it_lead_name" in text
     assert "SECRET-NOTEBOOK" in text and "it_alert" in text

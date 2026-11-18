@@ -100,6 +100,7 @@ class CallerTurn(BaseModel):
     end_call: bool = False
     outcome: Literal["satisfied", "unsatisfied", "gave_up", "got_what_i_needed", "none"] = "none"
     out_of_character: bool = False
+    slip_made: bool = False  # the caller says it just made its scripted slip
 
 
 class Leak(BaseModel):
@@ -124,6 +125,7 @@ class PlannedCall(BaseModel):
     beats: list[str] = Field(default_factory=list)  # the script: what to do on each exchange after the opening
     if_refused: str = ""
     if_verified: str = ""
+    tells: list[str] = Field(default_factory=list)  # slips the caller makes that an attentive receptionist can notice
 
 
 class PlannerResult(BaseModel):
@@ -253,6 +255,7 @@ class CallRecord(BaseModel):
     callbacks: list[str] = Field(default_factory=list)  # target ids the player called back
     number_checked: bool = False  # the player dialled the number the caller gave (a con's accomplice vouches)
     gained_facts: list[str] = Field(default_factory=list)
+    slip_shown: bool = False  # a con made its scripted slip during the call
 
 
 class GameState(BaseModel):
@@ -285,6 +288,7 @@ class GameState(BaseModel):
     correct_flags: int = 0
     false_flags: int = 0
     callbacks_made: int = 0
+    callbacks_today: int = 0  # holds used today (a hold that reached nobody is refunded)
     overshare_count: int = 0
 
     game_over: bool = False

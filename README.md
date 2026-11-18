@@ -38,9 +38,10 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 ## How to play
 
 - Each day starts with a briefing, then five calls arrive. Click **Answer next call**, read the call card (who they claim to be and the caller ID), and type your replies.
-- During a call you can **Hold & call back** a person or vendor from the directory, **Transfer** to an employee, **Take a message**, or **Hang up**. Most of these end the call except the callback, which gives you a way to check a claim. A callback costs one of your day's replies and some of the caller's patience, and on Normal and Hard the person you phone is not always at their desk (so a missing answer proves nothing).
+- During a call you can **Hold & call back** a person or vendor from the directory, **Transfer** to an employee, **Take a message**, or **Hang up**. Calling back is a last resort, not the main tool: you only get a couple of holds a day (fewer on harder levels), each costs one of your replies and some of the caller's patience, a real caller who is put on hold and checked is annoyed and costs you Service, and on Normal and Hard the person you phone is not always at their desk (a hold that reaches nobody does not use up your allowance, and proves nothing).
+- The main way to catch a con is to talk to them. They are bluffing: ask something only the real person would know (extension, employee ID, who their manager is), and listen for slips, such as a wrong name, a vague answer, or a detail that does not fit. If you suspect a call, you can **Flag last call**: a flag on a call where the caller slipped burns their crew's identity; a flag on a real caller costs Service.
 - The callback menu also has **Number the caller gave**. It looks like a check, but whoever answers there will vouch for the caller, and a con's accomplice answers too, so it can make a con more convincing. Check people through the directory.
-- Between calls you can **Flag last call** as suspicious. A right flag earns Security points; a wrong one costs Service points.
+- Between calls you can **Flag last call** as suspicious. A right flag earns Security points (more if the caller had slipped); a wrong one costs Service points.
 - Two scores run all game. **Security** drops when you reveal internal or confidential facts to the con artist and when the company is breached. **Service** is how many real callers you actually helped.
 - From day 2 the briefing can carry a **policy update** that reacts to how the last day went (for example, double Security penalties after a leak, or a rule against transferring unverified callers to IT). Some days also open with a **heads-up** about something odd at the company, such as an outage. Both stay readable in the Policy tab.
 - You get 12 replies per day, shared across all calls, and at most 5 per call. Spend them on checking suspicious callers, but keep some for real colleagues who need help.
@@ -48,9 +49,9 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 - The **Policy** tab and the directory, desk notes and your own notes tab are on the right. Use them.
 - The game ends when the con artist gets what they need (breach), gives up after being exposed enough times, or when Wednesday ends.
 - Difficulty changes the whole feel of the con artists:
-  - **Easy**: clumsy cons who impersonate people from the directory, ask for the transfer right away and panic the moment you say you will check. Verifying is enough to win.
-  - **Normal**: smooth cons who impersonate real staff or vendors. They stay calm if you verify, so you must actually call the directory entry back (not the number they gave) before helping.
-  - **Hard**: outsiders with believable errands, who read just like real callers (and real callers are as vague and pushy as they are). A directory callback often does not reach anyone, the crew also does its own research overnight (shown in the report as "crew's own research"), and real callers are only satisfied if you really put them through or answer them. Refusing everything keeps you safe but wrecks Service; helping everyone gets you breached.
+  - **Easy**: clumsy cons who impersonate people from the directory, ask for the transfer right away and panic the moment you say you will check. Verifying is enough to win, and their slips are obvious.
+  - **Normal**: smooth cons who impersonate real staff or vendors. They stay calm if you verify, so you must check them: call the directory entry back (not the number they gave) or catch the one small slip in how they talk, before helping.
+  - **Hard**: outsiders with believable errands, who read just like real callers (and real callers are as vague and pushy as they are). Their only slip is subtle, and a directory callback often does not reach anyone, the crew also does its own research overnight (shown in the report as "crew's own research"), and real callers are only satisfied if you really put them through or answer them. Refusing everything keeps you safe but wrecks Service; helping everyone gets you breached.
 
 ## What the LLM does, and what it does not
 

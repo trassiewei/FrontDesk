@@ -5,7 +5,7 @@ import logging
 
 from .. import config, llm, rules
 from ..models import CallerTurn, CallRecord, GameState, World
-from ..world import employee_by_id, fact_by_id, legit_call_by_id, load_tactics, scenario_of
+from ..world import employee_by_id, fact_by_id, legit_call_by_id, load_tactics, scenario_of, vendor_by_id
 from .common import intel_text, public_info_text, situation_text, transcript_text
 
 log = logging.getLogger("frontdesk.caller")
@@ -70,6 +70,45 @@ def script_text(state: GameState, call: CallRecord) -> str:
     return "\n".join(lines) or "No written script: improvise from your pretext."
 
 
+def slip_text(state: GameState, call: CallRecord) -> str:
+    """When the con makes its scripted slip. The code decides the moment; the model only phrases the slip."""
+    plan = call.plan
+    assert plan is not None
+    diff = config.get_difficulty(state.difficulty)
+    if not plan.tells:
+        return "You have no scripted slip on this call."
+    if call.slip_shown:
+        return "You have already made your slip. Do not repeat it and never draw attention to it."
+    if call.player_turns < diff.tell_turn:
+        return "Not yet: make no slip in this line."
+    options = " OR ".join(f'"{t}"' for t in plan.tells)
+    return (
+        f"NOW work ONE of these slips into your line, casually and in your own words: {options}. {diff.tell_note} "
+        "Never point it out or correct it. Set slip_made = true in your JSON."
+    )
+
+
+def identity_text(call: CallRecord, world: World) -> str:
+    """What a genuine caller knows about the person they are (so they can answer simple questions about themselves)."""
+    ident = call.claimed_identity
+    if not ident:
+        return ""
+    emp = employee_by_id(world, ident)
+    if emp:
+        return (
+            f"You are really {emp.name}, {emp.title} in {emp.dept}. Your extension is {emp.ext}, your mobile is "
+            f"{emp.mobile} and your employee ID is {emp.employee_id}. If asked, answer such questions about "
+            "yourself correctly and without fuss."
+        )
+    vendor = vendor_by_id(world, ident)
+    if vendor:
+        return (
+            f"You really work for {vendor.name} ({vendor.role}); the company's number is {vendor.official_number} "
+            f"and your usual contact there is {vendor.contact}. If asked, answer such questions correctly."
+        )
+    return ""
+
+
 def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: str) -> str:
     plan = call.plan
     assert plan is not None
@@ -84,6 +123,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         persona_name=plan.persona_name,
         pretext=plan.pretext,
         script_text=script_text(state, call),
+        slip_text=slip_text(state, call),
         tactic_name=tactic.name if tactic else plan.tactic,
         tactic_description=tactic.description if tactic else "",
         target_descriptions=target_text,
@@ -98,7 +138,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
     )
 
 
-def _legit_prompt(state: GameState, call: CallRecord, system_note: str) -> str:
+def _legit_prompt(state: GameState, call: CallRecord, world: World, system_note: str) -> str:
     data = legit_call_by_id(call.legit_id)
     assert data is not None
     return llm.render_prompt(
@@ -108,6 +148,7 @@ def _legit_prompt(state: GameState, call: CallRecord, system_note: str) -> str:
         personality=data.personality,
         goal=data.goal,
         knows=data.knows,
+        identity=identity_text(call, world),
         temptation=data.temptation,
         success=data.success,
         situation=situation_text(state, insider=False),
@@ -120,9 +161,24 @@ def _legit_prompt(state: GameState, call: CallRecord, system_note: str) -> str:
 
 def take_turn(state: GameState, call: CallRecord, world: World, system_note: str = "") -> CallerTurn:
     """The caller's next line. Never raises for LLM failures; returns the spec's fallback instead."""
-    system = _con_prompt(state, call, world, system_note) if call.is_con else _legit_prompt(state, call, system_note)
+    system = (
+        _con_prompt(state, call, world, system_note) if call.is_con else _legit_prompt(state, call, world, system_note)
+    )
     try:
-        return llm.complete_json("caller", system, llm.USER_TURN, CallerTurn, state.game_id)  # type: ignore[return-value]
+        turn: CallerTurn = llm.complete_json("caller", system, llm.USER_TURN, CallerTurn, state.game_id)  # type: ignore[assignment]
+        if call.is_con and rules.has_placeholder(turn.say):
+            # A template slot like "[backup name]" would be spoken aloud: ask once more, then strip it.
+            try:
+                turn = llm.complete_json(
+                    "caller", system, llm.USER_TURN, CallerTurn, state.game_id,
+                    extra_messages=[{"role": "assistant", "content": turn.model_dump_json()}, {"role": "user", "content": (
+                        "Your last line contained a bracketed placeholder. Speak only real words: if you do not know "
+                        "a name or detail, do not name it. Return the JSON again.")}],
+                )  # type: ignore[assignment]
+            except llm.LLMError:
+                pass
+            turn = turn.model_copy(update={"say": rules.scrub_placeholders(turn.say) or FALLBACK_LINE})
+        return turn
     except llm.LLMError as exc:
         log.warning("Caller LLM failed, using fallback: %s", exc)
         return fallback_turn()

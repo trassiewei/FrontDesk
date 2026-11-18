@@ -79,6 +79,7 @@ def public_state(state: GameState) -> dict:
         "service": scores["service"],
         "calls_remaining_today": len(state.queue),
         "replies_left_today": state.replies_left,
+        "callbacks_left_today": max(0, config.get_difficulty(state.difficulty).callbacks_per_day - state.callbacks_today),
         "active_call": public_call(state),
         "can_flag_last_call": state.phase == "BETWEEN_CALLS" and last is not None and not last.flagged,
         "exposures": state.exposures,
@@ -246,7 +247,8 @@ def call_hangup(game_id: str) -> dict:
 def flag(game_id: str) -> dict:
     with _turn(game_id) as state:
         result = engine.flag_last_call(state)
-        return {"state": public_state(state), "result_text": result["result_text"]}
+        return {"state": public_state(state), "result_text": result["result_text"],
+                "game_over": result["game_over"], "cutscene": result["cutscene"]}
 
 
 @app.post("/api/game/{game_id}/day/end")
@@ -280,7 +282,9 @@ def world() -> dict:
     """Only what a receptionist could see on the desk. Employee persona/availability stay server-side."""
     w = load_world()
     return {
-        "company": {"name": w.company.name, "tagline": w.company.tagline, "main_number": w.company.main_number},
+        "company": {"name": w.company.name, "tagline": w.company.tagline, "main_number": w.company.main_number,
+                    "address": w.company.address, "website": w.company.website,
+                    "general_emails": w.company.general_emails},
         "employees": [
             {k: getattr(e, k) for k in ("id", "name", "title", "dept", "ext", "mobile", "employee_id", "status",
                                         "directory_note")}

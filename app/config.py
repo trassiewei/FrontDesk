@@ -27,8 +27,11 @@ MAX_PLAYER_TURNS_PER_CALL = 5
 DAILY_REPLY_BUDGET = 12
 CALLBACK_PATIENCE_COST = 3
 CALLBACK_REPLY_COST = 1  # a callback also uses one of the day's replies
+CALLBACK_ANNOY_SERVICE = 3  # Service lost when the receptionist puts a genuine caller on hold to check them
 MAX_BEATS = 4
 MAX_SCRIPT_TEXT = 240
+MAX_TELLS = 2
+MAX_TELL_TEXT = 160
 CON_PATIENCE = 10
 BREACH_THRESHOLD = 6
 IT_ALERT_THRESHOLD_BONUS = 2
@@ -70,6 +73,9 @@ class Difficulty:
     recon: int  # facts the crew researches on its own each night (no cost to the player's Security)
     outsider_only: bool  # the crew must pick pretexts the directory cannot confirm (code-checked)
     strict_legit: bool  # genuine callers are only satisfied by being put through or answered, never by a message
+    callbacks_per_day: int  # how many times a day the receptionist may put a caller on hold to check the directory
+    tell_turn: int  # the con makes its scripted slip once it has had this many replies from the player
+    tell_note: str  # how obvious the slip is at this level
 
 
 DIFFICULTIES: dict[str, Difficulty] = {
@@ -85,21 +91,29 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "Impersonate someone from the directory. Ask for sensitive things early and clumsily.",
         "You are easygoing and patient. If the receptionist verifies you or asks you to hold, that is completely fine.",
         "early", 1.0, 0, False, False,
+        2, 0,
+        "Make the slip clumsy and easy to notice: a wrong first name for a colleague, a department that does not "
+        "exist, or an answer that contradicts what you said a moment ago.",
     ),
     "normal": Difficulty(
         "normal", BREACH_THRESHOLD, CON_PATIENCE, EXPOSURES_TO_GIVE_UP,
-        "You are competent and natural: smooth, plausible and never pushy. You sound exactly like a busy colleague "
-        "or vendor with an ordinary request, and you do not give yourself away by tone or by mistakes.",
+        "You are competent and natural: smooth, plausible and never pushy. You sound like a busy colleague or vendor "
+        "with an ordinary request. You are good, but you are bluffing: you do not know private details of the person "
+        "you claim to be, and under direct questions you hesitate or fudge.",
         "normal", True,
         "If the receptionist wants to verify you, stay calm and friendly and offer an easy alternative (your "
         "mobile, 'just ask Raj, he knows me') but do not argue. If she calls back anyway, let her: you cannot "
-        "control what the callback reveals.",
+        "control what the callback reveals. If she questions you instead, answer smoothly but you cannot answer "
+        "what only the real person would know.",
         "Your crew is professional. Impersonate real people from the directory (an employee or one of the vendors): "
-        "the receptionist's only way to catch you is to call the directory number back, so make everything else "
-        "about the call convincing. A 'new temp' is fine if you name the department you supposedly joined. "
+        "you are convincing, but you are not perfect: a careful receptionist who talks to you can catch you out. "
+        "A 'new temp' is fine if you name the department you supposedly joined. "
         "Ask small things, build trust, and ask for the transfer only when your credibility is enough.",
         "",
         "when_ready", 0.7, 0, False, False,
+        1, 1,
+        "Make the slip small but fair: a detail about the person you claim to be that is slightly off, or a hesitation "
+        "when asked something only the real person would answer at once. Say it casually, do not draw attention to it.",
     ),
     "hard": Difficulty(
         "hard", 4, 12, 3,
@@ -125,6 +139,9 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "flat refusal, does not satisfy you: say you are disappointed and end the call (end_call = true, outcome "
         "\"unsatisfied\"); do not escalate or complain loudly.",
         "when_ready", 0.4, 3, True, True,
+        1, 2,
+        "Make the slip very subtle: one small inconsistency (a detail that does not quite fit your story) that only a "
+        "careful listener would catch. Never hint at it.",
     ),
 }
 

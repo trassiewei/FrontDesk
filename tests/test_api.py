@@ -89,7 +89,7 @@ class Game:
             self.act("call/hangup")
 
 
-def test_full_game_from_creation_to_report(client):
+def test_full_game_from_creation_to_report(client, full_reach):
     game = Game(client)
     first = game.responses[0]
     assert first["state"]["phase"] == "DAY_BRIEFING" and first["briefing"]["text"].startswith("Morning Jordan!")
@@ -123,7 +123,7 @@ def test_full_game_from_creation_to_report(client):
     assert exported["game_id"] == game.id and exported["calls"]
 
 
-def test_nothing_secret_leaks_through_any_response(client):
+def test_nothing_secret_leaks_through_any_response(client, full_reach):
     client.fake.script("extractor", {"leaks": [{"fact_id": "cfo_on_leave", "quote": "She is away",
                                                "explicitness": "explicit", "confidence": 0.9}]})
     game = Game(client)
@@ -137,13 +137,13 @@ def test_nothing_secret_leaks_through_any_response(client):
     game.get("/api/health")
     state = game.state()
     assert set(state) == {"game_id", "player_name", "difficulty", "phase", "day", "day_name", "clock", "security",
-                          "service", "calls_remaining_today", "replies_left_today", "active_call", "can_flag_last_call", "exposures",
+                          "service", "calls_remaining_today", "replies_left_today", "callbacks_left_today", "active_call", "can_flag_last_call", "exposures",
                           "bulletin",
                           "game_over", "outcome"}
     assert state["security"] == 90  # LLM leak + the 'Raj' pattern leak, 5 each
 
 
-def test_number_check_looks_the_same_for_every_call_and_leaks_nothing(client):
+def test_number_check_looks_the_same_for_every_call_and_leaks_nothing(client, full_reach):
     game = Game(client)
     game.act("day/start")
     shapes = set()

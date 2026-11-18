@@ -157,4 +157,7 @@ def full_reach(monkeypatch):
 
     from app import config
 
-    monkeypatch.setitem(config.DIFFICULTIES, "normal", replace(config.DIFFICULTIES["normal"], callback_reach=1.0))
+    monkeypatch.setitem(
+        config.DIFFICULTIES, "normal",
+        replace(config.DIFFICULTIES["normal"], callback_reach=1.0, callbacks_per_day=9),  # no daily cap in these tests
+    )

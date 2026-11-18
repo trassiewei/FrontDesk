@@ -66,10 +66,20 @@ def match_patterns(text: str, facts: Iterable[Fact]) -> list[str]:
     return found
 
 
+def _only_echo(player_text: str, caller_text: str, fact: Fact) -> bool:
+    """Every pattern term the player used was already in the caller's line."""
+    used = [p for p in fact.patterns if _term_regex(p).search(player_text)]
+    return bool(used) and all(_term_regex(p).search(caller_text) for p in used)
+
+
 def merge_leaks(
-    extractor_leaks: Iterable[Leak], player_text: str, facts: list[Fact]
+    extractor_leaks: Iterable[Leak], player_text: str, facts: list[Fact], caller_text: str = ""
 ) -> tuple[list[str], list[str], list[str]]:
-    """Return (llm_leaks, pattern_leaks, merged) fact-id lists. The first two are kept separately for evaluation."""
+    """Return (llm_leaks, pattern_leaks, merged) fact-id lists. The first two are kept separately for evaluation.
+
+    A pattern hit on a word the caller had just said is only an echo (the player repeated it back, perhaps while
+    refusing), so it is not a leak by itself; the extractor still decides whether it was confirmed.
+    """
     by_id = {f.id: f for f in facts}
     llm_ids: list[str] = []
     for leak in extractor_leaks:
@@ -78,7 +88,10 @@ def merge_leaks(
             continue
         if leak.fact_id not in llm_ids:
             llm_ids.append(leak.fact_id)
-    pattern_ids = match_patterns(player_text, facts)
+    pattern_ids = [
+        i for i in match_patterns(player_text, facts)
+        if not caller_text or not _only_echo(player_text, caller_text, by_id[i])
+    ]
     merged = [f.id for f in facts if f.id in llm_ids or f.id in pattern_ids]
     return llm_ids, pattern_ids, merged
 
@@ -291,11 +304,14 @@ class FlagResult:
     it_alert: bool
     security_delta: int
     service_delta: int
+    caught: bool = False  # the con had made a slip and the player flagged the call: the crew is burned
 
 
 def flag(call: CallRecord) -> FlagResult:
     """Same text in both cases so the player cannot infer whether the call was a con."""
     if call.is_con:
+        if call.slip_shown:
+            return FlagResult(FLAG_TEXT, True, True, config.BONUS_EXPOSURE, 0, caught=True)
         return FlagResult(FLAG_TEXT, True, True, config.BONUS_CORRECT_FLAG, 0)
     return FlagResult(FLAG_TEXT, False, False, 0, -config.PENALTY_FALSE_FLAG_SERVICE)
 
@@ -412,6 +428,20 @@ def build_queue(day: int, legit_calls: Iterable[LegitCall], plans: Iterable[Plan
 # ------------------------------------------------------------------ planner output cleaning (spec §8.2)
 
 
+_PLACEHOLDER = re.compile(r"\[[^\]\n]{1,40}\]|\{[^}\n]{1,40}\}|<[^>\n]{1,40}>")
+
+
+def has_placeholder(text: str) -> bool:
+    """A template slot such as [backup name] left in text the caller would speak aloud."""
+    return bool(_PLACEHOLDER.search(text or ""))
+
+
+def scrub_placeholders(text: str) -> str:
+    """Remove template slots; the caller then simply does not name the missing detail."""
+    cleaned = _PLACEHOLDER.sub("", text or "")
+    return re.sub(r"\s{2,}", " ", re.sub(r"\s+([,.!?;:])", r"\1", cleaned)).strip()
+
+
 def clean_plan(
     result: PlannerResult,
     *,
@@ -428,13 +458,18 @@ def clean_plan(
         identity = call.claimed_identity
         if identity is None or identity in burned_set or name_of(world, identity) is None:
             identity = None
-        beats = [b.strip()[: config.MAX_SCRIPT_TEXT] for b in call.beats if b and b.strip()][: config.MAX_BEATS]
+        beats = [scrub_placeholders(b).strip()[: config.MAX_SCRIPT_TEXT] for b in call.beats if b and b.strip()]
+        tells = [scrub_placeholders(t).strip()[: config.MAX_TELL_TEXT] for t in call.tells if t and t.strip()]
         cleaned.append(
             call.model_copy(
                 update={
-                    "beats": beats,
-                    "if_refused": call.if_refused.strip()[: config.MAX_SCRIPT_TEXT],
-                    "if_verified": call.if_verified.strip()[: config.MAX_SCRIPT_TEXT],
+                    "beats": beats[: config.MAX_BEATS],
+                    "tells": tells[: config.MAX_TELLS],
+                    "claims": scrub_placeholders(call.claims),
+                    "pretext": scrub_placeholders(call.pretext),
+                    "opening_line": scrub_placeholders(call.opening_line),
+                    "if_refused": scrub_placeholders(call.if_refused).strip()[: config.MAX_SCRIPT_TEXT],
+                    "if_verified": scrub_placeholders(call.if_verified).strip()[: config.MAX_SCRIPT_TEXT],
                     "claimed_identity": identity,
                     "target_facts": [t for t in call.target_facts if t in valid_facts and t not in known_set],
                     "tactic": call.tactic if call.tactic in tactics else "small_ask",

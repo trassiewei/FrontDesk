@@ -247,8 +247,9 @@ function callView() {
     `Replies left: ${Math.min(call.replies_left_in_call, G.state.replies_left_today)} on this call · ` +
     `${G.state.replies_left_today} today`);
 
+  const holdsLeft = G.state.callbacks_left_today;
   const actions = el("div", { class: "actions" },
-    menuButton("callback", "⏸ Hold & call back… (1 reply)", callbackMenu, noReplies),
+    menuButton("callback", `⏸ Hold & call back… (1 reply · ${holdsLeft} left today)`, callbackMenu, noReplies || holdsLeft <= 0),
     menuButton("transfer", "↪ Transfer…", transferMenu),
     el("button", { disabled: G.busy, onclick: () => run(takeMessage) }, "📝 Take a message"),
     el("button", { disabled: G.busy, onclick: () => run(hangUp) }, "✖ Hang up"));
@@ -273,6 +274,7 @@ function callbackMenu() {
   const w = G.world;
   const call = G.state && G.state.active_call;
   const menu = el("div", { class: "menu" });
+  menu.append(el("div", { class: "confirm-text" }, "Checking someone keeps the caller waiting, and real callers do not enjoy it."));
   if (call) {
     menu.append(el("div", { class: "group" }, "The caller"),
       el("button", { onclick: () => pick(() => callbackTo("CALLER_NUMBER")) },
@@ -336,7 +338,12 @@ function renderTabs() {
     ...w.vendors.map((v) => entry(v.name, v.role,
       field("Official phone", v.official_number), field("Contact", v.contact))));
   $("#tab-directory").replaceChildren(directory);
+  const co = w.company;
   $("#tab-desk").replaceChildren(
+    el("h3", {}, "Company"),
+    el("div", { class: "sticky" }, `${co.name} · ${co.address} · ${co.website}`,
+      el("br"), `Main line ${co.main_number}`,
+      el("br"), Object.entries(co.general_emails || {}).map(([k, v]) => `${k}: ${v}`).join(" · ")),
     el("h3", {}, "Sticky notes"), ...w.sticky_notes.map((n) => el("div", { class: "sticky" }, n)),
     el("h3", {}, "Internal notes"), el("ul", { class: "internal" }, w.internal_notes.map((n) => el("li", {}, n))));
   const level = G.state ? G.state.difficulty : "normal";
@@ -375,6 +382,14 @@ function setupTabs() {
 }
 
 // ------------------------------------------------------------------ actions
+
+const END_LINES = {
+  caller_ended: "— The caller hung up. —",
+  patience: "— The caller lost patience and hung up. —",
+  max_turns: "— The caller has nothing more to say and hung up. —",
+  exposed: "— The caller hung up on you. —",
+};
+const endLine = (reason) => END_LINES[reason] || "— The call has ended. —";
 
 function applyCallEnd(lines) {
   for (const text of lines) if (text) G.transcript.push({ speaker: "system", text });
@@ -424,7 +439,7 @@ async function say(text) {
     const data = await gameApi("POST", "call/say", { text });
     G.transcript.push({ speaker: "caller", text: data.caller_reply });
     G.state = data.state;
-    if (data.call_ended) applyCallEnd(["— The call has ended. —"]);
+    if (data.call_ended) applyCallEnd([endLine(data.end_reason)]);
   } catch (err) {
     G.transcript.pop();
     G.draft = text;
@@ -439,7 +454,7 @@ async function callbackTo(targetId) {
   G.transcript.push({ speaker: "system", text: data.callback_result });
   if (data.caller_reply) G.transcript.push({ speaker: "caller", text: data.caller_reply });
   G.state = data.state;
-  if (data.call_ended) applyCallEnd(["— The call has ended. —"]);
+  if (data.call_ended) applyCallEnd([endLine(data.end_reason)]);
   if (data.game_over) G.cutscene = data.cutscene;
 }
 
@@ -466,6 +481,7 @@ async function flagLast() {
   const data = await gameApi("POST", "flag");
   G.notice = data.result_text;
   G.state = data.state;
+  if (data.game_over) G.cutscene = data.cutscene;
 }
 
 async function endDay() {
@@ -571,6 +587,7 @@ function revealCard(c) {
     rows.push(el("p", {}, el("span", { class: "label" }, "Move: "), `${c.tactic.name}. ${c.tactic.sign}`),
       el("p", {}, el("span", { class: "label" }, "Counter: "), c.tactic.counter));
   }
+  if (c.slip) rows.push(el("p", {}, el("span", { class: "label" }, "Their slip: "), c.slip));
   if (c.script && c.script.length) {
     rows.push(el("p", {}, el("span", { class: "label" }, "Their script: "), c.script.map((b, i) => `${i + 1}. ${b}`).join("  ")));
   }

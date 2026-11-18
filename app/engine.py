@@ -211,6 +211,7 @@ def _build_queue(state: GameState, plan: PlannerResult, world: World) -> list[Ca
 def start_day(state: GameState) -> None:
     _require(state, "DAY_BRIEFING")
     state.replies_left = config.DAILY_REPLY_BUDGET
+    state.callbacks_today = 0
     state.phase = "BETWEEN_CALLS"
 
 
@@ -289,6 +290,8 @@ def _conclude_caller_turn(state: GameState, call: CallRecord, turn: CallerTurn) 
     elif call.player_turns >= config.MAX_PLAYER_TURNS_PER_CALL:
         reason = "max_turns"
     call.messages.append(Message(speaker="caller", text=say, time=call.time, private_thought=turn.private_thought))
+    if call.is_con and turn.slip_made and call.plan and call.plan.tells:
+        call.slip_shown = True
     _add_references(call, turn.say, load_world())
     if reason is None:
         return say, None
@@ -323,7 +326,7 @@ def say(state: GameState, text: str) -> dict:
         turn = caller_future.result()
         extracted = extractor_future.result()
 
-    _apply_leaks(state, call, player_msg, extracted, world)
+    _apply_leaks(state, call, player_msg, extracted, world, previous_caller_line)
     call.player_turns += 1
     state.replies_left -= 1
     call.patience -= 1
@@ -342,8 +345,10 @@ def say(state: GameState, text: str) -> dict:
     }
 
 
-def _apply_leaks(state: GameState, call: CallRecord, msg: Message, extracted: ExtractorResult, world: World) -> None:
-    llm_ids, pattern_ids, merged = rules.merge_leaks(extracted.leaks, msg.text, world.facts)
+def _apply_leaks(
+    state: GameState, call: CallRecord, msg: Message, extracted: ExtractorResult, world: World, caller_line: str = ""
+) -> None:
+    llm_ids, pattern_ids, merged = rules.merge_leaks(extracted.leaks, msg.text, world.facts, caller_line)
     msg.llm_leaks, msg.pattern_leaks, msg.leaks = llm_ids, pattern_ids, merged
     msg.extractor_raw = list(extracted.leaks)
     facts = {f.id: f for f in world.facts}
@@ -370,6 +375,8 @@ def callback(state: GameState, target_id: str) -> dict:
     call = _active(state)
     if state.replies_left < config.CALLBACK_REPLY_COST:
         raise EngineError("You have no replies left today, so you cannot hold the call to check anyone.", 409)
+    if state.callbacks_today >= _diff(state).callbacks_per_day:
+        raise EngineError("You have already put callers on hold to check them as often as you can today.", 409)
     world = load_world()
     own_number = target_id == rules.CALLER_NUMBER
     if not own_number and employee_by_id(world, target_id) is None and vendor_by_id(world, target_id) is None:
@@ -384,9 +391,13 @@ def callback(state: GameState, target_id: str) -> dict:
         )
         call.callbacks.append(target_id)
     state.callbacks_made += 1
+    if result.kind not in ("busy", "voicemail"):
+        state.callbacks_today += 1  # a hold that reached nobody does not use up the allowance
     state.replies_left -= config.CALLBACK_REPLY_COST
     call.messages.append(Message(speaker="system", text=result.text, time=call.time))
     call.patience -= effects(state).callback_cost
+    if not call.is_con:
+        state.service_penalty += config.CALLBACK_ANNOY_SERVICE  # being put on hold and checked annoys a real caller
 
     out = {"callback_result": result.text, "caller_reply": None, "call_ended": False, "end_reason": None,
            "game_over": False, "cutscene": None, "debug": {}}
@@ -422,6 +433,8 @@ def callback(state: GameState, target_id: str) -> dict:
                 f"The receptionist put you on hold to verify by calling {name_of(world, target_id)}. "
                 f"Result: {result.text}."
             )
+        if not call.is_con:
+            note += " You are a genuine caller and you did not enjoy being kept waiting: sound a little put out."
         turn = caller.take_turn(state, call, world, note)
         reply, reason = _conclude_caller_turn(state, call, turn)
         out["debug"] = {"private_thought": turn.private_thought}
@@ -482,10 +495,16 @@ def flag_last_call(state: GameState) -> dict:
         state.correct_flags += 1
         state.it_alert = state.it_alert or result.it_alert
         state.security = rules.apply_security_delta(state.security, result.security_delta)
+        if result.caught:
+            state.exposures += 1
+            if call.claimed_identity and call.claimed_identity not in state.burned_identities:
+                state.burned_identities.append(call.claimed_identity)
+            if state.exposures >= _diff(state).exposures_to_give_up:
+                _game_over(state, "con_gave_up")
     else:
         state.false_flags += 1
         state.service_penalty += -result.service_delta
-    return {"result_text": result.text}
+    return {"result_text": result.text, "game_over": state.game_over, "cutscene": cutscene(state)}
 
 
 # ------------------------------------------------------------------ end of day

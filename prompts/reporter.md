@@ -30,6 +30,13 @@ Write the report in Markdown, 400–600 words, with these sections:
 ## The incident and the rules — only if there were company notices: if the con staged an incident, explain how it was used as cover; say whether the player followed the policy updates. Skip this section otherwise.
 ## Lessons — 3 short, practical takeaways in your own words.
 
+Rules for judging calls:
+- The call log marks each call as a "genuine caller" or a "con artist". A genuine caller is never "recon", never "the con" and never part of the attack, even if they asked about people or schedules. Do not confuse them.
+- Putting a genuine caller on hold to check them annoys them and costs Service; do not praise callbacks to genuine callers. Praise conversation that exposed a con (a question it fumbled, a slip you noticed).
+- Repeating a word the caller had just said, or refusing to confirm it, is not a leak. Only count what the receptionist actually revealed.
+- Use the numbers in STATS for counts of oversharing; never claim that every genuine caller was well served if STATS or the overshare list show otherwise, and never claim the player was perfect while listing slips.
+- Where the log shows "slip" or a callback result, credit the player if they noticed it, or point it out if they missed it.
+
 Rules: only use quotes that appear in the logs; never invent events. Address the player as "you". Be specific and a little dramatic, but fair. Also mention if the player was unhelpful to genuine callers.
 
 Respond with ONLY a JSON object: {"title": "...", "markdown": "..."}

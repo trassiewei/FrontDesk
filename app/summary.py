@@ -86,5 +86,6 @@ def call_reveal(state: GameState, world: World) -> list[dict]:
             "learned": [facts[f] for f in call.gained_facts if f in facts],
             "player": player,
             "vouched": call.is_con and call.number_checked,
+            "slip": (call.plan.tells[0] if call.plan and call.plan.tells else "") if call.is_con and call.slip_shown else "",
         })
     return rows
