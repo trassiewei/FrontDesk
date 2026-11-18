@@ -50,6 +50,7 @@ BONUS_CORRECT_FLAG = 5
 PENALTY_FALSE_FLAG_SERVICE = 5
 PENALTY_FALSE_FLAG_ESCALATION = 3  # each earlier false flag makes the next one cost this much more (crying wolf)
 SERVICE_ANGRY_HANGUP_PENALTY = 10
+SERVICE_PRIOR = 3  # imaginary satisfied calls added to both sides, so one miss among few calls is not a cliff
 COLD_SERVICE_BELOW = 50  # a 'survived' ending below this Service score gets the 'turned everyone away' coda
 
 LLM_LEAK_MIN_CONFIDENCE = 0.5
@@ -77,6 +78,7 @@ class Difficulty:
     callbacks_per_day: int  # how many times a day the receptionist may put a caller on hold to check the directory
     tell_turn: int  # the con makes its scripted slip once it has had this many replies from the player
     tell_note: str  # how obvious the slip is at this level
+    spoof_chance: float = 0.0  # chance a con posing as a listed vendor shows that vendor's real number
 
 
 DIFFICULTIES: dict[str, Difficulty] = {
@@ -115,6 +117,7 @@ DIFFICULTIES: dict[str, Difficulty] = {
         1, 1,
         "Make the slip small but fair: a detail about the person you claim to be that is slightly off, or a hesitation "
         "when asked something only the real person would answer at once. Say it casually, do not draw attention to it.",
+        spoof_chance=0.5,
     ),
     "hard": Difficulty(
         "hard", 4, 12, 3,

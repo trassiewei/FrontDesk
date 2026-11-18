@@ -263,10 +263,11 @@ def test_security_bonus_capped_at_100():
 
 def test_service_score():
     assert rules.service_score(0, 0) == 100
-    assert rules.service_score(2, 3) == 67
-    assert rules.service_score(1, 2) == 50
+    assert rules.service_score(2, 3) == 83  # a prior of 3 satisfied calls softens small samples
+    assert rules.service_score(5, 6) == 89
     assert rules.service_score(3, 3, penalty=15) == 85
-    assert rules.service_score(0, 3, penalty=10) == 0
+    assert rules.service_score(0, 3, penalty=10) == 40
+    assert rules.service_score(0, 100) < 5
 
 
 @pytest.mark.parametrize(

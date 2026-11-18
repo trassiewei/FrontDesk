@@ -201,7 +201,8 @@ def _build_queue(state: GameState, plan: PlannerResult, world: World) -> list[Ca
                 CallRecord(
                     id=call_id, day=state.day, slot=item.slot, time=item.time, is_con=True, plan=p,
                     caller_name=p.persona_name, claims=p.claims,
-                    caller_id=rules.generate_caller_id(world, p.claimed_identity, _rng(state, "caller_id", call_id)),
+                    caller_id=rules.generate_caller_id(world, p.claimed_identity, _rng(state, "caller_id", call_id),
+                                                   p.claims, diff.spoof_chance),
                     claimed_identity=p.claimed_identity, patience=diff.con_patience,
                 )
             )
@@ -293,6 +294,8 @@ def _conclude_caller_turn(state: GameState, call: CallRecord, turn: CallerTurn) 
     if call.is_con and turn.slip_made and call.plan and call.plan.tells:
         call.slip_shown = True
     _add_references(call, turn.say, load_world())
+    if not call.is_con and (turn.goal_met or turn.outcome == "satisfied"):
+        call.goal_met = True
     if reason is None:
         return say, None
 
@@ -300,7 +303,8 @@ def _conclude_caller_turn(state: GameState, call: CallRecord, turn: CallerTurn) 
         result = "patience" if reason == "patience" else "gave_up" if turn.outcome == "gave_up" else "completed"
         _finish(state, call, reason, result)
     else:
-        satisfied = reason != "patience" and turn.outcome == "satisfied"
+        satisfied = reason != "patience" and (
+            turn.outcome == "satisfied" or (call.goal_met and turn.outcome not in ("unsatisfied", "gave_up")))
         result = "patience" if reason == "patience" else "satisfied" if satisfied else "unsatisfied"
         _finish(state, call, reason, result, satisfied=satisfied, angry=reason == "patience")
     return say, reason
@@ -478,7 +482,7 @@ def take_message(state: GameState, note: str = "") -> dict:
 def hang_up(state: GameState) -> dict:
     call = _active(state)
     call.messages.append(Message(speaker="system", text="You hung up.", time=call.time))
-    _finish(state, call, "hung_up", "hung_up", satisfied=False)
+    _finish(state, call, "hung_up", "hung_up", satisfied=call.goal_met)
     return {"call_ended": True, "end_reason": "hung_up"}
 
 
@@ -533,7 +537,8 @@ def end_day(state: GameState) -> dict:
     state.settled_security, state.settled_service = settled["security"], settled["service"]
     state.settled_exposures = state.exposures
     day_scores = {"security": settled["security"], "service": settled["service"],
-                  "security_delta": settled["security"] - before[0], "service_delta": settled["service"] - before[1]}
+                  "security_delta": settled["security"] - before[0], "service_delta": settled["service"] - before[1],
+                  "unhappy_callers": sum(1 for c in state.calls if c.day == day and not c.is_con and not c.satisfied)}
 
     day_summary = briefing_text = None
     if not state.game_over:

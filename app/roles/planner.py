@@ -99,11 +99,16 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     except llm.LLMError as exc:
         log.warning("Planner LLM failed, using the fixed fallback call: %s", exc)
         result = fallback_plan()
-    def clean(raw: PlannerResult) -> PlannerResult:
+    def clean_plain(raw: PlannerResult) -> PlannerResult:
         return rules.clean_plan(
             raw, world=world, burned=state.burned_identities, known_facts=state.intel,
             tactic_ids=[t.id for t in tactics],
         )
+
+    used = [c.plan.persona_name for c in state.calls if c.is_con and c.plan]
+
+    def clean(raw: PlannerResult) -> PlannerResult:
+        return rules.dedupe_personas(clean_plain(raw), world, used)
 
     cleaned = clean(result)  # type: ignore[arg-type]
     if not diff.outsider_only:

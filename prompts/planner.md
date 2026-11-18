@@ -40,6 +40,7 @@ PLANNING RULES
 - If credibility is already enough and the required facts are known: plan a call that asks to be transferred to the right person, or (if allowed above) set attempt_breach_offstage = true.
 - On Day 3, go for the breach if at all possible.
 - claimed_identity: an employee id (E01–E12) or vendor id (V01–V03) to impersonate them, or null for anyone else (new temp, outside caller). Impersonating someone is powerful but a callback can expose you.
+- Variety matters: never reuse a persona_name from YOUR PREVIOUS CALLS, never give a caller the first name of a directory employee (unless impersonating them), and do not use the same employer or pretext more than twice in a row: rotate between different kinds of callers.
 - All spoken text (claims, opening_line, beats) must be real words: never write placeholders like [name] or {name}; if you do not know a detail, leave it out.
 - Your caller cannot spoof an internal extension; impersonated employees must claim to be calling from a mobile or outside line.
 

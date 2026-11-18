@@ -276,7 +276,7 @@ def test_legit_call_outcomes_drive_service_score(fake):
     engine.next_call(state)
     say(fake, state, "No.", caller={"say": "Wow.", "end_call": True, "outcome": "got_what_i_needed"})
     assert state.handled_legit == 2 and state.satisfied_legit == 1
-    assert summary.scores(state)["service"] == 50
+    assert summary.scores(state)["service"] == 80
 
 
 def test_angry_legit_hangup_costs_extra_service(fake):

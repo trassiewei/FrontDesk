@@ -101,6 +101,7 @@ class CallerTurn(BaseModel):
     outcome: Literal["satisfied", "unsatisfied", "gave_up", "got_what_i_needed", "none"] = "none"
     out_of_character: bool = False
     slip_made: bool = False  # the caller says it just made its scripted slip
+    goal_met: bool = False  # a genuine caller says everything it called for has already happened
 
 
 class Leak(BaseModel):
@@ -256,6 +257,7 @@ class CallRecord(BaseModel):
     number_checked: bool = False  # the player dialled the number the caller gave (a con's accomplice vouches)
     gained_facts: list[str] = Field(default_factory=list)
     slip_shown: bool = False  # a con made its scripted slip during the call
+    goal_met: bool = False  # a genuine caller already had what it needed (hanging up then is not a failure)
 
 
 class GameState(BaseModel):

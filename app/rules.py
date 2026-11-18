@@ -364,7 +364,8 @@ def display_security(raw: int) -> int:
 
 def service_score(satisfied: int, handled: int, penalty: int = 0) -> int:
     """Percentage of satisfied genuine callers (100 if none handled yet), minus penalties, clamped 0-100."""
-    base = 100 if handled == 0 else math.floor(satisfied / handled * 100 + 0.5)
+    k = config.SERVICE_PRIOR
+    base = 100 if handled == 0 else math.floor((satisfied + k) / (handled + k) * 100 + 0.5)
     return max(0, min(100, base - penalty))
 
 
@@ -478,6 +479,41 @@ def clean_plan(
             )
         )
     return result.model_copy(update={"calls": cleaned})
+
+
+_PERSONA_POOL = ["Dana", "Ellis", "Morgan", "Tessa", "Brent", "Nora", "Leo", "Claire", "Victor", "Ivy", "Hugo", "Jade"]
+
+
+def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) -> PlannerResult:
+    """Give each con a fresh first name: not a directory employee's (a 'Marcus' next to Marcus Lee reads as the
+    same person), and not one a previous call or an earlier call today already used. The old name is replaced
+    everywhere in the script."""
+    taken = {n.split()[0].lower() for n in used if n.strip()}
+    directory = {e.name.split()[0].lower() for e in world.employees}
+    pool = [n for n in _PERSONA_POOL if n.lower() not in taken | directory]
+    calls: list[PlannedCall] = []
+    for call in result.calls:
+        parts = call.persona_name.split()
+        first = parts[0] if parts else ""
+        impersonating = bool(call.claimed_identity and employee_by_id(world, call.claimed_identity))
+        clash = first.lower() in taken or (first.lower() in directory and not impersonating)
+        if first and clash and pool:
+            new = pool.pop(0)
+            pattern = re.compile(rf"\b{re.escape(first)}\b")
+
+            def swap(text: str, pattern=pattern, new=new) -> str:
+                return pattern.sub(new, text)
+
+            call = call.model_copy(update={
+                "persona_name": " ".join([new, *parts[1:]]),
+                "claims": swap(call.claims), "pretext": swap(call.pretext), "opening_line": swap(call.opening_line),
+                "beats": [swap(b) for b in call.beats], "tells": [swap(t) for t in call.tells],
+                "if_refused": swap(call.if_refused), "if_verified": swap(call.if_verified),
+            })
+            first = new
+        taken.add(first.lower())
+        calls.append(call)
+    return result.model_copy(update={"calls": calls})
 
 
 def drop_directory_claims(result: PlannerResult, world: World) -> PlannerResult:
@@ -603,8 +639,16 @@ def _known_numbers(world: World) -> set[str]:
     return numbers
 
 
-def generate_caller_id(world: World, claimed_identity: str | None, rng: random.Random) -> str:
-    """Fake caller ID for a con call. Never matches a directory number; internal extensions are never spoofed."""
+def generate_caller_id(
+    world: World, claimed_identity: str | None, rng: random.Random, claims: str = "", spoof_chance: float = 0.0
+) -> str:
+    """Caller ID for a con call. Internal extensions are never spoofed; a con posing as a listed vendor may show
+    the vendor's real number (`spoof_chance`), so a matching number proves nothing."""
+    vendor_id = claimed_identity if claimed_identity and vendor_by_id(world, claimed_identity) else next(
+        (i for i in scan_references(claims, world) if vendor_by_id(world, i)), None)
+    if vendor_id and rng.random() < spoof_chance:
+        vendor = vendor_by_id(world, vendor_id)
+        return f"{vendor.official_number} ({vendor.name})"
     known = _known_numbers(world)
     while True:
         number = f"555-0{rng.randint(0, 999):03d}"

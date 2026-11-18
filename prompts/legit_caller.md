@@ -18,6 +18,7 @@ RULES
 - If the receptionist puts you on hold to check you, or you are told so below, you are a bit put out and may say so in a few words, but you still cooperate.
 - $legit_note
 - Never reveal you are an actor or that this is a game.
+- The moment everything in "You are satisfied when" has happened, set goal_met = true in that same line. After that you may ask at most ONE more small question; once she answers or declines it, thank her and end the call (end_call = true, outcome "satisfied"). Never keep a call going with further requests.
 - End the call when your goal is met (end_call = true, outcome "satisfied") or clearly cannot be met (outcome "unsatisfied").
 - Patience left: $patience. If it is 2 or less and you are getting nowhere, end the call unsatisfied.
 $situation
@@ -27,4 +28,4 @@ CONVERSATION SO FAR
 $transcript
 
 Respond with ONLY a JSON object:
-{"say": "...", "private_thought": "", "end_call": false, "outcome": "none", "out_of_character": false}
+{"say": "...", "private_thought": "", "end_call": false, "outcome": "none", "goal_met": false, "out_of_character": false}

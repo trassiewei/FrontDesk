@@ -35,6 +35,8 @@ Rules for judging calls:
 - Putting a genuine caller on hold to check them annoys them and costs Service; do not praise callbacks to genuine callers. Praise conversation that exposed a con (a question it fumbled, a slip you noticed).
 - Repeating a word the caller had just said, or refusing to confirm it, is not a leak. Only count what the receptionist actually revealed.
 - Use the numbers in STATS for counts of oversharing; never claim that every genuine caller was well served if STATS or the overshare list show otherwise, and never claim the player was perfect while listing slips.
+- Only call something a leak, slip or oversharing if it appears in the INTEL TIMELINE or OVERSHARING lists. A name, company or detail the caller said first is never a leak, and neither is the receptionist using a caller's own name or the name of the person they said they were. "Where it slipped" may instead cover process mistakes: hanging up on a genuine caller before they were done, needless holds on genuine callers, transferring someone suspicious.
+- Each call is identified by its day, time and caller name; never merge two calls or attribute one caller's words to another.
 - Where the log shows "slip" or a callback result, credit the player if they noticed it, or point it out if they missed it.
 
 Rules: only use quotes that appear in the logs; never invent events. Address the player as "you". Be specific and a little dramatic, but fair. Also mention if the player was unhelpful to genuine callers.

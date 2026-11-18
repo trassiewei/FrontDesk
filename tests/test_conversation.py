@@ -288,3 +288,79 @@ def test_every_level_has_a_tell_note_and_a_daily_hold_cap():
 def test_world_endpoint_shows_company_contact_details():
     company = TestClient(app).get("/api/world").json()["company"]
     assert company["address"] and company["website"] and "hr" in company["general_emails"]
+
+
+# ---- fairness fixes after the second playtest
+
+def test_hanging_up_after_the_goal_was_met_is_not_a_failed_call(fake):
+    state = begin(fake, "normal")
+    take_legit(state)
+    fake.default("caller", {"say": "Great, thanks. One more thing?", "goal_met": True})
+    engine.say(state, "Please email hr@starriver.example.")
+    engine.hang_up(state)
+    call = state.calls[-1]
+    assert call.goal_met and call.satisfied is True and state.satisfied_legit == 1
+
+
+def test_hanging_up_before_the_goal_is_still_unsatisfied(fake):
+    state = begin(fake, "normal")
+    take_legit(state)
+    engine.hang_up(state)
+    assert state.calls[-1].satisfied is False
+
+
+def test_goal_met_is_ignored_for_cons_and_the_caller_cannot_undo_unsatisfied(fake):
+    state = begin(fake, "normal")
+    take_con(state)
+    fake.default("caller", {"say": "Fine.", "goal_met": True})
+    engine.say(state, "Hello?")
+    assert not state.calls[-1].goal_met
+
+
+def test_the_day_tally_counts_unhappy_callers_without_naming_them(fake):
+    state = begin(fake, "normal")
+    take_legit(state)
+    engine.hang_up(state)
+    state.queue.clear()
+    out = engine.end_day(state)
+    assert out["day_scores"]["unhappy_callers"] == 1
+
+
+def test_a_spoofed_vendor_number_can_appear_on_normal_but_never_on_easy():
+    import random
+    world = load_world()
+    vendor = world.vendors[0]
+    assert rules.generate_caller_id(world, vendor.id, random.Random(1), "", 1.0) == f"{vendor.official_number} ({vendor.name})"
+    assert rules.generate_caller_id(world, vendor.id, random.Random(1), "", 0.0) != f"{vendor.official_number} ({vendor.name})"
+    emp = world.employees[0]
+    assert emp.mobile not in rules.generate_caller_id(world, emp.id, random.Random(1), "", 1.0)
+    assert config.DIFFICULTIES["easy"].spoof_chance == 0 and config.DIFFICULTIES["normal"].spoof_chance > 0
+
+
+def test_a_vendor_named_only_in_the_claims_can_also_be_spoofed():
+    import random
+    world = load_world()
+    out = rules.generate_caller_id(world, None, random.Random(2), "I'm a NetCore IT Services engineer", 1.0)
+    assert out.startswith("555-0740")
+
+
+def test_personas_get_fresh_first_names_everywhere_in_the_script():
+    world = load_world()
+    call = PlannedCall(
+        persona_name="Marcus Cole", claims="Marcus from NetCore", pretext="Marcus is fixing it", tactic="small_ask",
+        opening_line="Hi, Marcus here.", beats=["Marcus asks for the extension"], tells=["Marcus calls Diane 'Dana'"],
+    )
+    again = call.model_copy(update={"persona_name": "Ellis", "claims": "Ellis, courier", "opening_line": "Ellis here"})
+    out = rules.dedupe_personas(PlannerResult(notebook="n", calls=[call, again]), world, used=["Ellis"])
+    first, second = out.calls
+    assert "Marcus" not in first.persona_name + first.claims + first.opening_line + first.beats[0] + first.tells[0]
+    assert first.persona_name.endswith("Cole") and first.opening_line.startswith("Hi, ")
+    assert second.persona_name != "Ellis" and "Ellis" not in second.claims
+
+
+def test_an_impersonated_employees_own_name_is_kept():
+    world = load_world()
+    call = PlannedCall(persona_name="Raj Patel", claimed_identity="E04", claims="Raj Patel, IT", pretext="p",
+                       tactic="small_ask", opening_line="It's Raj.")
+    out = rules.dedupe_personas(PlannerResult(notebook="n", calls=[call]), world, used=[])
+    assert out.calls[0].persona_name == "Raj Patel"

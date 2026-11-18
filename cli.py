@@ -214,6 +214,8 @@ def play(state: GameState, debug: bool) -> None:
                     tally = result["day_scores"]
                     out(f"Tonight's tally: Security {tally['security']} ({tally['security_delta']:+d}), "
                         f"Service {tally['service']} ({tally['service_delta']:+d})")
+                    if tally["unhappy_callers"]:
+                        out(f"{tally['unhappy_callers']} caller(s) left unhappy today.")
                     if result["game_over"]:
                         finish_game(state, result["cutscene"])
                         return
