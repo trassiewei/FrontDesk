@@ -58,6 +58,7 @@ def public_call(state: GameState) -> dict | None:
         "caller_id": call.caller_id,
         "transcript": [{"speaker": m.speaker, "text": m.text, "time": m.time} for m in call.messages],
         "patience_hint": rules.patience_hint(call.patience),
+        "replies_left_in_call": max(0, config.MAX_PLAYER_TURNS_PER_CALL - call.player_turns),
     }
 
 
@@ -75,6 +76,7 @@ def public_state(state: GameState) -> dict:
         "security": scores["security"],
         "service": scores["service"],
         "calls_remaining_today": len(state.queue),
+        "replies_left_today": state.replies_left,
         "active_call": public_call(state),
         "can_flag_last_call": state.phase == "BETWEEN_CALLS" and last is not None and not last.flagged,
         "exposures": state.exposures,

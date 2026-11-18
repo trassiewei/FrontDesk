@@ -97,7 +97,7 @@ def test_full_game_from_creation_to_report(client):
     assert game.act("day/start")["state"]["phase"] == "BETWEEN_CALLS"
     for day in (1, 2, 3):
         call = game.skip_to_con()
-        assert set(call) == {"claims", "caller_id", "transcript", "patience_hint"}
+        assert set(call) == {"claims", "caller_id", "transcript", "patience_hint", "replies_left_in_call"}
         said = game.act("call/say", {"text": "Hello, how can I help?"})
         assert said["caller_reply"] == "Okay, thanks." and said["state"]["active_call"]["transcript"][-1]["speaker"] == "caller"
         if day == 1:
@@ -137,7 +137,7 @@ def test_nothing_secret_leaks_through_any_response(client):
     game.get("/api/health")
     state = game.state()
     assert set(state) == {"game_id", "player_name", "difficulty", "phase", "day", "day_name", "clock", "security",
-                          "service", "calls_remaining_today", "active_call", "can_flag_last_call", "exposures",
+                          "service", "calls_remaining_today", "replies_left_today", "active_call", "can_flag_last_call", "exposures",
                           "game_over", "outcome"}
     assert state["security"] == 90  # LLM leak + the 'Raj' pattern leak, 5 each
 
@@ -241,3 +241,18 @@ def test_llm_failures_do_not_break_the_api(client):
     game.act("call/next")
     out = game.act("call/say", {"text": "hello"})
     assert out["call_ended"] and out["caller_reply"].startswith("Sorry, you're breaking up")
+
+
+def test_reply_budget_is_visible_and_enforced(client):
+    game = Game(client)
+    game.act("day/start")
+    state = game.state()
+    assert state["replies_left_today"] == 12
+    call = game.act("call/next")["call"]
+    assert call["replies_left_in_call"] == 5
+    said = game.act("call/say", {"text": "Hello."})
+    assert said["state"]["replies_left_today"] == 11
+    assert said["state"]["active_call"]["replies_left_in_call"] == 4
+    storage.get(game.id).replies_left = 0
+    game.act("call/say", {"text": "Hello again."}, status=409)
+    assert game.state()["replies_left_today"] == 0

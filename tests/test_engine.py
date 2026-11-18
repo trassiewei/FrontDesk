@@ -227,9 +227,10 @@ def test_caller_can_end_the_call(fake):
 
 
 def test_patience_runs_out_with_a_fixed_closing_line(fake):
-    state = new(fake, plan(con()), difficulty="easy")  # con patience 8
+    state = new(fake, plan(con()), difficulty="easy")
     take_con(state)
-    for _ in range(7):
+    state.calls[-1].patience = 3  # below the per-call reply cap, so patience runs out first
+    for _ in range(2):
         assert say(fake, state, "Hm.")["call_ended"] is False
     out = say(fake, state, "Hm.", caller={"say": "LLM line that must not be shown"})
     assert out["end_reason"] == "patience" and out["caller_reply"] == config.PATIENCE_EXHAUSTED_LINE
@@ -238,12 +239,29 @@ def test_patience_runs_out_with_a_fixed_closing_line(fake):
 
 
 def test_max_player_turns_ends_the_call(fake):
-    state = new(fake, plan(con()), difficulty="hard")  # patience 12, so max turns (8) hits first
+    state = new(fake, plan(con()), difficulty="hard")  # patience 12, so the reply cap hits first
     take_con(state)
-    for _ in range(7):
-        say(fake, state, "Hm.")
+    for _ in range(config.MAX_PLAYER_TURNS_PER_CALL - 1):
+        assert say(fake, state, "Hm.")["call_ended"] is False
     out = say(fake, state, "Hm.")
     assert out["end_reason"] == "max_turns" and out["caller_reply"] == "Okay, thanks."
+
+
+def test_daily_reply_pool_is_shared_across_calls_and_resets_each_day(fake):
+    state = new(fake, plan(con()))
+    assert state.replies_left == config.DAILY_REPLY_BUDGET
+    engine.next_call(state)
+    say(fake, state, "One.")
+    say(fake, state, "Two.")
+    assert state.replies_left == config.DAILY_REPLY_BUDGET - 2
+    state.replies_left = 0
+    with pytest.raises(engine.EngineError) as err:
+        engine.say(state, "Three.")
+    assert err.value.status == 409 and state.calls[-1].player_turns == 2
+    assert engine.take_message(state)["result_text"]  # actions other than talking still work
+    state.phase, state.queue = "DAY_BRIEFING", []
+    engine.start_day(state)
+    assert state.replies_left == config.DAILY_REPLY_BUDGET
 
 
 def test_legit_call_outcomes_drive_service_score(fake):
@@ -260,8 +278,8 @@ def test_legit_call_outcomes_drive_service_score(fake):
 def test_angry_legit_hangup_costs_extra_service(fake):
     state = new(fake, plan())
     engine.next_call(state)
-    legit_patience = state.calls[-1].patience
-    for _ in range(legit_patience):
+    state.calls[-1].patience = 3
+    for _ in range(3):
         out = say(fake, state, "Hm.")
     assert out["end_reason"] == "patience"
     assert state.handled_legit == 1 and state.satisfied_legit == 0 and state.service_penalty == 10
@@ -298,9 +316,10 @@ def test_callback_note_reaches_the_caller_prompt_and_costs_patience(fake):
 
 
 def test_callback_that_exhausts_patience_ends_the_call_without_an_llm_turn(fake):
-    state = new(fake, plan(con()), difficulty="easy")  # patience 8
+    state = new(fake, plan(con()), difficulty="easy")
     take_con(state)
-    for _ in range(6):
+    state.calls[-1].patience = 4
+    for _ in range(2):
         say(fake, state, "Hm.")  # patience 2
     before = len(fake.calls_for("caller"))
     out = engine.callback(state, "E06")

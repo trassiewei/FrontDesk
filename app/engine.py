@@ -142,6 +142,7 @@ def _build_queue(state: GameState, plan: PlannerResult, world: World) -> list[Ca
 
 def start_day(state: GameState) -> None:
     _require(state, "DAY_BRIEFING")
+    state.replies_left = config.DAILY_REPLY_BUDGET
     state.phase = "BETWEEN_CALLS"
 
 
@@ -239,6 +240,8 @@ def say(state: GameState, text: str) -> dict:
     text = (text or "").strip()
     if not 1 <= len(text) <= 500:
         raise EngineError("Messages must be between 1 and 500 characters.", 422)
+    if state.replies_left <= 0:
+        raise EngineError("You have no replies left today. Transfer the call, take a message or hang up.", 409)
     world = load_world()
 
     previous_caller_line = next((m.text for m in reversed(call.messages) if m.speaker == "caller"), "")
@@ -254,6 +257,7 @@ def say(state: GameState, text: str) -> dict:
 
     _apply_leaks(state, call, player_msg, extracted, world)
     call.player_turns += 1
+    state.replies_left -= 1
     call.patience -= 1
     reply, reason = _conclude_caller_turn(state, call, turn)
     return {

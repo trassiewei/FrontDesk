@@ -202,6 +202,7 @@ class GameState(BaseModel):
     calls: list[CallRecord] = Field(default_factory=list)  # every call taken so far
     active_call_id: str | None = None
     last_call_id: str | None = None  # the call the player may still flag
+    replies_left: int = 12  # shared pool of player messages for the current day (config.DAILY_REPLY_BUDGET)
 
     intel: dict[str, IntelRecord] = Field(default_factory=dict)
     overshares: list[IntelRecord] = Field(default_factory=list)

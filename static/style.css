@@ -85,7 +85,14 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--amb
 .menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 6px 10px; }
 .menu button:hover { background: var(--bg); }
 .menu .group { color: var(--muted); font-size: .8rem; padding: 6px 10px 2px; text-transform: uppercase; letter-spacing: .08em; }
-.menu .num { font-family: var(--mono); color: var(--amber); float: right; margin-left: 12px; }
+.menu .num { color: var(--muted); font-size: .8rem; float: right; margin-left: 12px; }
+.budget { margin-top: 10px; color: var(--muted); font-size: .85rem; }
+#top-replies.low { color: var(--red); }
+.entry { border-bottom: 1px solid var(--line); padding: 5px 2px; }
+.entry summary { cursor: pointer; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.entry summary .sub { color: var(--muted); font-size: .8rem; text-align: right; }
+.entry .detail { padding: 6px 4px 4px; font-size: .85rem; display: grid; gap: 2px; }
+.entry .label { color: var(--muted); display: inline-block; min-width: 100px; }
 
 /* side */
 .tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }

@@ -145,6 +145,8 @@ function renderStart() {
 function renderTopbar() {
   const s = G.state;
   $("#top-clock").textContent = `${s.day_name} · ${s.clock}`;
+  $("#top-replies b").textContent = s.replies_left_today;
+  $("#top-replies").classList.toggle("low", s.replies_left_today <= 3);
   $("#top-security b").textContent = s.security;
   $("#top-service b").textContent = s.service;
   $("#top-player").textContent = s.player_name;
@@ -219,15 +221,20 @@ function callView() {
     el("div", { class: "cid" }, `Caller ID: ${call.caller_id}`),
     call.patience_hint === "impatient" ? el("div", { class: "hint" }, "😤 sounds impatient") : null);
 
+  const noReplies = G.state.replies_left_today <= 0;
   const input = el("textarea", {
-    id: "composer-input", placeholder: "Say something… (Enter to send, Shift+Enter for a new line)",
-    maxlength: 500, disabled: G.busy,
+    id: "composer-input", maxlength: 500, disabled: G.busy || noReplies,
+    placeholder: noReplies ? "No replies left today. Transfer, take a message or hang up."
+      : "Say something… (Enter to send, Shift+Enter for a new line)",
   });
   input.value = G.draft;
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendDraft(); }
   });
-  const send = el("button", { class: "primary", disabled: G.busy, onclick: sendDraft }, "Send");
+  const send = el("button", { class: "primary", disabled: G.busy || noReplies, onclick: sendDraft }, "Send");
+  const budget = el("div", { class: "budget" },
+    `Replies left: ${Math.min(call.replies_left_in_call, G.state.replies_left_today)} on this call · ` +
+    `${G.state.replies_left_today} today`);
 
   const actions = el("div", { class: "actions" },
     menuButton("callback", "⏸ Hold & call back…", callbackMenu),
@@ -236,7 +243,7 @@ function callView() {
     el("button", { disabled: G.busy, onclick: () => run(hangUp) }, "✖ Hang up"));
 
   const view = el("div", {}, card, transcriptBox(G.transcript, "", G.busy && !!G.pending),
-    el("div", { class: "composer" }, input, send), actions);
+    budget, el("div", { class: "composer" }, input, send), actions);
   if (!G.busy) setTimeout(() => { const box = $("#composer-input"); if (box && !G.menu) box.focus(); }, 0);
   return view;
 }
@@ -256,12 +263,12 @@ function callbackMenu() {
   const menu = el("div", { class: "menu" }, el("div", { class: "group" }, "Employees"));
   for (const e of w.employees) {
     menu.append(el("button", { onclick: () => pick(() => callbackTo(e.id)) },
-      el("span", { class: "num" }, `x${e.ext} · ${e.mobile}`), e.name));
+      el("span", { class: "num" }, e.dept), e.name));
   }
   menu.append(el("div", { class: "group" }, "Vendors"));
   for (const v of w.vendors) {
     menu.append(el("button", { onclick: () => pick(() => callbackTo(v.id)) },
-      el("span", { class: "num" }, v.official_number), v.name));
+      el("span", { class: "num" }, v.role), v.name));
   }
   return menu;
 }
@@ -270,7 +277,7 @@ function transferMenu() {
   const menu = el("div", { class: "menu" });
   for (const e of G.world.employees) {
     menu.append(el("button", { onclick: () => pick(() => transferTo(e.id)) },
-      el("span", { class: "num" }, `x${e.ext}`), `${e.name} — ${e.title}`));
+      el("span", { class: "num" }, e.dept), `${e.name} — ${e.title}`));
   }
   return menu;
 }
@@ -288,21 +295,19 @@ document.addEventListener("keydown", (event) => { if (event.key === "Escape" && 
 function renderTabs() {
   if (!G.world) return;
   const w = G.world;
-  const head = (...names) => el("tr", {}, names.map((n) => el("th", {}, n)));
+  const field = (label, value) => value ? el("div", {}, el("span", { class: "label" }, label), el("span", { class: "mono" }, value)) : null;
+  const entry = (title, sub, ...fields) => el("details", { class: "entry" },
+    el("summary", {}, el("b", {}, title), el("span", { class: "sub" }, sub)),
+    el("div", { class: "detail" }, ...fields));
   const directory = el("div", {},
+    el("p", { class: "fine-print" }, "Click a name for numbers and notes."),
     el("h3", {}, "Employees"),
-    el("div", { class: "scroll-x" }, el("table", {},
-      head("Name", "Title", "Dept", "Ext", "Mobile", "ID", "Status", "Notes"),
-      w.employees.map((e) => el("tr", {},
-        el("td", {}, e.name), el("td", {}, e.title), el("td", {}, e.dept),
-        el("td", { class: "mono" }, e.ext), el("td", { class: "mono" }, e.mobile),
-        el("td", { class: "mono" }, e.employee_id), el("td", {}, e.status), el("td", {}, e.directory_note))))),
+    ...w.employees.map((e) => entry(e.name, `${e.title} · ${e.dept}`,
+      field("Ext", e.ext), field("Mobile", e.mobile), field("Employee ID", e.employee_id),
+      field("Status", e.status), field("Note", e.directory_note))),
     el("h3", {}, "Vendors"),
-    el("div", { class: "scroll-x" }, el("table", {},
-      head("Name", "Role", "Official phone", "Notes"),
-      w.vendors.map((v) => el("tr", {},
-        el("td", {}, v.name), el("td", {}, v.role), el("td", { class: "mono" }, v.official_number),
-        el("td", {}, v.contact))))));
+    ...w.vendors.map((v) => entry(v.name, v.role,
+      field("Official phone", v.official_number), field("Contact", v.contact))));
   $("#tab-directory").replaceChildren(directory);
   $("#tab-desk").replaceChildren(
     el("h3", {}, "Sticky notes"), ...w.sticky_notes.map((n) => el("div", { class: "sticky" }, n)),

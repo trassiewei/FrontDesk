@@ -17,6 +17,11 @@ def fallback_turn() -> CallerTurn:
     return CallerTurn(say=FALLBACK_LINE, end_call=True)
 
 
+def _effective_patience(call: CallRecord) -> int:
+    """The caller also runs out of road when the per-call reply cap is near."""
+    return min(call.patience, config.MAX_PLAYER_TURNS_PER_CALL - call.player_turns)
+
+
 def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: str) -> str:
     plan = call.plan
     assert plan is not None
@@ -34,7 +39,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         skill_note=config.get_difficulty(state.difficulty).skill_note,
         public_info=public_info_text(world),
         intel=intel_text(state, world, with_quote=False),
-        patience=call.patience,
+        patience=_effective_patience(call),
         system_note=system_note,
         transcript=transcript_text(call),
     )
@@ -52,7 +57,7 @@ def _legit_prompt(call: CallRecord, system_note: str) -> str:
         knows=data.knows,
         temptation=data.temptation,
         success=data.success,
-        patience=call.patience,
+        patience=_effective_patience(call),
         system_note=system_note,
         transcript=transcript_text(call),
     )

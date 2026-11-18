@@ -46,7 +46,7 @@ def clock(state: GameState) -> str:
 def show_state(state: GameState) -> None:
     s = summary.scores(state)
     out(f"[{state.phase}] {clock(state)} | Security {s['security']} | Service {s['service']} | "
-        f"calls left today: {len(state.queue)} | exposures: {state.exposures}")
+        f"calls left today: {len(state.queue)} | replies left today: {state.replies_left} | exposures: {state.exposures}")
 
 
 def show_directory(world) -> None:
@@ -165,7 +165,7 @@ def play(state: GameState, debug: bool) -> None:
     while not state.game_over:
         storage.save(state)
         if state.phase == "CALL_ACTIVE":
-            prompt = "You> "
+            prompt = f"You ({state.replies_left} replies left today)> "
         else:
             left = len(state.queue)
             prompt = f"[{clock(state)}] {'/next to answer (' + str(left) + ' left)' if left else '/endday'}> "
