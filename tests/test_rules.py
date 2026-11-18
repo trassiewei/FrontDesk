@@ -400,7 +400,7 @@ def test_difficulty_presets():
     easy, normal, hard = (config.get_difficulty(n) for n in ("easy", "normal", "hard"))
     assert (easy.breach_threshold, easy.con_patience, easy.exposures_to_give_up) == (8, 8, 1)
     assert (normal.breach_threshold, normal.con_patience, normal.exposures_to_give_up) == (6, 10, 2)
-    assert (hard.breach_threshold, hard.con_patience, hard.exposures_to_give_up) == (5, 12, 3)
+    assert (hard.breach_threshold, hard.con_patience, hard.exposures_to_give_up) == (4, 12, 3)
     assert easy.day2_phishing_warning and normal.day2_phishing_warning and not hard.day2_phishing_warning
     assert "amateur" in easy.skill_note and "competent" in normal.skill_note and "expert" in hard.skill_note
     assert normal.breach_threshold == config.BREACH_THRESHOLD

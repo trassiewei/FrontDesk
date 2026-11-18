@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import logging
 
-from .. import config, llm
+from .. import config, llm, rules
 from ..models import CallerTurn, CallRecord, GameState, World
-from ..world import fact_by_id, legit_call_by_id, load_tactics, scenario_of
+from ..world import employee_by_id, fact_by_id, legit_call_by_id, load_tactics, scenario_of
 from .common import intel_text, public_info_text, situation_text, transcript_text
 
 log = logging.getLogger("frontdesk.caller")
@@ -20,6 +20,33 @@ def fallback_turn() -> CallerTurn:
 def _effective_patience(call: CallRecord) -> int:
     """The caller also runs out of road when the per-call reply cap is near."""
     return min(call.patience, config.MAX_PLAYER_TURNS_PER_CALL - call.player_turns)
+
+
+def closing_note(state: GameState, call: CallRecord, world: World) -> str:
+    """Tells the con whether to ask for the transfer now. The code decides; the model only phrases it."""
+    scenario = scenario_of(state)
+    diff = config.get_difficulty(state.difficulty)
+    door = employee_by_id(world, scenario.doors[0].employee_id) if scenario.doors else None
+    if door is None:
+        return "Do not ask to be transferred anywhere."
+    who = f"{door.name} ({door.title})"
+    if diff.closing == "early":
+        return (
+            f"Your plan: you are impatient. In your first two lines ask to be put straight through to {who}, "
+            "with a hurried excuse (a locked account, something urgent). If she hesitates, push."
+        )
+    ready = rules.breach_ready(call, state.intel, state.it_alert, diff.breach_threshold, world.facts, scenario)
+    if ready:
+        return (
+            f"Your plan: you now know enough to be believed. Steer the call toward asking to be put through to {who}, "
+            "with a reason that fits your pretext (a locked account, a password reset, a remote session). "
+            "If she transfers you, thank her and finish (end_call = true, outcome = \"got_what_i_needed\"). "
+            "If she says no, do not push: ask for something smaller or wrap up."
+        )
+    return (
+        "Your plan: you are still building trust, so do NOT ask to be transferred to IT or to anyone senior yet "
+        "(never say this out loud). Stay on your target questions."
+    )
 
 
 def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: str) -> str:
@@ -39,6 +66,8 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         tactic_description=tactic.description if tactic else "",
         target_descriptions=target_text,
         skill_note=config.get_difficulty(state.difficulty).skill_note,
+        verify_note=config.get_difficulty(state.difficulty).verify_note,
+        closing_note=closing_note(state, call, world),
         public_info=public_info_text(world),
         intel=intel_text(state, world, with_quote=False),
         patience=_effective_patience(call),
@@ -60,6 +89,7 @@ def _legit_prompt(state: GameState, call: CallRecord, system_note: str) -> str:
         temptation=data.temptation,
         success=data.success,
         situation=situation_text(state, insider=False),
+        legit_note=config.get_difficulty(state.difficulty).legit_note,
         patience=_effective_patience(call),
         system_note=system_note,
         transcript=transcript_text(call),

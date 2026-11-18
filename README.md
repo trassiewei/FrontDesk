@@ -47,7 +47,10 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 - On Easy and Normal the Policy tab also holds a **Playbook** of common con-artist moves and how to counter them. After the game, the report lists every call with its hidden truth ("Every call, revealed").
 - The **Policy** tab and the directory, desk notes and your own notes tab are on the right. Use them.
 - The game ends when the con artist gets what they need (breach), gives up after being exposed enough times, or when Wednesday ends.
-- Difficulty changes how much intel the con artist needs, how patient they are, how many exposures make them give up, how skilled they sound, and how much help the Policy tab gives.
+- Difficulty changes the whole feel of the con artists:
+  - **Easy**: clumsy cons who impersonate people from the directory, ask for the transfer right away and panic the moment you say you will check. Verifying is enough to win.
+  - **Normal**: smooth cons who impersonate real staff or vendors. They stay calm if you verify, so you must actually call the directory entry back (not the number they gave) before helping.
+  - **Hard**: outsiders with believable errands, who read just like real callers (and real callers are as vague and pushy as they are). A directory callback often does not reach anyone, the crew also does its own research overnight (shown in the report as "crew's own research"), and real callers are only satisfied if you really put them through or answer them. Refusing everything keeps you safe but wrecks Service; helping everyone gets you breached.
 
 ## What the LLM does, and what it does not
 

@@ -580,7 +580,7 @@ function revealCard(c) {
 }
 
 function sourceLabel(source) {
-  return { llm: "LLM", pattern: "pattern", both: "LLM + pattern" }[source] || source;
+  return { llm: "LLM", pattern: "pattern", both: "LLM + pattern", recon: "crew's own research" }[source] || source;
 }
 
 async function loadReport() {

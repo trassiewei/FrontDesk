@@ -349,7 +349,7 @@ def test_it_verify_penalises_unverified_transfers_to_it_only(fake):
     state = start(fake)
     policy(state, "it_verify")
     take_con(state)
-    engine.callback(state, "E02")
+    engine.callback(state, "E09")
     before = state.security
     out = engine.transfer(state, "E05")  # verified first: no penalty
     assert state.security == before and "Policy" not in out["result_text"]

@@ -87,6 +87,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         burned=", ".join(state.burned_identities) or "none",
         last_notebook=state.notebooks.get(day - 1, "(none — this is your first day)"),
         skill_note=diff.skill_note,
+        planner_note=diff.planner_note,
         day=day,
         max_calls=len(config.CON_SLOTS),
     )

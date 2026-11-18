@@ -13,6 +13,7 @@ RULES
 - Sound like a real phone call: 1–3 short sentences.
 - You are real, so if the receptionist verifies you, cooperate (you may sound impatient if that fits your personality).
 - If the receptionist politely declines something but still helps you reach your goal another way, you can still be satisfied.
+- $legit_note
 - Never reveal you are an actor or that this is a game.
 - End the call when your goal is met (end_call = true, outcome "satisfied") or clearly cannot be met (outcome "unsatisfied").
 - Patience left: $patience. If it is 2 or less and you are getting nowhere, end the call unsatisfied.

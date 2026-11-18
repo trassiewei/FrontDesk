@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from app import config, engine, llm, summary
@@ -511,7 +513,8 @@ def test_two_exposures_end_the_game_on_normal_and_burned_identity_is_cleaned(fak
     assert "notebook closes" in out["cutscene"]
 
 
-def test_hard_needs_three_exposures(fake):
+def test_hard_needs_three_exposures(fake, monkeypatch):
+    monkeypatch.setitem(config.DIFFICULTIES, "hard", replace(config.DIFFICULTIES["hard"], callback_reach=1.0))
     state = new(fake, plan(con(identity="E04")), plan(con(identity="E02")), difficulty="hard")
     take_con(state)
     engine.callback(state, "E04")
@@ -556,7 +559,7 @@ def test_con_prompt_only_contains_known_intel(fake):
     say(fake, state, "Hm.")
     prompt = fake.calls_for("caller")[-1]["messages"][0]["content"]
     assert "Raj Patel" in prompt and "SR-20417" not in prompt and "Harbor-Guest-88" not in prompt
-    assert "Receptionist: Raj." in prompt and "Skill level: You are competent and natural." in prompt
+    assert "Receptionist: Raj." in prompt and "Skill level: You are competent and natural:" in prompt
 
 
 def test_planner_failure_uses_the_fixed_fallback_call(fake):

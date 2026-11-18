@@ -29,6 +29,7 @@ YOUR PREVIOUS NOTEBOOK PAGE
 $last_notebook
 
 YOUR CALLERS' SKILL LEVEL: $skill_note
+YOUR CREW'S STYLE: $planner_note
 TODAY: Day $day of 3. You may plan up to $max_calls calls today.
 $incident_note
 

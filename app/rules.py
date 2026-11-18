@@ -41,6 +41,8 @@ CALLBACK_LEGIT = "{speaker}: 'Yes, that's legit.'"
 CALLBACK_UNKNOWN = "{speaker}: 'Sorry, I don't know anything about that call.'"
 CALLBACK_NUMBER = "You dialled {number}. A voice answers: 'Yes, that's right — {name} is here with us.'"
 CALLBACK_BUSY = "{speaker}: 'I can't talk — the outage has the whole floor on fire. Is it urgent? Call me later.'"
+CALLBACK_MEETING = "{speaker}'s line rings out, then a colleague picks up: 'They're in a meeting — I can take a message.'"
+CALLBACK_NO_SUCH_STAFF = "{speaker}: 'We don't have anyone like that joining us. Who is this?'"
 
 # ------------------------------------------------------------------ pattern matching (spec §5.2)
 
@@ -121,6 +123,23 @@ def check_breach(
     return credibility(known, facts) >= effective_threshold(threshold, it_alert)
 
 
+def pick_recon_facts(
+    intel: Iterable[str], scenario: Scenario, facts: list[Fact], count: int, rng: random.Random
+) -> list[str]:
+    """What the crew finds out on its own overnight: missing gate facts first, then the offstage fact, then the
+    most useful internal facts (points >= 1)."""
+    known = set(intel)
+    ordered = [g for g in scenario.gate_facts if g not in known]
+    if scenario.offstage_fact and scenario.offstage_fact not in known:
+        ordered.append(scenario.offstage_fact)
+    rest = sorted((f for f in facts if f.tier != "public" and f.points >= 1 and f.id not in known and f.id not in ordered),
+                  key=lambda f: f.id)
+    rng.shuffle(rest)
+    rest.sort(key=lambda f: f.tier != "internal")
+    ordered += [f.id for f in rest]
+    return list(dict.fromkeys(ordered))[:count]
+
+
 def can_attempt_offstage(intel: Iterable[str], offstage_fact: str | None) -> bool:
     return offstage_fact is not None and offstage_fact in set(intel)
 
@@ -159,14 +178,32 @@ def callback_caller_number(call: CallRecord) -> CallbackResult:
     return CallbackResult(CALLBACK_NUMBER.format(number=number, name=call.caller_name), "number")
 
 
-def callback(call: CallRecord, target_id: str, world: World, *, it_busy: bool = False) -> CallbackResult:
-    """`it_busy`: an outage is under way, so nobody in the IT department can confirm or deny anything."""
+_NEWCOMER_WORDS = re.compile(r"\b(new|temp|intern|hire|joined|started)\b", re.IGNORECASE)
+
+
+def _invented_colleague_of(call: CallRecord, emp) -> bool:
+    """A con posing as a newcomer to a department is exposed by anyone in that department."""
+    return (
+        emp is not None
+        and call.claimed_identity is None
+        and emp.dept.lower() in call.claims.lower()
+        and bool(_NEWCOMER_WORDS.search(call.claims))
+    )
+
+
+def callback(
+    call: CallRecord, target_id: str, world: World, *, it_busy: bool = False, reachable: bool = True
+) -> CallbackResult:
+    """`it_busy`: an outage is under way, so nobody in the IT department can confirm or deny anything.
+    `reachable`: False when the person simply cannot be reached (hard difficulty makes this common)."""
     speaker = _speaker(world, target_id)
     emp = employee_by_id(world, target_id)
     if emp is not None and not emp.available:
         return CallbackResult(VOICEMAIL_TEMPLATE.format(name=emp.name), "voicemail")
     if it_busy and emp is not None and emp.dept == "IT":
         return CallbackResult(CALLBACK_BUSY.format(speaker=speaker), "busy")
+    if not reachable:
+        return CallbackResult(CALLBACK_MEETING.format(speaker=speaker), "busy")
 
     references = set(call.references)
     if call.claimed_identity:
@@ -175,6 +212,10 @@ def callback(call: CallRecord, target_id: str, world: World, *, it_busy: bool = 
     if call.is_con:
         if target_id in references:
             return CallbackResult(CALLBACK_EXPOSED.format(speaker=speaker), "exposed", exposed=True, it_alert=True)
+        if _invented_colleague_of(call, emp):
+            return CallbackResult(
+                CALLBACK_NO_SUCH_STAFF.format(speaker=speaker), "exposed", exposed=True, it_alert=True
+            )
         return CallbackResult(CALLBACK_UNKNOWN.format(speaker=speaker), "unknown")
 
     if target_id == call.claimed_identity:
@@ -185,6 +226,20 @@ def callback(call: CallRecord, target_id: str, world: World, *, it_busy: bool = 
 
 
 # ------------------------------------------------------------------ transfer (spec §7.3)
+
+
+def door_requirement(call: CallRecord, door: Door, threshold: int) -> int:
+    """Credibility a con needs for this door on this call (a vouching accomplice lowers it)."""
+    return max(1, threshold + door.bonus - (config.VOUCH_CREDIBILITY if call.number_checked else 0))
+
+
+def breach_ready(
+    call: CallRecord, intel: Iterable[str], it_alert: bool, threshold: int, facts: list[Fact], scenario: Scenario
+) -> bool:
+    """Would a transfer to the scenario's first door breach right now? (Tells the con when to ask for it.)"""
+    if not scenario.doors:
+        return False
+    return check_breach(intel, door_requirement(call, scenario.doors[0], threshold), it_alert, facts, scenario.gate_facts)
 
 
 @dataclass(frozen=True)
@@ -221,8 +276,7 @@ def transfer(
     if door is None:
         return TransferResult(text, "transferred_away")
 
-    needed = threshold + door.bonus - (config.VOUCH_CREDIBILITY if call.number_checked else 0)
-    if check_breach(intel, max(1, needed), it_alert, world.facts, scenario.gate_facts):
+    if check_breach(intel, door_requirement(call, door, threshold), it_alert, world.facts, scenario.gate_facts):
         return TransferResult(text, "breached", breached=True)
     return TransferResult(text, "refused_by_it", it_alert=True)
 
@@ -253,11 +307,11 @@ class MessageResult:
     satisfied: bool | None = None  # legit calls only
 
 
-def take_message(call: CallRecord) -> MessageResult:
+def take_message(call: CallRecord, *, strict: bool = False) -> MessageResult:
     if call.is_con:
         return MessageResult(MESSAGE_TEXT, "took_message")
     legit_call = legit_call_by_id(call.legit_id)
-    ok = bool(legit_call and legit_call.message_ok)
+    ok = bool(legit_call and legit_call.message_ok) and not strict
     return MessageResult(MESSAGE_TEXT, "took_message", satisfied=ok)
 
 

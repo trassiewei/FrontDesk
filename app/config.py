@@ -55,26 +55,71 @@ class Difficulty:
     breach_threshold: int
     con_patience: int
     exposures_to_give_up: int
-    skill_note: str
+    skill_note: str  # how the con artist behaves on the phone
     policy_level: str  # "easy" | "normal" | "hard"
     day2_phishing_warning: bool
+    verify_note: str  # how the con artist reacts when the receptionist verifies them
+    planner_note: str  # what kind of pretexts the crew picks
+    legit_note: str  # extra colour for genuine callers (hard: they are as hard to read as the cons)
+    closing: str  # "early": the con asks for the IT transfer at once; "when_ready": only once credible enough
+    callback_reach: float  # chance a directory callback actually reaches the person
+    recon: int  # facts the crew researches on its own each night (no cost to the player's Security)
+    strict_legit: bool  # genuine callers are only satisfied by being put through or answered, never by a message
 
 
 DIFFICULTIES: dict[str, Difficulty] = {
     "easy": Difficulty(
         "easy", 8, 8, 1,
-        "You are an amateur: sometimes over-explain, get small details wrong, and sound a bit nervous.",
+        "You are an amateur: sloppy and nervous. You over-explain, get small details wrong (a colleague's name, a "
+        "system name), lean hard on urgency or on a boss's name, and say things that sound a little off. "
+        "You cannot bluff when asked something you do not know.",
         "easy", True,
+        "If the receptionist says she will verify you, call someone back or check anything, you panic: stammer an "
+        "excuse (\"no need, I'm in a rush\") and end the call at once (end_call = true, outcome = \"gave_up\").",
+        "Your crew is sloppy. Pick clumsy pretexts: a pushy boss, an urgent IT person, a vague 'new temp'. "
+        "Impersonate someone from the directory. Ask for sensitive things early and clumsily.",
+        "You are easygoing and patient. If the receptionist verifies you or asks you to hold, that is completely fine.",
+        "early", 1.0, 0, False,
     ),
     "normal": Difficulty(
         "normal", BREACH_THRESHOLD, CON_PATIENCE, EXPOSURES_TO_GIVE_UP,
-        "You are competent and natural.",
+        "You are competent and natural: smooth, plausible and never pushy. You sound exactly like a busy colleague "
+        "or vendor with an ordinary request, and you do not give yourself away by tone or by mistakes.",
         "normal", True,
+        "If the receptionist wants to verify you, stay calm and friendly and offer an easy alternative (your "
+        "mobile, 'just ask Raj, he knows me') but do not argue. If she calls back anyway, let her: you cannot "
+        "control what the callback reveals.",
+        "Your crew is professional. Impersonate real people from the directory (an employee or one of the vendors): "
+        "the receptionist's only way to catch you is to call the directory number back, so make everything else "
+        "about the call convincing. A 'new temp' is fine if you name the department you supposedly joined. "
+        "Ask small things, build trust, and ask for the transfer only when your credibility is enough.",
+        "",
+        "when_ready", 1.0, 0, False,
     ),
     "hard": Difficulty(
-        "hard", 5, 12, 3,
-        "You are an expert: calm, patient, warm, never pushy; you build rapport before asking anything.",
+        "hard", 4, 12, 3,
+        "You are an expert who is indistinguishable from a genuine caller. You have a mundane, believable reason "
+        "to call and you behave like any ordinary person: relaxed, a little chatty, sometimes vague, sometimes "
+        "slightly hurried. You never use pressure or flattery that a real caller would not use, and you never ask "
+        "for anything sensitive directly: you ask innocent questions whose answers happen to be the facts you need "
+        "(\"is she around this week?\", \"who's the best person to ask?\"), one at a time. If told no, you accept "
+        "gracefully, never end the call on a first refusal, and try another harmless angle (who else could help, "
+        "could you be put through to a colleague, is someone around this week).",
         "hard", False,
+        "If the receptionist wants to verify you, cooperate cheerfully, exactly as an honest caller would "
+        "(\"sure, go ahead\"). Never object, never deflect, never sound nervous or relieved.",
+        "Your crew is elite. Never pick a pretext that one directory callback would disprove: do not claim to be an "
+        "employee, and do not claim to be one of the three vendors in the directory. Be an outsider the directory "
+        "cannot confirm or deny (a customer, a courier from another company, a recruiter, an auditor, a contractor's "
+        "colleague, a job applicant). Make every call sound like routine business; real callers ask odd things "
+        "too, so nothing you do may look unusual. Spread the facts you need over many harmless questions.",
+        "You are a little hard to read, like many real callers: you may be hurried, vague or mildly pushy about "
+        "your goal, ask for slightly more than you strictly need (names, who is around, who to speak to), "
+        "mention colleagues by name and not enjoy being put on hold. You still cooperate with any verification. "
+        "You need a real result: being put through to the right person or getting the answer. A message alone, or a "
+        "flat refusal, does not satisfy you: say you are disappointed and end the call (end_call = true, outcome "
+        "\"unsatisfied\"); do not escalate or complain loudly.",
+        "when_ready", 0.4, 3, True,
     ),
 }
 

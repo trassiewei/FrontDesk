@@ -199,7 +199,7 @@ class Notice(BaseModel):
 Phase = Literal["SETUP", "DAY_BRIEFING", "BETWEEN_CALLS", "CALL_ACTIVE", "DAY_END", "GAME_OVER"]
 Outcome = Literal["breached", "con_gave_up", "survived"]
 EndReason = Literal["caller_ended", "patience", "max_turns", "exposed", "transferred", "message", "hung_up"]
-LeakSource = Literal["llm", "pattern", "both"]
+LeakSource = Literal["llm", "pattern", "both", "recon"]
 
 
 class Message(BaseModel):

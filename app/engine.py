@@ -149,6 +149,7 @@ def new_game(player_name: str, difficulty: str, seed: int | None = None, scenari
 def _enter_day(state: GameState, day: int) -> None:
     """Run the planner for `day`, build the call queue and show the morning briefing."""
     world = load_world()
+    _recon(state, world, day)
     plan = planner.plan_day(state, world, day)
     state.planned[day] = plan
     state.notebooks[day] = plan.notebook
@@ -157,6 +158,17 @@ def _enter_day(state: GameState, day: int) -> None:
     state.queue = _build_queue(state, plan, world)
     state.last_call_id = None
     state.phase = "DAY_BRIEFING"
+
+
+def _recon(state: GameState, world: World, day: int) -> None:
+    """The crew's overnight research (hard only). Costs the player no Security; the report shows it."""
+    count = _diff(state).recon
+    if day < 2 or count <= 0:
+        return
+    for fact_id in rules.pick_recon_facts(state.intel, scenario_of(state), world.facts, count,
+                                          _rng(state, "recon", day)):
+        state.intel[fact_id] = IntelRecord(fact_id=fact_id, day=day - 1, time="night", call_id="recon",
+                                           quote="(found out on their own)", source="recon")
 
 
 def _build_queue(state: GameState, plan: PlannerResult, world: World) -> list[CallRecord]:
@@ -355,7 +367,10 @@ def callback(state: GameState, target_id: str) -> dict:
         result = rules.callback_caller_number(call)
         call.number_checked = True
     else:
-        result = rules.callback(call, target_id, world, it_busy=rules.incident_active(scenario_of(state), state.day))
+        reachable = _rng(state, "reach", call.id, target_id).random() < _diff(state).callback_reach
+        result = rules.callback(
+            call, target_id, world, it_busy=rules.incident_active(scenario_of(state), state.day), reachable=reachable
+        )
         call.callbacks.append(target_id)
     state.callbacks_made += 1
     call.messages.append(Message(speaker="system", text=result.text, time=call.time))
@@ -429,7 +444,7 @@ def transfer(state: GameState, target_id: str) -> dict:
 def take_message(state: GameState, note: str = "") -> dict:
     """The note text is not stored: the message goes to a colleague, not to the caller."""
     call = _active(state)
-    result = rules.take_message(call)
+    result = rules.take_message(call, strict=_diff(state).strict_legit)
     call.messages.append(Message(speaker="system", text=result.text, time=call.time))
     _finish(state, call, "message", result.result, satisfied=result.satisfied)
     return {"result_text": result.text, "call_ended": True, "end_reason": "message"}
