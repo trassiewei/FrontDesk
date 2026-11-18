@@ -41,18 +41,21 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 - During a call you can **Hold & call back** a person or vendor from the directory, **Transfer** to an employee, **Take a message**, or **Hang up**. Most of these end the call except the callback, which gives you a way to check a claim and costs the caller some patience.
 - Between calls you can **Flag last call** as suspicious. A right flag earns Security points; a wrong one costs Service points.
 - Two scores run all game. **Security** drops when you reveal internal or confidential facts to the con artist and when the company is breached. **Service** is how many real callers you actually helped.
+- From day 2 the briefing can carry a **policy update** that reacts to how the last day went (for example, double Security penalties after a leak, or a rule against transferring unverified callers to IT). Some days also open with a **heads-up** about something odd at the company, such as an outage. Both stay readable in the Policy tab.
+- You get 12 replies per day, shared across all calls, and at most 5 per call. Spend them on checking suspicious callers, but keep some for real colleagues who need help.
 - The **Policy** tab and the directory, desk notes and your own notes tab are on the right. Use them.
 - The game ends when the con artist gets what they need (breach), gives up after being exposed enough times, or when Wednesday ends.
 - Difficulty changes how much intel the con artist needs, how patient they are, how many exposures make them give up, how skilled they sound, and how much help the Policy tab gives.
 
 ## What the LLM does, and what it does not
 
-Four LLM roles, all language work:
+Five LLM roles, all language work:
 
 1. **Caller** plays every caller. The con artist improvises against your questions and pushes back on your challenges.
 2. **Extractor** reads each of your free-text replies and decides which non-public facts you disclosed, with the quote.
 3. **Planner** (the con artist's planning side) reads everything learned so far before each day, writes the notebook, and plans that day's calls.
 4. **Reporter** turns the real transcript into a cause-and-effect incident report after the game.
+5. **Director** designs the con artist's scenario for each new game: the pretext, the goal, which facts they must learn first, who they are trying to reach, and sometimes a staged incident. Its output is checked by code (`rules.clean_scenario`); if it is invalid or the call fails, a built-in preset is used. `data/scenarios.json` holds three presets; `python cli.py --scenario fake_vendor` plays one directly.
 
 Every rule is ordinary deterministic code in `app/rules.py`: callback and transfer results, breach checks, intel merging, scoring and ratings. The engine applies those results to the game state, and the LLM never decides them. That keeps the game predictable and testable (the engine and API tests run on a scripted fake LLM) and means a random LLM mood cannot change who wins. The extractor's output is merged with plain string matching on a list of patterns per fact, so one miss from the model does not hide a real leak. The browser only ever gets a filtered public view of the state, so nothing about the con artist is visible before the game is over.
 
@@ -62,7 +65,8 @@ Every rule is ordinary deterministic code in `app/rules.py`: callback and transf
 - **Recent changes**: the new ERP system "Starboard" went live in September and still breaks often, and many staff don't know it well. In October IT support was outsourced to NetCore IT Services. Both make "I'm new here" and "I'm from the IT contractor" very believable excuses.
 - **This week**: CFO Diane Mercer is on vacation in Portugal, and Paul Nguyen is covering for her from Monday afternoon. The quarterly board meeting is Wednesday at 2 pm, so the CEO and the CEO's assistant will be busy.
 - **You**: the receptionist in the third week of the job, reporting to HR manager Laura Chen. You don't know everyone's voice yet.
-- **The con artist**: a freelance social engineer working for a fraud ring that runs business email compromise. The ring wants the CFO's mailbox so that, while she is away, they can email Finance in her name and ask for an urgent wire transfer. The con artist's job is to get IT to reset Diane's email password.
+- **The con artist**: a freelance social engineer working for a fraud ring. The default scenario is business email compromise: the ring wants the CFO's mailbox so that, while she is away, they can email Finance in her name and ask for an urgent wire transfer, and the con artist's job is to get IT to reset Diane's email password. Each game the director can pick a different angle (a fake vendor, a payroll diversion, ...). The company, employees and facts stay the same.
+- **Staged incidents**: in some games the con artist causes a fault first (a login flood that takes the ERP down, a spoofed phone-system alert) and then calls pretending to be IT. While the incident is active, calling back someone in IT only gets "busy". The announcement describes symptoms only; the post-game report reveals the cause.
 
 ## Where the ideas come from
 
@@ -96,17 +100,14 @@ Results: _to be added_.
 - Typing is not a phone call. Tone of voice, hesitation and background noise are missing.
 - LLMs are random. Two games with the same choices can play out differently, and a caller can occasionally slip out of character.
 - The extractor can misjudge a reply, in both directions. The pattern matcher reduces misses but can also add false hits.
-- There is only one scenario and one company.
+- There is only one company; scenarios vary the con artist's angle, not the company.
 - Different models can behave very differently as the caller and as the extractor, so check a new provider with `check_llm.py` and the evaluation script before relying on it.
 
 ## Next steps
 
 Ideas deliberately left out of this version:
 
-- Company policy that changes day by day
-- A reverse con (first cause an outage, then pose as IT)
 - Role reversal: the player is the con artist
 - AI player mode: an LLM plays the receptionist to run many games automatically
 - Voice
-- More scenarios and companies
 - A Chinese version

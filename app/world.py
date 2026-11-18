@@ -5,8 +5,8 @@ import json
 from functools import lru_cache
 from typing import Any
 
-from .config import DATA_DIR, PROMPTS_DIR
-from .models import Employee, Fact, LegitCall, Tactic, Vendor, World
+from .config import DATA_DIR, PROMPTS_DIR, SECONDARY_DOOR_BONUS
+from .models import Employee, Fact, GameState, LegitCall, Scenario, Tactic, Vendor, World
 
 
 def _read_json(name: str) -> Any:
@@ -21,6 +21,20 @@ def load_world() -> World:
 @lru_cache(maxsize=1)
 def load_legit_calls() -> list[LegitCall]:
     return [LegitCall.model_validate(c) for c in _read_json("legit_calls.json")]
+
+
+@lru_cache(maxsize=1)
+def load_scenarios() -> list[Scenario]:
+    """Preset scenarios. The first one is the default and the fallback when the director fails."""
+    presets = []
+    for raw in _read_json("scenarios.json"):
+        doors = [{"employee_id": emp, "bonus": 0 if i == 0 else SECONDARY_DOOR_BONUS} for i, emp in enumerate(raw["doors"])]
+        presets.append(Scenario.model_validate({**raw, "doors": doors, "source": "preset"}))
+    return presets
+
+
+def scenario_of(state: GameState) -> Scenario:
+    return state.scenario or load_scenarios()[0]
 
 
 @lru_cache(maxsize=1)

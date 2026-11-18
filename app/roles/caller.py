@@ -5,8 +5,8 @@ import logging
 
 from .. import config, llm
 from ..models import CallerTurn, CallRecord, GameState, World
-from ..world import fact_by_id, legit_call_by_id, load_tactics
-from .common import intel_text, public_info_text, transcript_text
+from ..world import fact_by_id, legit_call_by_id, load_tactics, scenario_of
+from .common import intel_text, public_info_text, situation_text, transcript_text
 
 log = logging.getLogger("frontdesk.caller")
 
@@ -31,6 +31,8 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
     return llm.render_prompt(
         "con_caller",
         claims=call.claims,
+        con_goal=scenario_of(state).con_goal,
+        situation=situation_text(state, insider=True),
         persona_name=plan.persona_name,
         pretext=plan.pretext,
         tactic_name=tactic.name if tactic else plan.tactic,
@@ -45,7 +47,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
     )
 
 
-def _legit_prompt(call: CallRecord, system_note: str) -> str:
+def _legit_prompt(state: GameState, call: CallRecord, system_note: str) -> str:
     data = legit_call_by_id(call.legit_id)
     assert data is not None
     return llm.render_prompt(
@@ -57,6 +59,7 @@ def _legit_prompt(call: CallRecord, system_note: str) -> str:
         knows=data.knows,
         temptation=data.temptation,
         success=data.success,
+        situation=situation_text(state, insider=False),
         patience=_effective_patience(call),
         system_note=system_note,
         transcript=transcript_text(call),
@@ -65,7 +68,7 @@ def _legit_prompt(call: CallRecord, system_note: str) -> str:
 
 def take_turn(state: GameState, call: CallRecord, world: World, system_note: str = "") -> CallerTurn:
     """The caller's next line. Never raises for LLM failures; returns the spec's fallback instead."""
-    system = _con_prompt(state, call, world, system_note) if call.is_con else _legit_prompt(call, system_note)
+    system = _con_prompt(state, call, world, system_note) if call.is_con else _legit_prompt(state, call, system_note)
     try:
         return llm.complete_json("caller", system, llm.USER_TURN, CallerTurn, state.game_id)  # type: ignore[return-value]
     except llm.LLMError as exc:

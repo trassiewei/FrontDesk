@@ -5,8 +5,8 @@ import logging
 
 from .. import config, llm, rules
 from ..models import GameState, PlannedCall, PlannerResult, World
-from ..world import load_tactics, non_public_facts
-from .common import fact_lines, intel_text, public_info_text
+from ..world import employee_by_id, fact_by_id, load_tactics, non_public_facts, scenario_of
+from .common import fact_lines, incident_plan_text, intel_text, public_info_text
 
 log = logging.getLogger("frontdesk.planner")
 
@@ -41,14 +41,42 @@ def history_text(state: GameState) -> str:
     return "\n".join(lines) if lines else "none yet"
 
 
+def _doors_text(state: GameState, world: World) -> str:
+    threshold = config.get_difficulty(state.difficulty).breach_threshold
+    lines = []
+    for door in scenario_of(state).doors:
+        emp = employee_by_id(world, door.employee_id)
+        if emp:
+            lines.append(f"  - {emp.name} ({door.employee_id}, {emp.title}): credibility >= {threshold + door.bonus}")
+    return "\n".join(lines)
+
+
+def _offstage_rule(state: GameState, world: World) -> str:
+    fact = fact_by_id(world, scenario_of(state).offstage_fact or "")
+    if fact is None:
+        return "There is no way around the receptionist: you need a transfer."
+    return (
+        f"If you know {fact.id} ({fact.description}), you can also try the first person directly after hours "
+        "(set attempt_breach_offstage = true) — then the receptionist is not needed."
+    )
+
+
 def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     """Cleaned plan for `day`, based on everything learned so far. Falls back to a fixed call on failure."""
     diff = config.get_difficulty(state.difficulty)
     tactics = load_tactics()
     unknown = [f for f in non_public_facts(world) if f.id not in state.intel]
+    scenario = scenario_of(state)
     system = llm.render_prompt(
         "planner",
-        threshold=diff.breach_threshold,
+        premise=scenario.premise,
+        con_goal=scenario.con_goal,
+        gate_facts=", ".join(
+            f"{g} ({fact.description})" for g in scenario.gate_facts if (fact := fact_by_id(world, g))
+        ),
+        doors=_doors_text(state, world),
+        offstage_rule=_offstage_rule(state, world),
+        incident_note=incident_plan_text(state, day),
         credibility=rules.credibility(state.intel, world.facts),
         it_alert="yes" if state.it_alert else "no",
         public_info=public_info_text(world),

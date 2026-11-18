@@ -222,14 +222,17 @@ def test_fake_llm_goes_through_validation_and_logging(fake_llm):
 
 EXPECTED_VARS = {
     "con_caller": {"claims", "persona_name", "pretext", "tactic_name", "tactic_description", "target_descriptions",
-                   "skill_note", "public_info", "intel", "patience", "system_note", "transcript"},
+                   "skill_note", "public_info", "intel", "patience", "system_note", "transcript", "con_goal", "situation"},
     "legit_caller": {"caller_name", "claims", "personality", "goal", "knows", "temptation", "success",
-                     "patience", "system_note", "transcript"},
+                     "patience", "system_note", "transcript", "situation"},
     "extractor": {"facts", "caller_line", "player_message"},
-    "planner": {"threshold", "credibility", "it_alert", "public_info", "unknown_facts", "intel", "tactics",
-                "history", "burned", "last_notebook", "skill_note", "day", "max_calls"},
+    "planner": {"premise", "con_goal", "gate_facts", "doors", "offstage_rule", "incident_note", "credibility",
+                "it_alert", "public_info", "unknown_facts", "intel", "tactics", "history", "burned", "last_notebook",
+                "skill_note", "day", "max_calls"},
+    "director": {"company", "employees", "facts", "threshold", "angle", "incident_rule", "example"},
     "reporter": {"player_name", "outcome", "security", "security_label", "service", "service_label",
-                 "title_badge", "stats", "call_log", "intel_timeline", "overshares", "notebooks"},
+                 "title_badge", "stats", "call_log", "intel_timeline", "overshares", "notebooks", "scenario",
+                 "notices"},
 }
 
 

@@ -441,11 +441,11 @@ def test_full_game_breached_by_transfer_to_helpdesk(fake):
     engine.start_day(state)
     take_con(state)
     assert set(state.intel) == {"cfo_on_leave", "erp_name", "it_lead_name", "cfo_backup_name"}
-    assert summary.scores(state)["security"] == 80
+    assert summary.scores(state)["security"] == 70  # day-2 leaks cost double after the day-1 leak triggered an audit
     out = engine.transfer(state, "E05")
     assert out["game_over"] and state.outcome == "breached" and state.breach_method == "transfer"
     assert state.phase == "GAME_OVER" and "Paul's inbox" in out["cutscene"]
-    assert state.security == 40 and state.breach_time.startswith("Wednesday, Nov 18")
+    assert state.security == 26 and state.breach_time  # 70 - 40 breach - 4 unverified IT transfer (day-3 policy).startswith("Wednesday, Nov 18")
     with pytest.raises(EngineError):
         engine.next_call(state)
 

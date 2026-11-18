@@ -56,7 +56,6 @@ class Fact(BaseModel):
     value: str
     patterns: list[str] = Field(default_factory=list)
     points: int = 0
-    gate: bool = False
 
 
 class World(BaseModel):
@@ -130,9 +129,69 @@ class PlannerResult(BaseModel):
     attempt_breach_offstage: bool = False
 
 
+class IncidentDraft(BaseModel):
+    day: int = 0
+    title: str = ""
+    announcement: str = ""
+    method: str = ""
+
+
+class ScenarioResult(BaseModel):
+    """What the director role returns. Cleaned into a Scenario by rules.clean_scenario."""
+
+    title: str = ""
+    premise: str = ""
+    con_goal: str = ""
+    gate_facts: list[str] = Field(default_factory=list)
+    doors: list[str] = Field(default_factory=list)
+    offstage_fact: str | None = None
+    incident: IncidentDraft | None = None
+    cutscenes: dict[str, str] = Field(default_factory=dict)
+
+
 class ReportResult(BaseModel):
     title: str
     markdown: str
+
+
+# ---------------------------------------------------------------- scenario (the con's plot for one game)
+
+
+class Door(BaseModel):
+    employee_id: str
+    bonus: int = 0  # extra credibility needed for a transfer to this person to count as a breach
+
+
+class Incident(BaseModel):
+    """A fault the con artist staged. Players see `announcement`; `method` is only revealed after the game."""
+
+    day: int
+    title: str
+    announcement: str
+    method: str
+
+
+class Scenario(BaseModel):
+    id: str = "custom"
+    source: Literal["preset", "director"] = "preset"
+    title: str
+    premise: str
+    con_goal: str
+    gate_facts: list[str]  # facts the con must know before any breach
+    doors: list[Door]  # transfer targets that give the con what it wants
+    offstage_fact: str | None = None  # knowing this lets the con reach IT without the receptionist
+    incident: Incident | None = None
+    cutscenes: dict[str, str]  # keyed by outcome
+
+
+class Notice(BaseModel):
+    """An item on the company bulletin shown to the player: a policy update or an incident notice."""
+
+    day: int
+    kind: Literal["policy", "incident"]
+    id: str
+    title: str
+    text: str
 
 
 # ---------------------------------------------------------------- game state
@@ -210,6 +269,8 @@ class GameState(BaseModel):
     planned: dict[int, PlannerResult] = Field(default_factory=dict)  # day -> cleaned planner output
     burned_identities: list[str] = Field(default_factory=list)
     it_alert: bool = False
+    scenario: Scenario | None = None  # None only in hand-built test states; use world.scenario_of(state)
+    notices: list[Notice] = Field(default_factory=list)
 
     security: int = 100
     service_penalty: int = 0

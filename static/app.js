@@ -36,6 +36,7 @@ const G = {
   busy: false,
   pending: null, // "say" | "callback" while waiting for the caller
   menu: null, // "callback" | "transfer"
+  confirmTransfer: null, // employee id awaiting a second click
   draft: "",
 };
 
@@ -140,6 +141,7 @@ function renderStart() {
     $("#start-footer").replaceChildren(...ui.footer.flatMap((line, i) => (i ? [el("br"), line] : [line])));
   }
   $("#start-button").disabled = G.busy;
+  $("#start-button").textContent = G.busy ? "Preparing today's calls… (this can take a few seconds)" : "Start your shift";
 }
 
 function renderTopbar() {
@@ -170,8 +172,16 @@ function briefingView() {
     el("h2", {}, G.state.day_name),
     el("div", { class: "from" }, b.sender),
     el("div", { class: "body" }, b.text),
+    ...(b.notices || []).map(noticeBox),
     el("div", { class: "row" },
       el("button", { class: "primary big", disabled: G.busy, onclick: () => run(startDay) }, "Start the day")));
+}
+
+function noticeBox(n) {
+  return el("div", { class: `bulletin-item ${n.kind}` },
+    el("div", { class: "bulletin-head" }, n.header),
+    el("b", {}, n.title),
+    el("div", {}, n.text));
 }
 
 function summaryView() {
@@ -252,7 +262,7 @@ function menuButton(name, label, build) {
   const wrap = el("div", { class: "menu-wrap" },
     el("button", {
       disabled: G.busy,
-      onclick: (event) => { event.stopPropagation(); G.menu = G.menu === name ? null : name; render(); },
+      onclick: (event) => { event.stopPropagation(); G.menu = G.menu === name ? null : name; G.confirmTransfer = null; render(); },
     }, label));
   if (G.menu === name) wrap.append(build());
   return wrap;
@@ -275,8 +285,16 @@ function callbackMenu() {
 
 function transferMenu() {
   const menu = el("div", { class: "menu" });
+  if (G.confirmTransfer) {
+    const target = G.world.employees.find((e) => e.id === G.confirmTransfer);
+    menu.append(el("div", { class: "group" }, "This cannot be undone"),
+      el("div", { class: "confirm-text" }, `Transfer this caller to ${target ? target.name : "them"}?`),
+      el("button", { class: "confirm-yes", onclick: () => { const id = G.confirmTransfer; G.confirmTransfer = null; pick(() => transferTo(id)); } }, "Yes, transfer"),
+      el("button", { onclick: (event) => { event.stopPropagation(); G.confirmTransfer = null; render(); } }, "Back"));
+    return menu;
+  }
   for (const e of G.world.employees) {
-    menu.append(el("button", { onclick: () => pick(() => transferTo(e.id)) },
+    menu.append(el("button", { onclick: (event) => { event.stopPropagation(); G.confirmTransfer = e.id; render(); } },
       el("span", { class: "num" }, e.dept), `${e.name} — ${e.title}`));
   }
   return menu;
@@ -287,8 +305,9 @@ function pick(task) {
   run(task);
 }
 
-document.addEventListener("click", () => { if (G.menu) { G.menu = null; render(); } });
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && G.menu) { G.menu = null; render(); } });
+function closeMenu() { G.menu = null; G.confirmTransfer = null; render(); }
+document.addEventListener("click", () => { if (G.menu) closeMenu(); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape" && G.menu) closeMenu(); });
 
 // ------------------------------------------------------------------ side tabs
 
@@ -313,7 +332,19 @@ function renderTabs() {
     el("h3", {}, "Sticky notes"), ...w.sticky_notes.map((n) => el("div", { class: "sticky" }, n)),
     el("h3", {}, "Internal notes"), el("ul", { class: "internal" }, w.internal_notes.map((n) => el("li", {}, n))));
   const level = G.state ? G.state.difficulty : "normal";
-  $("#tab-policy").replaceChildren(el("div", { class: "policy" }, w.policies[level] || w.policies.normal));
+  const bulletin = (G.state && G.state.bulletin) || [];
+  const policyTab = [];
+  if (bulletin.length) {
+    policyTab.push(el("h3", {}, "Bulletin"));
+    for (const n of [...bulletin].reverse()) {
+      policyTab.push(el("div", { class: `bulletin-item ${n.kind}` },
+        el("div", { class: "bulletin-head" }, `Day ${n.day} · ${n.kind === "policy" ? "Policy update" : "Heads up"}`),
+        el("b", {}, n.title), el("div", {}, n.text)));
+    }
+    policyTab.push(el("h3", {}, "Standing policy"));
+  }
+  policyTab.push(el("div", { class: "policy" }, w.policies[level] || w.policies.normal));
+  $("#tab-policy").replaceChildren(...policyTab);
 }
 
 function setupTabs() {
@@ -340,7 +371,7 @@ async function startNewGame(name, difficulty) {
   G.id = data.game_id;
   remember(G.id);
   Object.assign(G, { briefing: data.briefing, summary: null, transcript: [], endedLog: null, notice: "",
-    cutscene: null, report: null, reportError: null, draft: "" });
+    cutscene: null, report: null, reportError: null, draft: "", menu: null, confirmTransfer: null });
   G.state = data.state;
 }
 
@@ -462,6 +493,16 @@ function renderEnd() {
   report.innerHTML = r.html;
   parts.push(fade(report));
 
+  if (r.scenario) {
+    const sc = r.scenario;
+    parts.push(fade(el("h2", { class: "section-title" }, "What was really going on")));
+    parts.push(fade(el("div", { class: "reveal" },
+      el("b", {}, sc.title),
+      el("p", {}, sc.premise),
+      el("p", {}, el("span", { class: "label" }, "Their goal: "), sc.con_goal),
+      sc.incident ? el("p", {}, el("span", { class: "label" }, `The ${sc.incident.title.toLowerCase()} (${sc.incident.day_name}): `), sc.incident.method) : null)));
+  }
+
   parts.push(fade(el("h2", { class: "section-title" }, "The con artist's notebook")));
   for (const [day, text] of Object.entries(r.notebooks)) {
     parts.push(fade(el("div", { class: "notebook-page" }, el("h4", {}, `Day ${day}`), text)));
@@ -515,7 +556,7 @@ async function loadReport() {
 function playAgain() {
   remember(null);
   Object.assign(G, { id: null, state: null, briefing: null, summary: null, transcript: [], endedLog: null,
-    notice: "", cutscene: null, report: null, reportError: null, draft: "" });
+    notice: "", cutscene: null, report: null, reportError: null, draft: "", menu: null, confirmTransfer: null });
   window.scrollTo(0, 0);
   render();
 }

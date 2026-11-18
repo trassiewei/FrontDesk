@@ -13,8 +13,18 @@ from concurrent.futures import ThreadPoolExecutor
 import markdown as markdown_lib
 
 from . import config, rules, summary
-from .models import CallerTurn, CallRecord, ExtractorResult, GameState, IntelRecord, Message, PlannerResult, World
-from .roles import caller, extractor, planner, reporter
+from .models import (
+    CallerTurn,
+    CallRecord,
+    ExtractorResult,
+    GameState,
+    IntelRecord,
+    Message,
+    Notice,
+    PlannerResult,
+    World,
+)
+from .roles import caller, director, extractor, planner, reporter
 from .world import (
     employee_by_id,
     legit_call_by_id,
@@ -22,6 +32,7 @@ from .world import (
     load_story,
     load_world,
     name_of,
+    scenario_of,
     vendor_by_id,
 )
 
@@ -67,7 +78,11 @@ def _add_references(call: CallRecord, text: str, world: World) -> None:
 
 
 def cutscene(state: GameState) -> str | None:
-    return load_story()["cutscenes"][state.outcome] if state.game_over and state.outcome else None
+    return scenario_of(state).cutscenes[state.outcome] if state.game_over and state.outcome else None
+
+
+def effects(state: GameState) -> rules.Effects:
+    return rules.effects_for(n.id for n in state.notices if n.kind == "policy")
 
 
 def policy_text(level: str) -> str:
@@ -83,19 +98,50 @@ def briefing(state: GameState) -> dict:
     story = load_story()
     warning = story["day2_phishing_warning"] if _diff(state).day2_phishing_warning else ""
     text = story["briefings"][str(state.day)].format(name=state.player_name, phishing_warning=warning)
-    return {"sender": story["briefing_sender"], "text": text}
+    notices = [
+        {"kind": n.kind, "header": story["bulletin_header"][n.kind], "title": n.title, "text": n.text}
+        for n in state.notices
+        if n.day == state.day
+    ]
+    return {"sender": story["briefing_sender"], "text": text, "notices": notices}
+
+
+def _add_notices(state: GameState, day: int) -> None:
+    """Announce today's incident and (from day 2) one new policy that reacts to what just happened."""
+    if any(n.day == day for n in state.notices):
+        return
+    scenario = scenario_of(state)
+    if rules.incident_active(scenario, day):
+        incident = scenario.incident
+        assert incident is not None
+        state.notices.append(Notice(day=day, kind="incident", id="incident", title=incident.title, text=incident.announcement))
+    yesterday = [c for c in state.calls if c.day == day - 1]
+    policy_id = rules.pick_policy_update(
+        day,
+        [n.id for n in state.notices if n.kind == "policy"],
+        leaked_yesterday=any(c.is_con and c.gained_facts for c in yesterday),
+        exposed_yesterday=any(c.is_con and c.result == "exposed" for c in yesterday),
+        incident_today=rules.incident_active(scenario, day),
+    )
+    if policy_id:
+        update = load_story()["policy_updates"][policy_id]
+        state.notices.append(Notice(day=day, kind="policy", id=policy_id, title=update["title"], text=update["text"]))
 
 
 # ------------------------------------------------------------------ game and day setup
 
 
-def new_game(player_name: str, difficulty: str, seed: int | None = None) -> GameState:
+def new_game(player_name: str, difficulty: str, seed: int | None = None, scenario_id: str | None = None) -> GameState:
     try:
         diff = config.get_difficulty((difficulty or "normal").lower())
     except ValueError as exc:
         raise EngineError(str(exc), 422) from exc
     name = (player_name or "").strip()[:30] or "Jordan"
     state = GameState(game_id=uuid.uuid4().hex[:12], player_name=name, difficulty=diff.name, seed=seed)
+    try:
+        state.scenario = director.design(state.game_id, load_world(), diff.name, _rng(state, "scenario"), scenario_id)
+    except ValueError as exc:
+        raise EngineError(str(exc), 422) from exc
     _enter_day(state, 1)
     return state
 
@@ -107,6 +153,7 @@ def _enter_day(state: GameState, day: int) -> None:
     state.planned[day] = plan
     state.notebooks[day] = plan.notebook
     state.day = day
+    _add_notices(state, day)
     state.queue = _build_queue(state, plan, world)
     state.last_call_id = None
     state.phase = "DAY_BRIEFING"
@@ -291,7 +338,7 @@ def _apply_leaks(state: GameState, call: CallRecord, msg: Message, extracted: Ex
         for fact_id in rules.new_leak_ids(merged, state.intel):
             state.intel[fact_id] = record(fact_id)
             call.gained_facts.append(fact_id)
-            state.security = rules.apply_security_delta(state.security, -rules.leak_penalty(facts[fact_id]))
+            state.security = rules.apply_security_delta(state.security, -rules.leak_penalty(facts[fact_id], effects(state).leak_multiplier))
     else:
         for fact_id in merged:
             state.overshares.append(record(fact_id))
@@ -303,11 +350,12 @@ def callback(state: GameState, target_id: str) -> dict:
     world = load_world()
     if employee_by_id(world, target_id) is None and vendor_by_id(world, target_id) is None:
         raise EngineError("Unknown directory entry.", 422)
-    result = rules.callback(call, target_id, world)
+    scenario = scenario_of(state)
+    result = rules.callback(call, target_id, world, it_busy=rules.incident_active(scenario, state.day))
     call.callbacks.append(target_id)
     state.callbacks_made += 1
     call.messages.append(Message(speaker="system", text=result.text, time=call.time))
-    call.patience -= config.CALLBACK_PATIENCE_COST
+    call.patience -= effects(state).callback_cost
 
     out = {"callback_result": result.text, "caller_reply": None, "call_ended": False, "end_reason": None,
            "game_over": False, "cutscene": None, "debug": {}}
@@ -350,14 +398,20 @@ def transfer(state: GameState, target_id: str) -> dict:
         raise EngineError("You can only transfer calls to employees.", 422)
     diff = _diff(state)
     result = rules.transfer(
-        call, target_id, world=world, intel=state.intel, it_alert=state.it_alert, threshold=diff.breach_threshold
+        call, target_id, world=world, intel=state.intel, it_alert=state.it_alert, threshold=diff.breach_threshold,
+        scenario=scenario_of(state),
     )
-    call.messages.append(Message(speaker="system", text=result.text, time=call.time))
+    text = result.text
+    penalty = effects(state).it_transfer_penalty
+    if penalty and employee_by_id(world, target_id).dept == "IT" and not call.callbacks:  # type: ignore[union-attr]
+        state.security = rules.apply_security_delta(state.security, -penalty)
+        text += f" (Policy: an unverified transfer to IT was logged. −{penalty} Security.)"
+    call.messages.append(Message(speaker="system", text=text, time=call.time))
     state.it_alert = state.it_alert or result.it_alert
     _finish(state, call, "transferred", result.result, satisfied=result.satisfied)
     if result.breached:
         _breach(state, "transfer", call.time)
-    return {"result_text": result.text, "call_ended": True, "end_reason": "transferred",
+    return {"result_text": text, "call_ended": True, "end_reason": "transferred",
             "game_over": state.game_over, "cutscene": cutscene(state)}
 
 
@@ -409,8 +463,9 @@ def end_day(state: GameState) -> dict:
     day = state.day
     plan = state.planned.get(day)
 
-    if plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(state.intel):
-        if rules.check_breach(state.intel, diff.breach_threshold, state.it_alert, world.facts):
+    scenario = scenario_of(state)
+    if plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(state.intel, scenario.offstage_fact):
+        if rules.check_breach(state.intel, diff.breach_threshold, state.it_alert, world.facts, scenario.gate_facts):
             _breach(state, "offstage", "after hours")
         else:
             state.it_alert = True
@@ -433,6 +488,15 @@ def end_day(state: GameState) -> dict:
 # ------------------------------------------------------------------ report and export
 
 
+def _scenario_reveal(state: GameState) -> dict:
+    sc = scenario_of(state)
+    incident = None
+    if sc.incident:
+        incident = {"day": sc.incident.day, "day_name": config.DAY_NAMES[sc.incident.day - 1],
+                    "title": sc.incident.title, "method": sc.incident.method}
+    return {"title": sc.title, "premise": sc.premise, "con_goal": sc.con_goal, "incident": incident}
+
+
 def get_report(state: GameState) -> dict:
     if not state.game_over:
         raise EngineError("The report is only available after the game ends.", 403)
@@ -453,6 +517,7 @@ def get_report(state: GameState) -> dict:
             "title_badge": s["title_badge"],
             "outcome": state.outcome,
             "stats": summary.stats(state),
+            "scenario": _scenario_reveal(state),
         }
     return state.report
 

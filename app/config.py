@@ -29,7 +29,11 @@ CALLBACK_PATIENCE_COST = 3
 CON_PATIENCE = 10
 BREACH_THRESHOLD = 6
 IT_ALERT_THRESHOLD_BONUS = 2
-TRANSFER_TO_IT_LEAD_BONUS = 2
+SECONDARY_DOOR_BONUS = 2  # every door after the first needs this many extra credibility points
+INCIDENT_DAYS = (2, 3)
+INCIDENT_CHANCE = 0.6  # chance that the director is asked to stage an incident
+PENALTY_UNVERIFIED_IT_TRANSFER = 4
+CALLBACK_PATIENCE_COST_FAST = 2
 EXPOSURES_TO_GIVE_UP = 2
 PENALTY_INTERNAL = 5
 PENALTY_CONFIDENTIAL = 15
@@ -39,8 +43,6 @@ BONUS_CORRECT_FLAG = 5
 PENALTY_FALSE_FLAG_SERVICE = 5
 SERVICE_ANGRY_HANGUP_PENALTY = 10
 
-HELPDESK_ID = "E05"
-IT_LEAD_ID = "E04"
 LLM_LEAK_MIN_CONFIDENCE = 0.5
 IMPATIENT_PATIENCE = 3
 PATIENCE_EXHAUSTED_LINE = "Forget it, I'll try another way."
@@ -84,12 +86,13 @@ def get_difficulty(name: str) -> Difficulty:
 
 
 # ---- LLM parameters per role (spec §3.3) ----
-ROLES = ("caller", "extractor", "planner", "reporter")
+ROLES = ("caller", "extractor", "planner", "reporter", "director")
 ROLE_PARAMS: dict[str, dict] = {
     "caller": {"tier": "fast", "temperature": 0.9, "max_tokens": 400},
     "extractor": {"tier": "fast", "temperature": 0.0, "max_tokens": 600},
     "planner": {"tier": "smart", "temperature": 0.7, "max_tokens": 1500},
     "reporter": {"tier": "smart", "temperature": 0.6, "max_tokens": 2500},
+    "director": {"tier": "smart", "temperature": 1.0, "max_tokens": 1800},
 }
 
 

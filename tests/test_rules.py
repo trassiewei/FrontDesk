@@ -6,7 +6,10 @@ import pytest
 
 from app import config, rules
 from app.models import Leak, PlannedCall, PlannerResult
-from app.world import load_legit_calls, load_tactics
+from app.world import load_legit_calls, load_scenarios, load_tactics
+
+SCENARIO = load_scenarios()[0]
+GATE = SCENARIO.gate_facts
 
 # Intel sets used by several tests. Points: erp_name 2, it_lead_name 2, cfo_backup_name 2, helpdesk_ext 1.
 SIX = {"cfo_on_leave", "erp_name", "it_lead_name", "cfo_backup_name"}  # credibility 6
@@ -36,22 +39,23 @@ def test_credibility_sums_points(world):
 def test_breach_requires_gate_even_with_enough_points(world):
     intel = {"erp_name", "it_lead_name", "cfo_backup_name", "cfo_employee_id"}  # 10 points, no cfo_on_leave
     assert rules.credibility(intel, world.facts) >= 6
-    assert rules.check_breach(intel, 6, False, world.facts) is False
+    assert rules.check_breach(intel, 6, False, world.facts, GATE) is False
 
 
 def test_breach_exactly_at_threshold_succeeds(world):
-    assert rules.check_breach(SIX, 6, False, world.facts) is True
-    assert rules.check_breach(SIX - {"erp_name"}, 6, False, world.facts) is False
+    assert rules.check_breach(SIX, 6, False, world.facts, GATE) is True
+    assert rules.check_breach(SIX - {"erp_name"}, 6, False, world.facts, GATE) is False
 
 
 def test_it_alert_raises_threshold_by_two(world):
-    assert rules.check_breach(SIX, 6, True, world.facts) is False
-    assert rules.check_breach(EIGHT, 6, True, world.facts) is True
+    assert rules.check_breach(SIX, 6, True, world.facts, GATE) is False
+    assert rules.check_breach(EIGHT, 6, True, world.facts, GATE) is True
 
 
 def test_offstage_needs_helpdesk_ext():
-    assert rules.can_attempt_offstage({"helpdesk_ext"})
-    assert not rules.can_attempt_offstage({"cfo_on_leave"})
+    assert rules.can_attempt_offstage({"helpdesk_ext"}, "helpdesk_ext")
+    assert not rules.can_attempt_offstage({"cfo_on_leave"}, "helpdesk_ext")
+    assert not rules.can_attempt_offstage({"helpdesk_ext"}, None)
 
 
 # ------------------------------------------------------------------ callback
@@ -122,32 +126,32 @@ def test_callback_unknown_target_raises(world, make_call):
 
 def test_transfer_con_to_helpdesk_breaches_at_threshold(world, make_call):
     call = make_call()
-    result = rules.transfer(call, "E05", world=world, intel=SIX, it_alert=False, threshold=6)
+    result = rules.transfer(call, "E05", world=world, intel=SIX, it_alert=False, threshold=6, scenario=SCENARIO)
     assert result.breached and result.result == "breached"
     assert result.text == "Call transferred to Tom Becker."
 
 
 def test_transfer_con_to_helpdesk_without_enough_intel_alerts_it(world, make_call):
-    result = rules.transfer(make_call(), "E05", world=world, intel={"cfo_on_leave"}, it_alert=False, threshold=6)
+    result = rules.transfer(make_call(), "E05", world=world, intel={"cfo_on_leave"}, it_alert=False, threshold=6, scenario=SCENARIO)
     assert not result.breached and result.it_alert and result.result == "refused_by_it"
 
 
 def test_transfer_con_to_it_lead_needs_two_more_points(world, make_call):
     call = make_call()
-    assert rules.transfer(call, "E05", world=world, intel=SIX, it_alert=False, threshold=6).breached
-    assert not rules.transfer(call, "E04", world=world, intel=SIX, it_alert=False, threshold=6).breached
-    assert rules.transfer(call, "E04", world=world, intel=EIGHT, it_alert=False, threshold=6).breached
+    assert rules.transfer(call, "E05", world=world, intel=SIX, it_alert=False, threshold=6, scenario=SCENARIO).breached
+    assert not rules.transfer(call, "E04", world=world, intel=SIX, it_alert=False, threshold=6, scenario=SCENARIO).breached
+    assert rules.transfer(call, "E04", world=world, intel=EIGHT, it_alert=False, threshold=6, scenario=SCENARIO).breached
 
 
 def test_transfer_con_elsewhere_gets_nothing(world, make_call):
-    result = rules.transfer(make_call(), "E09", world=world, intel=EIGHT, it_alert=False, threshold=6)
+    result = rules.transfer(make_call(), "E09", world=world, intel=EIGHT, it_alert=False, threshold=6, scenario=SCENARIO)
     assert result.result == "transferred_away" and not result.breached and not result.it_alert
 
 
 def test_transfer_legit_satisfaction(world, make_call):
     call = legit("L1", make_call)  # accepts E02, E03
-    good = rules.transfer(call, "E02", world=world, intel=set(), it_alert=False, threshold=6)
-    bad = rules.transfer(call, "E12", world=world, intel=set(), it_alert=False, threshold=6)
+    good = rules.transfer(call, "E02", world=world, intel=set(), it_alert=False, threshold=6, scenario=SCENARIO)
+    bad = rules.transfer(call, "E12", world=world, intel=set(), it_alert=False, threshold=6, scenario=SCENARIO)
     assert good.satisfied is True and bad.satisfied is False
     assert good.text == "Call transferred to Paul Nguyen."
 

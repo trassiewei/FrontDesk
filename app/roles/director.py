@@ -1,0 +1,84 @@
+"""Director role: designs the con's scenario for one game. Falls back to the default preset on any failure."""
+from __future__ import annotations
+
+import json
+import logging
+import random
+
+from .. import config, llm, rules
+from ..models import Scenario, ScenarioResult, World
+from ..world import load_scenarios
+
+log = logging.getLogger("frontdesk.director")
+
+ANGLES = [
+    "business email compromise: take over an executive's mailbox to order a fake payment",
+    "a fake contractor or vendor technician who needs remote access or credentials",
+    "diverting somebody's salary or a supplier payment to the crew's bank account",
+    "getting a password reset or new access card for a senior person who is hard to reach",
+    "stealing the customer list or pricing data for a competitor, through a believable insider",
+    "planting a malicious device or link by posing as an IT or facilities visitor-in-waiting",
+]
+
+
+def _employees_text(world: World) -> str:
+    return "\n".join(
+        f"{e.id} | {e.name} | {e.title} | {e.dept} | {'yes' if e.available else 'no — ' + e.status}"
+        for e in world.employees
+    )
+
+
+def _facts_text(world: World) -> str:
+    return "\n".join(
+        f"{f.id} | {f.tier} | {f.description} | {f.value} | {f.points}" for f in world.facts
+    )
+
+
+def _incident_rule(day: int | None) -> str:
+    if day is None:
+        return "No incident this game: set \"incident\" to null."
+    return (
+        f"Include an incident on day {day} of 3: something the con artist secretly caused (an outage, a lockout…) "
+        "so that IT is swamped and people are easier to fool. Fill in the \"incident\" object (its day is fixed by the game)."
+    )
+
+
+def design(game_id: str, world: World, difficulty: str, rng: random.Random, preset_id: str | None = None) -> Scenario:
+    """The scenario for a new game. `preset_id` forces one of the data/scenarios.json presets (no LLM call)."""
+    presets = load_scenarios()
+    if preset_id is not None:
+        found = next((p for p in presets if p.id == preset_id), None)
+        if found is None:
+            raise ValueError(f"Unknown scenario: {preset_id!r}")
+        return found
+    fallback = presets[0]
+    incident_day = rules.incident_chance_roll(rng)
+    example = presets[1]
+    system = llm.render_prompt(
+        "director",
+        company=f"{world.company.name} — {world.company.tagline}; {world.company.headcount} staff; departments: "
+                f"{', '.join(world.company.departments)}",
+        employees=_employees_text(world),
+        facts=_facts_text(world),
+        threshold=config.get_difficulty(difficulty).breach_threshold,
+        angle=rng.choice(ANGLES),
+        incident_rule=_incident_rule(incident_day),
+        example=json.dumps(
+            {
+                "title": example.title, "premise": example.premise, "con_goal": example.con_goal,
+                "gate_facts": example.gate_facts, "doors": [d.employee_id for d in example.doors],
+                "offstage_fact": example.offstage_fact, "incident": example.incident.model_dump() if example.incident else None,
+                "cutscenes": example.cutscenes,
+            },
+            ensure_ascii=False,
+        ),
+    )
+    try:
+        draft = llm.complete_json("director", system, llm.USER_TURN, ScenarioResult, game_id)
+    except llm.LLMError as exc:
+        log.warning("Director LLM failed, using the default scenario: %s", exc)
+        return fallback
+    scenario = rules.clean_scenario(draft, world=world, fallback=fallback, incident_day=incident_day)  # type: ignore[arg-type]
+    if scenario is fallback:
+        log.warning("Director output was unusable, using the default scenario.")
+    return scenario

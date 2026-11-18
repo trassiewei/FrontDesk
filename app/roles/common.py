@@ -1,7 +1,9 @@
 """Prompt-building helpers shared by the four LLM roles."""
 from __future__ import annotations
 
+from .. import rules
 from ..models import CallRecord, Fact, GameState, World
+from ..world import scenario_of
 
 
 def transcript_text(call: CallRecord) -> str:
@@ -49,3 +51,29 @@ def fact_lines(facts: list[Fact], *, with_value: bool, with_points: bool = False
             parts.append(str(f.points))
         out.append(" | ".join(parts))
     return "\n".join(out)
+
+
+def situation_text(state: GameState, *, insider: bool) -> str:
+    """One prompt line about today's company incident ('' when there is none). `insider` = the con artist's view."""
+    scenario = scenario_of(state)
+    if not rules.incident_active(scenario, state.day):
+        return ""
+    incident = scenario.incident
+    assert incident is not None
+    line = f"- Today at the company: {incident.announcement}"
+    if insider:
+        line += f" (Your crew secretly caused this: {incident.method} You may use it as cover.)"
+    return line
+
+
+def incident_plan_text(state: GameState, day: int) -> str:
+    """The planner's briefing about the incident its crew stages ('' when the scenario has none)."""
+    incident = scenario_of(state).incident
+    if incident is None:
+        return ""
+    when = "TODAY" if incident.day == day else f"on day {incident.day}" if incident.day > day else f"on day {incident.day} (already happened)"
+    return (
+        f"SECRET INCIDENT: your crew causes this {when}: {incident.title} — {incident.method} "
+        f"Staff will be told: \"{incident.announcement}\" While it lasts, nobody in the IT department can take a "
+        "verification callback. Use it as a pretext on that day (for example by posing as someone who is helping fix it)."
+    )

@@ -12,7 +12,19 @@ from functools import lru_cache
 from typing import Iterable
 
 from . import config
-from .models import CallRecord, Fact, LegitCall, Leak, PlannedCall, PlannerResult, World
+from .models import (
+    CallRecord,
+    Door,
+    Fact,
+    Incident,
+    LegitCall,
+    Leak,
+    PlannedCall,
+    PlannerResult,
+    Scenario,
+    ScenarioResult,
+    World,
+)
 from .world import employee_by_id, legit_call_by_id, load_legit_calls, name_of, vendor_by_id
 
 # ------------------------------------------------------------------ texts shown to the player
@@ -27,6 +39,7 @@ CALLBACK_EXPOSED = "{speaker}: 'No, I didn't call — and I didn't send anyone. 
 CALLBACK_SELF = "{speaker}: 'Yes, that was me calling. Put me back through.'"
 CALLBACK_LEGIT = "{speaker}: 'Yes, that's legit.'"
 CALLBACK_UNKNOWN = "{speaker}: 'Sorry, I don't know anything about that call.'"
+CALLBACK_BUSY = "{speaker}: 'I can't talk — the outage has the whole floor on fire. Is it urgent? Call me later.'"
 
 # ------------------------------------------------------------------ pattern matching (spec §5.2)
 
@@ -98,15 +111,21 @@ def effective_threshold(threshold: int, it_alert: bool) -> int:
     return threshold + (config.IT_ALERT_THRESHOLD_BONUS if it_alert else 0)
 
 
-def check_breach(intel: Iterable[str], threshold: int, it_alert: bool, facts: list[Fact]) -> bool:
+def check_breach(
+    intel: Iterable[str], threshold: int, it_alert: bool, facts: list[Fact], gate_facts: Iterable[str]
+) -> bool:
     known = set(intel)
-    if any(f.gate and f.id not in known for f in facts):
+    if any(g not in known for g in gate_facts):
         return False
     return credibility(known, facts) >= effective_threshold(threshold, it_alert)
 
 
-def can_attempt_offstage(intel: Iterable[str]) -> bool:
-    return "helpdesk_ext" in set(intel)
+def can_attempt_offstage(intel: Iterable[str], offstage_fact: str | None) -> bool:
+    return offstage_fact is not None and offstage_fact in set(intel)
+
+
+def door_for(scenario: Scenario, employee_id: str) -> Door | None:
+    return next((d for d in scenario.doors if d.employee_id == employee_id), None)
 
 
 # ------------------------------------------------------------------ callback (spec §7.2)
@@ -115,7 +134,7 @@ def can_attempt_offstage(intel: Iterable[str]) -> bool:
 @dataclass(frozen=True)
 class CallbackResult:
     text: str
-    kind: str  # "voicemail" | "exposed" | "confirmed" | "unknown"
+    kind: str  # "voicemail" | "busy" | "exposed" | "confirmed" | "unknown"
     exposed: bool = False
     it_alert: bool = False
 
@@ -130,11 +149,14 @@ def _speaker(world: World, target_id: str) -> str:
     raise ValueError(f"Unknown callback target: {target_id!r}")
 
 
-def callback(call: CallRecord, target_id: str, world: World) -> CallbackResult:
+def callback(call: CallRecord, target_id: str, world: World, *, it_busy: bool = False) -> CallbackResult:
+    """`it_busy`: an outage is under way, so nobody in the IT department can confirm or deny anything."""
     speaker = _speaker(world, target_id)
     emp = employee_by_id(world, target_id)
     if emp is not None and not emp.available:
         return CallbackResult(VOICEMAIL_TEMPLATE.format(name=emp.name), "voicemail")
+    if it_busy and emp is not None and emp.dept == "IT":
+        return CallbackResult(CALLBACK_BUSY.format(speaker=speaker), "busy")
 
     references = set(call.references)
     if call.claimed_identity:
@@ -173,6 +195,7 @@ def transfer(
     intel: Iterable[str],
     it_alert: bool,
     threshold: int,
+    scenario: Scenario,
 ) -> TransferResult:
     name = name_of(world, target_id)
     if name is None:
@@ -184,14 +207,11 @@ def transfer(
         legit = bool(legit_call and target_id in legit_call.accept_transfer_to)
         return TransferResult(text, "satisfied" if legit else "unsatisfied", satisfied=legit)
 
-    if target_id == config.HELPDESK_ID:
-        needed = threshold
-    elif target_id == config.IT_LEAD_ID:
-        needed = threshold + config.TRANSFER_TO_IT_LEAD_BONUS
-    else:
+    door = door_for(scenario, target_id)
+    if door is None:
         return TransferResult(text, "transferred_away")
 
-    if check_breach(intel, needed, it_alert, world.facts):
+    if check_breach(intel, threshold + door.bonus, it_alert, world.facts, scenario.gate_facts):
         return TransferResult(text, "breached", breached=True)
     return TransferResult(text, "refused_by_it", it_alert=True)
 
@@ -233,8 +253,10 @@ def take_message(call: CallRecord) -> MessageResult:
 # ------------------------------------------------------------------ scoring (spec §7.9)
 
 
-def leak_penalty(fact: Fact) -> int:
-    return {"internal": config.PENALTY_INTERNAL, "confidential": config.PENALTY_CONFIDENTIAL}.get(fact.tier, 0)
+def leak_penalty(fact: Fact, internal_multiplier: int = 1) -> int:
+    if fact.tier == "internal":
+        return config.PENALTY_INTERNAL * internal_multiplier
+    return config.PENALTY_CONFIDENTIAL if fact.tier == "confidential" else 0
 
 
 def new_leak_ids(leak_ids: Iterable[str], known: Iterable[str]) -> list[str]:
@@ -351,6 +373,100 @@ def clean_plan(
             )
         )
     return result.model_copy(update={"calls": cleaned})
+
+
+# ------------------------------------------------------------------ scenario (director output cleaning)
+
+CUTSCENE_KEYS = ("breached", "con_gave_up", "survived")
+_MAX_TEXT = 700
+
+
+def incident_chance_roll(rng: random.Random) -> int | None:
+    """The day on which the director must stage an incident, or None for a game without one."""
+    if rng.random() >= config.INCIDENT_CHANCE:
+        return None
+    return rng.choice(config.INCIDENT_DAYS)
+
+
+def clean_scenario(
+    draft: ScenarioResult, *, world: World, fallback: Scenario, incident_day: int | None
+) -> Scenario:
+    """Validate the director's draft. Anything unusable falls back to `fallback`; a broken core falls back entirely.
+
+    The code, not the model, decides whether there is an incident and on which day.
+    """
+    non_public = {f.id for f in world.facts if f.tier != "public"}
+    available = {e.id for e in world.employees if e.available}
+    text_ok = lambda t: bool(t and t.strip()) and len(t) <= _MAX_TEXT  # noqa: E731
+
+    gate = list(dict.fromkeys(g for g in draft.gate_facts if g in non_public))[:2]
+    door_ids = list(dict.fromkeys(d for d in draft.doors if d in available))[:2]
+    if not (gate and door_ids and text_ok(draft.title) and text_ok(draft.premise) and text_ok(draft.con_goal)):
+        return fallback
+    cutscenes = {k: draft.cutscenes.get(k, "") for k in CUTSCENE_KEYS}
+    if not all(text_ok(t) for t in cutscenes.values()):
+        cutscenes = fallback.cutscenes
+
+    incident = None
+    if incident_day is not None and draft.incident is not None:
+        inc = draft.incident
+        if text_ok(inc.title) and text_ok(inc.announcement) and text_ok(inc.method):
+            incident = Incident(day=incident_day, title=inc.title.strip(), announcement=inc.announcement.strip(),
+                                method=inc.method.strip())
+
+    offstage = draft.offstage_fact if draft.offstage_fact in non_public else None
+    return Scenario(
+        id="director", source="director", title=draft.title.strip(), premise=draft.premise.strip(),
+        con_goal=draft.con_goal.strip(),
+        gate_facts=gate,
+        doors=[Door(employee_id=d, bonus=0 if i == 0 else config.SECONDARY_DOOR_BONUS) for i, d in enumerate(door_ids)],
+        offstage_fact=offstage, incident=incident, cutscenes=cutscenes,
+    )
+
+
+# ------------------------------------------------------------------ incidents and policy updates
+
+POLICY_PRIORITY = ("it_verify", "leak_audit", "callback_fast")
+
+
+def incident_active(scenario: Scenario, day: int) -> bool:
+    return scenario.incident is not None and scenario.incident.day == day
+
+
+@dataclass(frozen=True)
+class Effects:
+    """Mechanical consequences of the policy updates announced so far."""
+
+    leak_multiplier: int = 1  # applies to internal-tier leaks to a con caller
+    it_transfer_penalty: int = 0  # security points lost for an unverified transfer to IT
+    callback_cost: int = config.CALLBACK_PATIENCE_COST
+
+
+def effects_for(policy_ids: Iterable[str]) -> Effects:
+    ids = set(policy_ids)
+    return Effects(
+        leak_multiplier=2 if "leak_audit" in ids else 1,
+        it_transfer_penalty=config.PENALTY_UNVERIFIED_IT_TRANSFER if "it_verify" in ids else 0,
+        callback_cost=config.CALLBACK_PATIENCE_COST_FAST if "callback_fast" in ids else config.CALLBACK_PATIENCE_COST,
+    )
+
+
+def pick_policy_update(
+    day: int, used: Iterable[str], *, leaked_yesterday: bool, exposed_yesterday: bool, incident_today: bool
+) -> str | None:
+    """One new policy per day from day 2 on, reacting to what just happened; never repeats."""
+    if day < 2:
+        return None
+    used_set = set(used)
+    wanted: list[str] = []
+    if exposed_yesterday or incident_today:
+        wanted.append("it_verify")
+    if leaked_yesterday:
+        wanted.append("leak_audit")
+    for policy_id in [*wanted, *POLICY_PRIORITY]:
+        if policy_id not in used_set:
+            return policy_id
+    return None
 
 
 # ------------------------------------------------------------------ caller ID (spec §6.5)

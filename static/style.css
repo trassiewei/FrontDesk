@@ -136,3 +136,13 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--amb
 .end-buttons { display: flex; gap: 12px; margin: 32px 0 60px; flex-wrap: wrap; }
 a.button { display: inline-block; text-decoration: none; border: 1px solid var(--line); background: var(--bg-3); color: var(--text); padding: 8px 14px; border-radius: 6px; }
 a.button:hover { border-color: var(--amber); }
+
+/* bulletin (policy updates and incident notices) */
+.bulletin-item { margin: 12px 0; padding: 10px 14px; background: var(--bg); border: 1px solid var(--line); border-left: 4px solid var(--amber); border-radius: 6px; white-space: pre-wrap; }
+.bulletin-item.incident { border-left-color: var(--red); }
+.bulletin-head { color: var(--muted); font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 2px; }
+.confirm-text { padding: 6px 10px 8px; }
+.menu .confirm-yes { color: var(--red); font-weight: 600; }
+.reveal { background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 20px; }
+.reveal p { margin: 8px 0; }
+.reveal .label { color: var(--amber); }

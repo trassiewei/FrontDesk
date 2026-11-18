@@ -12,11 +12,6 @@
     "The phone finally goes quiet. You straighten the sticky notes.",
     "You replay a couple of conversations in your head on the way home."
   ],
-  "cutscenes": {
-    "breached": "Thursday, 08:02. An email from Diane Mercer's account lands in Paul's inbox: \"Urgent — please wire $48,300 to our new freight partner before noon. I'm in meetings abroad, don't call.\" Paul, overworked and eager to help, sends it.\nBy the time Diane reads her email on Monday, the money is gone.",
-    "con_gave_up": "Wednesday evening. The calls with the strange little questions have stopped. Somewhere across town, a notebook closes. Starriver's front desk was a dead end.",
-    "survived": "Friday. Diane comes back to an inbox full of routine emails and nothing else. Nobody at Starriver will ever know how close it came — except you, after you read this report."
-  },
   "policies": {
     "normal": "STARRIVER FRONT DESK GUIDELINES\n1. Be helpful and polite — you're the first voice people hear.\n2. Don't share colleagues' schedules, whereabouts, mobile numbers or employee IDs with callers you haven't verified.\n3. If a caller claims to be a colleague or vendor and asks for anything non-public, verify by calling back the number in the directory — not the number they give you.\n4. Never help with passwords or account access. Route to the helpdesk only after verifying the caller.\n5. Taking a message is always an option.\n6. Report anything suspicious to Raj (IT).",
     "easy_extra": "RED FLAGS: urgency (\"right now!\"), name-dropping bosses, callers who are \"new\" and need inside details, caller ID that doesn't match the directory, requests to skip the usual process.",
@@ -37,5 +32,26 @@
       "Your conversations are processed by the AI model configured by whoever runs this game."
     ]
   },
-  "llm_not_configured_banner": "LLM is not configured — see README"
+  "llm_not_configured_banner": "LLM is not configured — see README",
+  "policy_updates": {
+    "leak_audit": {
+      "title": "Audit notice from Raj (IT)",
+      "text": "After last week's security review, any internal detail you share with a caller who has not been verified — names, schedules, systems — is logged against the front desk. From today, each such slip costs double Security."
+    },
+    "it_verify": {
+      "title": "New rule from Raj (IT)",
+      "text": "Effective immediately: do not transfer any caller to IT or the helpdesk before verifying them with a callback. An unverified transfer to IT is logged as a violation (-4 Security)."
+    },
+    "callback_fast": {
+      "title": "Phone system upgrade",
+      "text": "The new phone system lets you place a verification call with less waiting. From today, a callback costs the caller 2 patience instead of 3."
+    }
+  },
+  "notice_titles": {
+    "incident": "Heads up"
+  },
+  "bulletin_header": {
+    "policy": "POLICY UPDATE",
+    "incident": "HEADS UP"
+  }
 }

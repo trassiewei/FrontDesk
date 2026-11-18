@@ -52,7 +52,7 @@ def _isolated(request, monkeypatch, tmp_path):
         yield
         llm.reset_compat_state()
         return
-    for name in ("MODEL_CALLER", "MODEL_EXTRACTOR", "MODEL_PLANNER", "MODEL_REPORTER", "LLM_TIMEOUT"):
+    for name in ("MODEL_CALLER", "MODEL_EXTRACTOR", "MODEL_PLANNER", "MODEL_REPORTER", "MODEL_DIRECTOR", "LLM_TIMEOUT"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("LLM_BASE_URL", "https://llm.test/v1")
     monkeypatch.setenv("LLM_API_KEY", "test-key-123")
@@ -135,6 +135,8 @@ class FakeLLM:
 @pytest.fixture
 def fake_llm(monkeypatch):
     fake = FakeLLM()
+    # Unless a test scripts the director, the game falls back to the default preset scenario.
+    fake.default("director", llm.LLMError("director not scripted"))
     monkeypatch.setattr(llm, "_chat", fake)
     return fake
 

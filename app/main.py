@@ -80,6 +80,7 @@ def public_state(state: GameState) -> dict:
         "active_call": public_call(state),
         "can_flag_last_call": state.phase == "BETWEEN_CALLS" and last is not None and not last.flagged,
         "exposures": state.exposures,
+        "bulletin": [{"day": n.day, "kind": n.kind, "title": n.title, "text": n.text} for n in state.notices],
         "game_over": state.game_over,
         "outcome": state.outcome if state.game_over else None,
     }

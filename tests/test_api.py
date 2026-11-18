@@ -138,6 +138,7 @@ def test_nothing_secret_leaks_through_any_response(client):
     state = game.state()
     assert set(state) == {"game_id", "player_name", "difficulty", "phase", "day", "day_name", "clock", "security",
                           "service", "calls_remaining_today", "replies_left_today", "active_call", "can_flag_last_call", "exposures",
+                          "bulletin",
                           "game_over", "outcome"}
     assert state["security"] == 90  # LLM leak + the 'Raj' pattern leak, 5 each
 
@@ -219,7 +220,7 @@ def test_health_reports_configuration(client):
     data = client.get("/api/health").json()
     assert data["llm_configured"] is True and data["base_url_host"] == "llm.test"
     assert data["models"] == {"caller": "test-fast", "extractor": "test-fast", "planner": "test-smart",
-                              "reporter": "test-smart"}
+                              "reporter": "test-smart", "director": "test-smart"}
     assert "test-key-123" not in json.dumps(data)
 
 

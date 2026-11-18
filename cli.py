@@ -1,6 +1,6 @@
 """Command-line version of Front Desk. Calls the engine directly (no HTTP).
 
-Usage:  python cli.py [--difficulty normal] [--name Jordan] [--debug] [--seed 42]
+Usage:  python cli.py [--difficulty normal] [--name Jordan] [--debug] [--seed 42] [--scenario fake_vendor]
 """
 from __future__ import annotations
 
@@ -74,6 +74,8 @@ def show_briefing(state: GameState) -> None:
     out(f"=== {config.DAY_NAMES[state.day - 1]} ===")
     out(b["sender"])
     out(b["text"])
+    for n in b["notices"]:
+        out(f"\n[{n['header']}] {n['title']}\n{n['text']}")
     out()
     if state.day == 1:
         out(engine.policy_text(state.difficulty))
@@ -135,6 +137,11 @@ def finish_game(state: GameState, cutscene: str | None) -> None:
     out("The con artist's notebook:")
     for day, text in report["notebooks"].items():
         out(f"-- Day {day} --\n{text}")
+    sc = report.get("scenario")
+    if sc:
+        out(f"\nWhat was really going on: {sc['title']}\n{sc['premise']}\nTheir goal: {sc['con_goal']}")
+        if sc["incident"]:
+            out(f"The {sc['incident']['title'].lower()} ({sc['incident']['day_name']}): {sc['incident']['method']}")
     out("\nWhat they learned:")
     for row in report["intel_timeline"]:
         out(f"  Day {row['day']} {row['time']}  {row['fact_id']}  \"{row['quote']}\"  ({row['source']})")
@@ -243,6 +250,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--name", default="Jordan")
     parser.add_argument("--debug", action="store_true", help="show extractor results, intel and the con artist's thoughts")
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--scenario", default=None, help="play a preset scenario instead of one designed by the model")
     args = parser.parse_args(argv)
 
     problems = config.config_problems()
@@ -254,7 +262,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     out("Preparing today's calls…")
-    state = engine.new_game(args.name, args.difficulty, seed=args.seed)
+    try:
+        state = engine.new_game(args.name, args.difficulty, seed=args.seed, scenario_id=args.scenario)
+    except EngineError as exc:
+        out(f"! {exc}")
+        return 2
     try:
         play(state, args.debug)
     except KeyboardInterrupt:

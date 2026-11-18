@@ -5,7 +5,7 @@ import logging
 
 from .. import config, llm, summary
 from ..models import CallRecord, GameState, ReportResult, World
-from ..world import name_of
+from ..world import name_of, scenario_of
 
 log = logging.getLogger("frontdesk.reporter")
 
@@ -62,9 +62,31 @@ def notebooks_text(state: GameState) -> str:
     return "\n\n".join(f"Notebook, planned for day {d}:\n{text}" for d, text in sorted(state.notebooks.items()))
 
 
+def scenario_text(state: GameState) -> str:
+    sc = scenario_of(state)
+    lines = [f"Title: {sc.title}", f"Premise: {sc.premise}", f"The crew's goal: {sc.con_goal}"]
+    if sc.incident:
+        lines.append(
+            f"Staged incident on {config.DAY_NAMES[sc.incident.day - 1]} ({sc.incident.title}): the crew caused it "
+            f"deliberately — {sc.incident.method} The staff were only told: \"{sc.incident.announcement}\""
+        )
+    return "\n".join(lines)
+
+
+def notices_text(state: GameState) -> str:
+    if not state.notices:
+        return "(none)"
+    return "\n".join(
+        f"{config.DAY_NAMES[n.day - 1]} — {n.kind} — {n.title}: {n.text}" for n in sorted(state.notices, key=lambda n: n.day)
+    )
+
+
 def outcome_text(state: GameState) -> str:
     if state.outcome == "breached":
-        return f"BREACHED — the con artist got the helpdesk to reset the CFO's password ({state.breach_method}, {state.breach_time})"
+        return (
+            f"BREACHED — the con artist reached its goal ({scenario_of(state).con_goal}) "
+            f"({state.breach_method}, {state.breach_time})"
+        )
     if state.outcome == "con_gave_up":
         return "The con artist was exposed too many times and gave up"
     return "The con artist never got in; the three days ended safely"
@@ -106,6 +128,8 @@ def write_report(state: GameState, world: World) -> ReportResult:
         intel_timeline=intel_timeline_text(state, world),
         overshares=overshares_text(state, world),
         notebooks=notebooks_text(state),
+        scenario=scenario_text(state),
+        notices=notices_text(state),
     )
     try:
         return llm.complete_json("reporter", system, llm.USER_TURN, ReportResult, state.game_id)  # type: ignore[return-value]
