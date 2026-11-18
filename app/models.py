@@ -189,7 +189,6 @@ class CallRecord(BaseModel):
     references: list[str] = Field(default_factory=list)  # employee/vendor ids the caller claims or mentions
     callbacks: list[str] = Field(default_factory=list)  # target ids the player called back
     gained_facts: list[str] = Field(default_factory=list)
-    pending_system_note: str = ""
 
 
 class GameState(BaseModel):
@@ -210,7 +209,6 @@ class GameState(BaseModel):
     planned: dict[int, PlannerResult] = Field(default_factory=dict)  # day -> cleaned planner output
     burned_identities: list[str] = Field(default_factory=list)
     it_alert: bool = False
-    offstage_attempt_today: bool = False
 
     security: int = 100
     service_penalty: int = 0

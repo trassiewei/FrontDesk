@@ -1,0 +1,459 @@
+"""Game engine: the state machine. Applies the results of rules.py and calls the LLM roles.
+
+All functions take a GameState and mutate it; persistence is the caller's job (storage.save).
+Nothing in the return values of `say`/`callback` other than the documented keys is meant for the player:
+the "debug" entry is for the CLI's --debug mode and must never reach the HTTP API.
+"""
+from __future__ import annotations
+
+import random
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+
+import markdown as markdown_lib
+
+from . import config, rules, summary
+from .models import CallerTurn, CallRecord, ExtractorResult, GameState, IntelRecord, Message, PlannerResult, World
+from .roles import caller, extractor, planner, reporter
+from .world import (
+    employee_by_id,
+    legit_call_by_id,
+    load_legit_calls,
+    load_story,
+    load_world,
+    name_of,
+    vendor_by_id,
+)
+
+
+class EngineError(Exception):
+    """A request that is not allowed right now (409), not allowed at all yet (403) or malformed (422)."""
+
+    def __init__(self, message: str, status: int = 409):
+        super().__init__(message)
+        self.status = status
+
+
+# ------------------------------------------------------------------ small helpers
+
+
+def _rng(state: GameState, *parts: object) -> random.Random:
+    if state.seed is None:
+        return random.Random()
+    return random.Random(":".join(str(p) for p in (state.seed, *parts)))
+
+
+def _diff(state: GameState) -> config.Difficulty:
+    return config.get_difficulty(state.difficulty)
+
+
+def _require(state: GameState, *phases: str) -> None:
+    if state.phase not in phases:
+        raise EngineError(f"You can't do that right now (the game is in phase {state.phase}).", 409)
+
+
+def _active(state: GameState) -> CallRecord:
+    _require(state, "CALL_ACTIVE")
+    call = next((c for c in state.calls if c.id == state.active_call_id), None)
+    if call is None:  # cannot happen unless the saved state was edited by hand
+        raise EngineError("There is no active call.", 409)
+    return call
+
+
+def _add_references(call: CallRecord, text: str, world: World) -> None:
+    for entity_id in rules.scan_references(text, world):
+        if entity_id not in call.references:
+            call.references.append(entity_id)
+
+
+def cutscene(state: GameState) -> str | None:
+    return load_story()["cutscenes"][state.outcome] if state.game_over and state.outcome else None
+
+
+def policy_text(level: str) -> str:
+    policies = load_story()["policies"]
+    if level == "hard":
+        return policies["hard"]
+    if level == "easy":
+        return policies["normal"] + "\n\n" + policies["easy_extra"]
+    return policies["normal"]
+
+
+def briefing(state: GameState) -> dict:
+    story = load_story()
+    warning = story["day2_phishing_warning"] if _diff(state).day2_phishing_warning else ""
+    text = story["briefings"][str(state.day)].format(name=state.player_name, phishing_warning=warning)
+    return {"sender": story["briefing_sender"], "text": text}
+
+
+# ------------------------------------------------------------------ game and day setup
+
+
+def new_game(player_name: str, difficulty: str, seed: int | None = None) -> GameState:
+    try:
+        diff = config.get_difficulty((difficulty or "normal").lower())
+    except ValueError as exc:
+        raise EngineError(str(exc), 422) from exc
+    name = (player_name or "").strip()[:30] or "Jordan"
+    state = GameState(game_id=uuid.uuid4().hex[:12], player_name=name, difficulty=diff.name, seed=seed)
+    _enter_day(state, 1)
+    return state
+
+
+def _enter_day(state: GameState, day: int) -> None:
+    """Run the planner for `day`, build the call queue and show the morning briefing."""
+    world = load_world()
+    plan = planner.plan_day(state, world, day)
+    state.planned[day] = plan
+    state.notebooks[day] = plan.notebook
+    state.day = day
+    state.queue = _build_queue(state, plan, world)
+    state.last_call_id = None
+    state.phase = "DAY_BRIEFING"
+
+
+def _build_queue(state: GameState, plan: PlannerResult, world: World) -> list[CallRecord]:
+    diff = _diff(state)
+    calls: list[CallRecord] = []
+    for item in rules.build_queue(state.day, load_legit_calls(), plan.calls):
+        call_id = f"D{state.day}S{item.slot}"
+        if item.legit is not None:
+            data = item.legit
+            calls.append(
+                CallRecord(
+                    id=call_id, day=state.day, slot=item.slot, time=item.time, is_con=False, legit_id=data.id,
+                    caller_name=data.caller_name, claims=data.claims, caller_id=data.caller_id,
+                    claimed_identity=data.claimed_identity, patience=data.patience,
+                )
+            )
+        else:
+            p = item.plan
+            assert p is not None
+            calls.append(
+                CallRecord(
+                    id=call_id, day=state.day, slot=item.slot, time=item.time, is_con=True, plan=p,
+                    caller_name=p.persona_name, claims=p.claims,
+                    caller_id=rules.generate_caller_id(world, p.claimed_identity, _rng(state, "caller_id", call_id)),
+                    claimed_identity=p.claimed_identity, patience=diff.con_patience,
+                )
+            )
+    return calls
+
+
+def start_day(state: GameState) -> None:
+    _require(state, "DAY_BRIEFING")
+    state.phase = "BETWEEN_CALLS"
+
+
+# ------------------------------------------------------------------ call lifecycle
+
+
+def next_call(state: GameState) -> CallRecord:
+    _require(state, "BETWEEN_CALLS")
+    if not state.queue:
+        raise EngineError("No calls are waiting. End the day.", 409)
+    world = load_world()
+    call = state.queue.pop(0)
+    opening = call.plan.opening_line if call.is_con and call.plan else _legit_opening(call)
+    call.status = "active"
+    call.messages.append(Message(speaker="caller", text=opening, time=call.time))
+    if call.claimed_identity:
+        call.references.append(call.claimed_identity)
+    _add_references(call, opening, world)
+    state.calls.append(call)
+    state.active_call_id = call.id
+    state.last_call_id = None  # the previous call can no longer be flagged
+    state.phase = "CALL_ACTIVE"
+    return call
+
+
+def _legit_opening(call: CallRecord) -> str:
+    data = legit_call_by_id(call.legit_id)
+    assert data is not None
+    return data.opening_line
+
+
+def _finish(
+    state: GameState, call: CallRecord, reason: str, result: str, satisfied: bool | None = None, angry: bool = False
+) -> None:
+    call.status = "ended"
+    call.end_reason = reason  # type: ignore[assignment]
+    call.result = result
+    if not call.is_con:
+        call.satisfied = bool(satisfied)
+        state.handled_legit += 1
+        if satisfied:
+            state.satisfied_legit += 1
+        if angry:
+            state.service_penalty += config.SERVICE_ANGRY_HANGUP_PENALTY
+    state.active_call_id = None
+    state.last_call_id = call.id
+    state.phase = "BETWEEN_CALLS"
+
+
+def _game_over(state: GameState, outcome: str) -> None:
+    state.game_over = True
+    state.outcome = outcome  # type: ignore[assignment]
+    state.phase = "GAME_OVER"
+    state.active_call_id = None
+    state.last_call_id = None
+
+
+def _breach(state: GameState, method: str, time_text: str) -> None:
+    state.security = rules.apply_security_delta(state.security, -config.PENALTY_BREACH)
+    state.breach_method = method  # type: ignore[assignment]
+    state.breach_time = f"{config.DAY_NAMES[state.day - 1]}, {time_text}"
+    _game_over(state, "breached")
+
+
+def _conclude_caller_turn(state: GameState, call: CallRecord, turn: CallerTurn) -> tuple[str, str | None]:
+    """Record the caller's line and end the call if it is over. Returns (spoken text, end_reason or None).
+
+    Patience must already be decremented by the caller of this function.
+    """
+    reason: str | None = None
+    say = turn.say
+    if turn.end_call:
+        reason = "caller_ended"
+    elif call.patience <= 0:
+        reason, say = "patience", config.PATIENCE_EXHAUSTED_LINE
+    elif call.player_turns >= config.MAX_PLAYER_TURNS_PER_CALL:
+        reason = "max_turns"
+    call.messages.append(Message(speaker="caller", text=say, time=call.time, private_thought=turn.private_thought))
+    _add_references(call, turn.say, load_world())
+    if reason is None:
+        return say, None
+
+    if call.is_con:
+        result = "patience" if reason == "patience" else "gave_up" if turn.outcome == "gave_up" else "completed"
+        _finish(state, call, reason, result)
+    else:
+        satisfied = reason != "patience" and turn.outcome == "satisfied"
+        result = "patience" if reason == "patience" else "satisfied" if satisfied else "unsatisfied"
+        _finish(state, call, reason, result, satisfied=satisfied, angry=reason == "patience")
+    return say, reason
+
+
+def say(state: GameState, text: str) -> dict:
+    call = _active(state)
+    text = (text or "").strip()
+    if not 1 <= len(text) <= 500:
+        raise EngineError("Messages must be between 1 and 500 characters.", 422)
+    world = load_world()
+
+    previous_caller_line = next((m.text for m in reversed(call.messages) if m.speaker == "caller"), "")
+    player_msg = Message(speaker="player", text=text, time=call.time)
+    call.messages.append(player_msg)
+
+    # The caller does not depend on the extractor, so run them side by side.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        caller_future = pool.submit(caller.take_turn, state, call, world)
+        extractor_future = pool.submit(extractor.extract, state.game_id, world, previous_caller_line, text)
+        turn = caller_future.result()
+        extracted = extractor_future.result()
+
+    _apply_leaks(state, call, player_msg, extracted, world)
+    call.player_turns += 1
+    call.patience -= 1
+    reply, reason = _conclude_caller_turn(state, call, turn)
+    return {
+        "caller_reply": reply,
+        "call_ended": reason is not None,
+        "end_reason": reason,
+        "debug": {
+            "llm_leaks": player_msg.llm_leaks,
+            "pattern_leaks": player_msg.pattern_leaks,
+            "leaks": player_msg.leaks,
+            "private_thought": turn.private_thought,
+            "caller_outcome": turn.outcome,
+        },
+    }
+
+
+def _apply_leaks(state: GameState, call: CallRecord, msg: Message, extracted: ExtractorResult, world: World) -> None:
+    llm_ids, pattern_ids, merged = rules.merge_leaks(extracted.leaks, msg.text, world.facts)
+    msg.llm_leaks, msg.pattern_leaks, msg.leaks = llm_ids, pattern_ids, merged
+    msg.extractor_raw = list(extracted.leaks)
+    facts = {f.id: f for f in world.facts}
+
+    def record(fact_id: str) -> IntelRecord:
+        quote = next((l.quote for l in extracted.leaks if l.fact_id == fact_id and l.quote.strip()), msg.text)
+        return IntelRecord(
+            fact_id=fact_id, day=call.day, time=call.time, call_id=call.id, quote=quote,
+            source=rules.leak_source(fact_id, llm_ids, pattern_ids),  # type: ignore[arg-type]
+        )
+
+    if call.is_con:
+        for fact_id in rules.new_leak_ids(merged, state.intel):
+            state.intel[fact_id] = record(fact_id)
+            call.gained_facts.append(fact_id)
+            state.security = rules.apply_security_delta(state.security, -rules.leak_penalty(facts[fact_id]))
+    else:
+        for fact_id in merged:
+            state.overshares.append(record(fact_id))
+            state.overshare_count += 1
+
+
+def callback(state: GameState, target_id: str) -> dict:
+    call = _active(state)
+    world = load_world()
+    if employee_by_id(world, target_id) is None and vendor_by_id(world, target_id) is None:
+        raise EngineError("Unknown directory entry.", 422)
+    result = rules.callback(call, target_id, world)
+    call.callbacks.append(target_id)
+    state.callbacks_made += 1
+    call.messages.append(Message(speaker="system", text=result.text, time=call.time))
+    call.patience -= config.CALLBACK_PATIENCE_COST
+
+    out = {"callback_result": result.text, "caller_reply": None, "call_ended": False, "end_reason": None,
+           "game_over": False, "cutscene": None, "debug": {}}
+
+    if result.exposed:
+        state.exposures += 1
+        state.security = rules.apply_security_delta(state.security, config.BONUS_EXPOSURE)
+        if call.claimed_identity and call.claimed_identity not in state.burned_identities:
+            state.burned_identities.append(call.claimed_identity)
+        state.it_alert = state.it_alert or result.it_alert
+        _finish(state, call, "exposed", "exposed")
+        if state.exposures >= _diff(state).exposures_to_give_up:
+            _game_over(state, "con_gave_up")
+        out.update(call_ended=True, end_reason="exposed", game_over=state.game_over, cutscene=cutscene(state))
+        return out
+
+    if call.patience <= 0:
+        call.messages.append(Message(speaker="caller", text=config.PATIENCE_EXHAUSTED_LINE, time=call.time))
+        reply, reason = config.PATIENCE_EXHAUSTED_LINE, "patience"
+        if call.is_con:
+            _finish(state, call, reason, "patience")
+        else:
+            _finish(state, call, reason, "patience", satisfied=False, angry=True)
+    else:
+        note = (
+            f"The receptionist put you on hold to verify by calling {name_of(world, target_id)}. "
+            f"Result: {result.text}."
+        )
+        turn = caller.take_turn(state, call, world, note)
+        reply, reason = _conclude_caller_turn(state, call, turn)
+        out["debug"] = {"private_thought": turn.private_thought}
+    out.update(caller_reply=reply, call_ended=reason is not None, end_reason=reason)
+    return out
+
+
+def transfer(state: GameState, target_id: str) -> dict:
+    call = _active(state)
+    world = load_world()
+    if employee_by_id(world, target_id) is None:
+        raise EngineError("You can only transfer calls to employees.", 422)
+    diff = _diff(state)
+    result = rules.transfer(
+        call, target_id, world=world, intel=state.intel, it_alert=state.it_alert, threshold=diff.breach_threshold
+    )
+    call.messages.append(Message(speaker="system", text=result.text, time=call.time))
+    state.it_alert = state.it_alert or result.it_alert
+    _finish(state, call, "transferred", result.result, satisfied=result.satisfied)
+    if result.breached:
+        _breach(state, "transfer", call.time)
+    return {"result_text": result.text, "call_ended": True, "end_reason": "transferred",
+            "game_over": state.game_over, "cutscene": cutscene(state)}
+
+
+def take_message(state: GameState, note: str = "") -> dict:
+    """The note text is not stored: the message goes to a colleague, not to the caller."""
+    call = _active(state)
+    result = rules.take_message(call)
+    call.messages.append(Message(speaker="system", text=result.text, time=call.time))
+    _finish(state, call, "message", result.result, satisfied=result.satisfied)
+    return {"result_text": result.text, "call_ended": True, "end_reason": "message"}
+
+
+def hang_up(state: GameState) -> dict:
+    call = _active(state)
+    call.messages.append(Message(speaker="system", text="You hung up.", time=call.time))
+    _finish(state, call, "hung_up", "hung_up", satisfied=False)
+    return {"call_ended": True, "end_reason": "hung_up"}
+
+
+def flag_last_call(state: GameState) -> dict:
+    _require(state, "BETWEEN_CALLS")
+    call = next((c for c in state.calls if c.id == state.last_call_id), None)
+    if call is None:
+        raise EngineError("There is no call to flag.", 409)
+    if call.flagged:
+        raise EngineError("You already flagged that call.", 409)
+    result = rules.flag(call)
+    call.flagged = True
+    if result.correct:
+        state.correct_flags += 1
+        state.it_alert = state.it_alert or result.it_alert
+        state.security = rules.apply_security_delta(state.security, result.security_delta)
+    else:
+        state.false_flags += 1
+        state.service_penalty += -result.service_delta
+    return {"result_text": result.text}
+
+
+# ------------------------------------------------------------------ end of day
+
+
+def end_day(state: GameState) -> dict:
+    _require(state, "BETWEEN_CALLS")
+    if state.queue:
+        raise EngineError("You still have calls waiting today.", 409)
+    world = load_world()
+    diff = _diff(state)
+    state.phase = "DAY_END"
+    day = state.day
+    plan = state.planned.get(day)
+
+    if plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(state.intel):
+        if rules.check_breach(state.intel, diff.breach_threshold, state.it_alert, world.facts):
+            _breach(state, "offstage", "after hours")
+        else:
+            state.it_alert = True
+
+    day_summary = briefing_text = None
+    if not state.game_over:
+        if day >= config.NUM_DAYS:
+            _game_over(state, "survived")
+        else:
+            story = load_story()
+            handled = sum(1 for c in state.calls if c.day == day)
+            flavor = _rng(state, "flavor", day).choice(story["day_summary_flavor"])
+            day_summary = story["day_summary"].format(day_name=config.DAY_NAMES[day - 1], n=handled) + " " + flavor
+            _enter_day(state, day + 1)
+            briefing_text = briefing(state)
+    return {"day_summary": day_summary, "briefing": briefing_text, "game_over": state.game_over,
+            "cutscene": cutscene(state)}
+
+
+# ------------------------------------------------------------------ report and export
+
+
+def get_report(state: GameState) -> dict:
+    if not state.game_over:
+        raise EngineError("The report is only available after the game ends.", 403)
+    if state.report is None:
+        world = load_world()
+        result = reporter.write_report(state, world)
+        # Neutralise raw HTML from the model before converting; the page injects this string as HTML.
+        html = markdown_lib.markdown(result.markdown.replace("<", "&lt;"))
+        s = summary.scores(state)
+        state.report = {
+            "title": result.title,
+            "markdown": result.markdown,
+            "html": html,
+            "notebooks": {str(d): text for d, text in sorted(state.notebooks.items())},
+            "intel_timeline": summary.intel_timeline(state, world),
+            "scores": {"security": s["security"], "service": s["service"]},
+            "labels": {"security": s["security_label"], "service": s["service_label"]},
+            "title_badge": s["title_badge"],
+            "outcome": state.outcome,
+            "stats": summary.stats(state),
+        }
+    return state.report
+
+
+def export_game(state: GameState) -> dict:
+    if not state.game_over:
+        raise EngineError("The export is only available after the game ends.", 403)
+    return state.model_dump(mode="json")
