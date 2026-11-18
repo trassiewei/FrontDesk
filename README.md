@@ -1,1 +1,112 @@
-# FrontDesk
+# Front Desk
+
+A text-based social-engineering training game. You are the receptionist at Starriver Logistics, three weeks into the job. Over three working days you answer a dozen phone calls by typing, and one of the callers is a con artist who plans each new call around every careless thing you said before. When the game ends you get an incident report that quotes your own words back at you, plus the con artist's notebook.
+
+<!-- Screenshots: add images of the call screen and the end page here. (placeholder) -->
+
+## Quick start
+
+Requirements: Python 3.11+.
+
+```bash
+python -m venv .venv && source .venv/bin/activate     # or: uv venv --python 3.12
+pip install -r requirements.txt
+
+cp .env.example .env
+# Edit .env: set LLM_BASE_URL, LLM_API_KEY, MODEL_FAST and MODEL_SMART for any OpenAI-compatible provider.
+
+python scripts/check_llm.py                           # connection self-test for the four LLM roles
+uvicorn app.main:app --reload                         # then open http://127.0.0.1:8000
+```
+
+A command-line version plays the same game through the same engine:
+
+```bash
+python cli.py --difficulty normal --name Jordan
+python cli.py --debug        # also shows the extractor's findings, the intel table and the con artist's thoughts
+```
+
+If your provider rejects a request parameter, `check_llm.py` says which `.env` switch to change (`LLM_JSON_MODE`, `LLM_SEND_TEMPERATURE`, `LLM_MAX_TOKENS_PARAM`).
+
+Run the tests (no network needed):
+
+```bash
+pytest                       # everything except the real-LLM tests
+pytest -m llm -s             # real-LLM extractor check, needs a configured .env
+```
+
+## How to play
+
+- Each day starts with a briefing, then five calls arrive. Click **Answer next call**, read the call card (who they claim to be and the caller ID), and type your replies.
+- During a call you can **Hold & call back** a person or vendor from the directory, **Transfer** to an employee, **Take a message**, or **Hang up**. Most of these end the call except the callback, which gives you a way to check a claim and costs the caller some patience.
+- Between calls you can **Flag last call** as suspicious. A right flag earns Security points; a wrong one costs Service points.
+- Two scores run all game. **Security** drops when you reveal internal or confidential facts to the con artist and when the company is breached. **Service** is how many real callers you actually helped.
+- The **Policy** tab and the directory, desk notes and your own notes tab are on the right. Use them.
+- The game ends when the con artist gets what they need (breach), gives up after being exposed enough times, or when Wednesday ends.
+- Difficulty changes how much intel the con artist needs, how patient they are, how many exposures make them give up, how skilled they sound, and how much help the Policy tab gives.
+
+## What the LLM does, and what it does not
+
+Four LLM roles, all language work:
+
+1. **Caller** plays every caller. The con artist improvises against your questions and pushes back on your challenges.
+2. **Extractor** reads each of your free-text replies and decides which non-public facts you disclosed, with the quote.
+3. **Planner** (the con artist's planning side) reads everything learned so far before each day, writes the notebook, and plans that day's calls.
+4. **Reporter** turns the real transcript into a cause-and-effect incident report after the game.
+
+Every rule is ordinary deterministic code in `app/rules.py`: callback and transfer results, breach checks, intel merging, scoring and ratings. The engine applies those results to the game state, and the LLM never decides them. That keeps the game predictable and testable (the engine and API tests run on a scripted fake LLM) and means a random LLM mood cannot change who wins. The extractor's output is merged with plain string matching on a list of patterns per fact, so one miss from the model does not hide a real leak. The browser only ever gets a filtered public view of the state, so nothing about the con artist is visible before the game is over.
+
+## Background story
+
+- **Starriver Logistics**: a regional freight and warehousing company founded in 2009, about 140 employees, on the 4th floor of an office building in Riverton's harbour district.
+- **Recent changes**: the new ERP system "Starboard" went live in September and still breaks often, and many staff don't know it well. In October IT support was outsourced to NetCore IT Services. Both make "I'm new here" and "I'm from the IT contractor" very believable excuses.
+- **This week**: CFO Diane Mercer is on vacation in Portugal, and Paul Nguyen is covering for her from Monday afternoon. The quarterly board meeting is Wednesday at 2 pm, so the CEO and the CEO's assistant will be busy.
+- **You**: the receptionist in the third week of the job, reporting to HR manager Laura Chen. You don't know everyone's voice yet.
+- **The con artist**: a freelance social engineer working for a fraud ring that runs business email compromise. The ring wants the CFO's mailbox so that, while she is away, they can email Finance in her name and ask for an urgent wire transfer. The con artist's job is to get IT to reset Diane's email password.
+
+## Where the ideas come from
+
+- **The Art of Deception** (Kevin Mitnick): harmless-looking facts add up to something dangerous, inside jargon buys credibility, and calling back on a known number is the cheap defence. The game turns those three ideas into mechanics.
+- **Papers, Please**: a gatekeeper checks claims against a rulebook and documents under time pressure, and every decision has a cost on both sides. The Policy tab, the directory and the caller ID play that part here.
+- **Contextual integrity**: whether sharing a fact is fine depends on who is asking and why. "She's on vacation" is polite chat to a colleague and a gift to a stranger. The game scores disclosures by sensitivity and by whether the fact was new to the con artist.
+
+## Ethics and privacy
+
+- Every company, person, phone number and system in this game is fictional. Any resemblance to real ones is accidental.
+- The game is for raising awareness of social engineering. It does not target any real person or organisation.
+- Your conversation is sent to the LLM service configured in `.env`. Tell anyone who tests the game before they start, and use a provider you are comfortable with.
+- Game records (`games/`) and request logs (`logs/`) are stored only on your machine. The logs do not contain the API key. Both folders are git-ignored.
+
+## Evaluation
+
+The extractor decides how much a player's careless words cost, so it is the part worth measuring.
+
+1. Play some games, then run `python scripts/export_replies.py`. It writes every player message to `eval/replies.csv` together with what the extractor found.
+2. Fill in the `human_leaks` column by hand: fact ids separated by `;`, or `none` when the message disclosed nothing. Save the file as `eval/replies_labeled.csv`.
+3. Run `python scripts/eval_extractor.py eval/replies_labeled.csv`. It compares the human labels with the LLM output, with the pattern matcher, and with both merged. It prints overall and per-fact precision, recall and F1, and lists every false positive and false negative with the player's exact words.
+4. To compare models, add `--models model-a,model-b`. The extractor is re-run for each model on `tests/fixtures/extractor_cases.json` and on your labelled replies, and a comparison table is printed.
+
+`pytest -m llm -s` runs the same extractor on the fixture cases and requires precision and recall of at least 0.8.
+
+Results: _to be added_.
+
+## Limitations
+
+- The player knows it is a game, so they behave differently from a real employee who is surprised by a real call.
+- Typing is not a phone call. Tone of voice, hesitation and background noise are missing.
+- LLMs are random. Two games with the same choices can play out differently, and a caller can occasionally slip out of character.
+- The extractor can misjudge a reply, in both directions. The pattern matcher reduces misses but can also add false hits.
+- There is only one scenario and one company.
+- Different models can behave very differently as the caller and as the extractor, so check a new provider with `check_llm.py` and the evaluation script before relying on it.
+
+## Next steps
+
+Ideas deliberately left out of this version:
+
+- Company policy that changes day by day
+- A reverse con (first cause an outage, then pose as IT)
+- Role reversal: the player is the con artist
+- AI player mode: an LLM plays the receptionist to run many games automatically
+- Voice
+- More scenarios and companies
+- A Chinese version

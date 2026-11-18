@@ -44,7 +44,14 @@ class _NoNetworkClient:
 
 
 @pytest.fixture(autouse=True)
-def _isolated(monkeypatch, tmp_path):
+def _isolated(request, monkeypatch, tmp_path):
+    if request.node.get_closest_marker("llm"):
+        # Real-LLM tests use the settings from .env and a real client.
+        monkeypatch.setattr(llm, "_client", None)
+        llm.reset_compat_state()
+        yield
+        llm.reset_compat_state()
+        return
     for name in ("MODEL_CALLER", "MODEL_EXTRACTOR", "MODEL_PLANNER", "MODEL_REPORTER", "LLM_TIMEOUT"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("LLM_BASE_URL", "https://llm.test/v1")
