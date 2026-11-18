@@ -6,6 +6,8 @@ con artist's notebook must never reach the browser before the game is over.
 from __future__ import annotations
 
 import logging
+import os
+import time
 from contextlib import asynccontextmanager, contextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -135,8 +137,26 @@ class Note(BaseModel):
 # ------------------------------------------------------------------ endpoints
 
 
+_new_games: dict[str, list[float]] = {}
+
+
+def _check_new_game_limit(request: Request) -> None:
+    """Optional per-IP cap on new games per hour (env FRONTDESK_MAX_GAMES_PER_IP_HOUR; 0 or unset = off)."""
+    limit = int(os.environ.get("FRONTDESK_MAX_GAMES_PER_IP_HOUR", "0") or 0)
+    if limit <= 0:
+        return
+    ip = request.client.host if request.client else "?"
+    now = time.time()
+    recent = [t for t in _new_games.get(ip, []) if now - t < 3600]
+    if len(recent) >= limit:
+        raise HTTPException(429, "Too many new games from your address. Please try again later.")
+    recent.append(now)
+    _new_games[ip] = recent
+
+
 @app.post("/api/game")
-def create_game(body: NewGame) -> dict:
+def create_game(body: NewGame, request: Request) -> dict:
+    _check_new_game_limit(request)
     state = engine.new_game(body.player_name, body.difficulty)
     storage.save(state)
     return {"game_id": state.game_id, "state": public_state(state), "briefing": engine.briefing(state)}

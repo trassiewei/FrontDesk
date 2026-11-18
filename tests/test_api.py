@@ -270,3 +270,14 @@ def test_reply_budget_is_visible_and_enforced(client):
     storage.get(game.id).replies_left = 0
     game.act("call/say", {"text": "Hello again."}, status=409)
     assert game.state()["replies_left_today"] == 0
+
+
+def test_new_game_limit_per_ip(client, monkeypatch):
+    from app import main
+
+    main._new_games.clear()
+    monkeypatch.setenv("FRONTDESK_MAX_GAMES_PER_IP_HOUR", "2")
+    for _ in range(2):
+        assert client.post("/api/game", json={"player_name": "a", "difficulty": "easy"}).status_code == 200
+    assert client.post("/api/game", json={"player_name": "a", "difficulty": "easy"}).status_code == 429
+    main._new_games.clear()
