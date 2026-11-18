@@ -70,3 +70,7 @@ def non_public_facts(world: World) -> list[Fact]:
 
 def legit_call_for(day: int, slot: int) -> LegitCall | None:
     return next((c for c in load_legit_calls() if c.day == day and c.slot == slot), None)
+
+
+def legit_call_by_id(legit_id: str | None) -> LegitCall | None:
+    return next((c for c in load_legit_calls() if c.id == legit_id), None)

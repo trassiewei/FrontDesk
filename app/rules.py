@@ -1,0 +1,381 @@
+"""Deterministic game rules. Pure functions: no I/O, no LLM, no hidden state.
+
+The engine applies the results these functions return; nothing here mutates game state.
+"""
+from __future__ import annotations
+
+import math
+import random
+import re
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Iterable
+
+from . import config
+from .models import CallRecord, Fact, LegitCall, Leak, PlannedCall, PlannerResult, World
+from .world import employee_by_id, legit_call_by_id, load_legit_calls, name_of, vendor_by_id
+
+# ------------------------------------------------------------------ texts shown to the player
+
+FLAG_TEXT = "Raj: 'Thanks — I'll look into it and give the helpdesk a heads-up.'"
+MESSAGE_TEXT = "You took a message."
+VOICEMAIL_TEMPLATE = (
+    "{name}'s voicemail: 'I'm out of the office until Monday, November 23. "
+    "For urgent Finance matters, please contact Paul Nguyen.'"
+)
+CALLBACK_EXPOSED = "{speaker}: 'No, I didn't call — and I didn't send anyone. Who is this?'"
+CALLBACK_SELF = "{speaker}: 'Yes, that was me calling. Put me back through.'"
+CALLBACK_LEGIT = "{speaker}: 'Yes, that's legit.'"
+CALLBACK_UNKNOWN = "{speaker}: 'Sorry, I don't know anything about that call.'"
+
+# ------------------------------------------------------------------ pattern matching (spec §5.2)
+
+
+@lru_cache(maxsize=None)
+def _term_regex(term: str) -> re.Pattern[str]:
+    """Case-insensitive; a word boundary is only added on a side that starts/ends with a letter."""
+    left = r"(?<!\w)" if term[0].isalpha() else ""
+    right = r"(?!\w)" if term[-1].isalpha() else ""
+    return re.compile(left + re.escape(term) + right, re.IGNORECASE)
+
+
+def match_patterns(text: str, facts: Iterable[Fact]) -> list[str]:
+    """Ids of non-public facts whose patterns appear in text, in catalog order."""
+    found: list[str] = []
+    for fact in facts:
+        if fact.tier == "public" or fact.id in found:
+            continue
+        if any(_term_regex(p).search(text) for p in fact.patterns):
+            found.append(fact.id)
+    return found
+
+
+def merge_leaks(
+    extractor_leaks: Iterable[Leak], player_text: str, facts: list[Fact]
+) -> tuple[list[str], list[str], list[str]]:
+    """Return (llm_leaks, pattern_leaks, merged) fact-id lists. The first two are kept separately for evaluation."""
+    by_id = {f.id: f for f in facts}
+    llm_ids: list[str] = []
+    for leak in extractor_leaks:
+        fact = by_id.get(leak.fact_id)
+        if fact is None or fact.tier == "public" or leak.confidence < config.LLM_LEAK_MIN_CONFIDENCE:
+            continue
+        if leak.fact_id not in llm_ids:
+            llm_ids.append(leak.fact_id)
+    pattern_ids = match_patterns(player_text, facts)
+    merged = [f.id for f in facts if f.id in llm_ids or f.id in pattern_ids]
+    return llm_ids, pattern_ids, merged
+
+
+def leak_source(fact_id: str, llm_ids: Iterable[str], pattern_ids: Iterable[str]) -> str:
+    in_llm, in_pattern = fact_id in set(llm_ids), fact_id in set(pattern_ids)
+    return "both" if in_llm and in_pattern else "llm" if in_llm else "pattern"
+
+
+def scan_references(text: str, world: World) -> list[str]:
+    """Employee/vendor ids named in text (full name, first name or last name for employees)."""
+    found: list[str] = []
+    for emp in world.employees:
+        parts = emp.name.split()
+        terms = {emp.name, parts[0], parts[-1]}
+        if any(_term_regex(t).search(text) for t in terms):
+            found.append(emp.id)
+    for vendor in world.vendors:
+        if _term_regex(vendor.name).search(text):
+            found.append(vendor.id)
+    return found
+
+
+# ------------------------------------------------------------------ credibility and breach (spec §7.4)
+
+
+def credibility(intel: Iterable[str], facts: Iterable[Fact]) -> int:
+    known = set(intel)
+    return sum(f.points for f in facts if f.id in known)
+
+
+def effective_threshold(threshold: int, it_alert: bool) -> int:
+    return threshold + (config.IT_ALERT_THRESHOLD_BONUS if it_alert else 0)
+
+
+def check_breach(intel: Iterable[str], threshold: int, it_alert: bool, facts: list[Fact]) -> bool:
+    known = set(intel)
+    if any(f.gate and f.id not in known for f in facts):
+        return False
+    return credibility(known, facts) >= effective_threshold(threshold, it_alert)
+
+
+def can_attempt_offstage(intel: Iterable[str]) -> bool:
+    return "helpdesk_ext" in set(intel)
+
+
+# ------------------------------------------------------------------ callback (spec §7.2)
+
+
+@dataclass(frozen=True)
+class CallbackResult:
+    text: str
+    kind: str  # "voicemail" | "exposed" | "confirmed" | "unknown"
+    exposed: bool = False
+    it_alert: bool = False
+
+
+def _speaker(world: World, target_id: str) -> str:
+    emp = employee_by_id(world, target_id)
+    if emp:
+        return emp.name
+    vendor = vendor_by_id(world, target_id)
+    if vendor:
+        return f"{vendor.name} service desk"
+    raise ValueError(f"Unknown callback target: {target_id!r}")
+
+
+def callback(call: CallRecord, target_id: str, world: World) -> CallbackResult:
+    speaker = _speaker(world, target_id)
+    emp = employee_by_id(world, target_id)
+    if emp is not None and not emp.available:
+        return CallbackResult(VOICEMAIL_TEMPLATE.format(name=emp.name), "voicemail")
+
+    references = set(call.references)
+    if call.claimed_identity:
+        references.add(call.claimed_identity)
+
+    if call.is_con:
+        if target_id in references:
+            return CallbackResult(CALLBACK_EXPOSED.format(speaker=speaker), "exposed", exposed=True, it_alert=True)
+        return CallbackResult(CALLBACK_UNKNOWN.format(speaker=speaker), "unknown")
+
+    if target_id == call.claimed_identity:
+        return CallbackResult(CALLBACK_SELF.format(speaker=speaker), "confirmed")
+    if target_id in references:
+        return CallbackResult(CALLBACK_LEGIT.format(speaker=speaker), "confirmed")
+    return CallbackResult(CALLBACK_UNKNOWN.format(speaker=speaker), "unknown")
+
+
+# ------------------------------------------------------------------ transfer (spec §7.3)
+
+
+@dataclass(frozen=True)
+class TransferResult:
+    text: str
+    # con: "breached" | "refused_by_it" | "transferred_away"; legit: "satisfied" | "unsatisfied"
+    result: str
+    breached: bool = False
+    it_alert: bool = False  # True if this transfer should raise IT's alert level
+    satisfied: bool | None = None  # legit calls only
+
+
+def transfer(
+    call: CallRecord,
+    target_id: str,
+    *,
+    world: World,
+    intel: Iterable[str],
+    it_alert: bool,
+    threshold: int,
+) -> TransferResult:
+    name = name_of(world, target_id)
+    if name is None:
+        raise ValueError(f"Unknown transfer target: {target_id!r}")
+    text = f"Call transferred to {name}."
+
+    if not call.is_con:
+        legit_call = legit_call_by_id(call.legit_id)
+        legit = bool(legit_call and target_id in legit_call.accept_transfer_to)
+        return TransferResult(text, "satisfied" if legit else "unsatisfied", satisfied=legit)
+
+    if target_id == config.HELPDESK_ID:
+        needed = threshold
+    elif target_id == config.IT_LEAD_ID:
+        needed = threshold + config.TRANSFER_TO_IT_LEAD_BONUS
+    else:
+        return TransferResult(text, "transferred_away")
+
+    if check_breach(intel, needed, it_alert, world.facts):
+        return TransferResult(text, "breached", breached=True)
+    return TransferResult(text, "refused_by_it", it_alert=True)
+
+
+# ------------------------------------------------------------------ flag and message (spec §7.6, §7.7)
+
+
+@dataclass(frozen=True)
+class FlagResult:
+    text: str
+    correct: bool
+    it_alert: bool
+    security_delta: int
+    service_delta: int
+
+
+def flag(call: CallRecord) -> FlagResult:
+    """Same text in both cases so the player cannot infer whether the call was a con."""
+    if call.is_con:
+        return FlagResult(FLAG_TEXT, True, True, config.BONUS_CORRECT_FLAG, 0)
+    return FlagResult(FLAG_TEXT, False, False, 0, -config.PENALTY_FALSE_FLAG_SERVICE)
+
+
+@dataclass(frozen=True)
+class MessageResult:
+    text: str
+    result: str
+    satisfied: bool | None = None  # legit calls only
+
+
+def take_message(call: CallRecord) -> MessageResult:
+    if call.is_con:
+        return MessageResult(MESSAGE_TEXT, "took_message")
+    legit_call = legit_call_by_id(call.legit_id)
+    ok = bool(legit_call and legit_call.message_ok)
+    return MessageResult(MESSAGE_TEXT, "took_message", satisfied=ok)
+
+
+# ------------------------------------------------------------------ scoring (spec §7.9)
+
+
+def leak_penalty(fact: Fact) -> int:
+    return {"internal": config.PENALTY_INTERNAL, "confidential": config.PENALTY_CONFIDENTIAL}.get(fact.tier, 0)
+
+
+def new_leak_ids(leak_ids: Iterable[str], known: Iterable[str]) -> list[str]:
+    """Leaks not already known; duplicates within leak_ids collapse to one."""
+    seen = set(known)
+    fresh: list[str] = []
+    for fact_id in leak_ids:
+        if fact_id not in seen:
+            seen.add(fact_id)
+            fresh.append(fact_id)
+    return fresh
+
+
+def apply_security_delta(current: int, delta: int) -> int:
+    """Raw security score. Can go negative; bonuses cannot lift it above 100."""
+    updated = current + delta
+    return min(updated, 100) if delta > 0 else updated
+
+
+def display_security(raw: int) -> int:
+    return max(0, raw)
+
+
+def service_score(satisfied: int, handled: int, penalty: int = 0) -> int:
+    """Percentage of satisfied genuine callers (100 if none handled yet), minus penalties, clamped 0-100."""
+    base = 100 if handled == 0 else math.floor(satisfied / handled * 100 + 0.5)
+    return max(0, min(100, base - penalty))
+
+
+def security_label(score: int, breached: bool) -> str:
+    if breached:
+        return "Breached"
+    if score >= 85:
+        return "Vault"
+    if score >= 60:
+        return "Solid"
+    return "Leaky"
+
+
+def service_label(score: int) -> str:
+    if score >= 80:
+        return "Helpful"
+    if score >= 50:
+        return "Okay"
+    return "Cold"
+
+
+def title_badge(security: str, service: str) -> str:
+    if security == "Vault" and service == "Helpful":
+        return "The Gatekeeper"
+    if security in ("Vault", "Solid") and service == "Cold":
+        return "The Wall"
+    if security in ("Leaky", "Breached") and service == "Helpful":
+        return "Everyone's Friend"
+    if security == "Breached":
+        return "The Open Door"
+    return "Front Desk Regular"
+
+
+def patience_hint(patience: int) -> str:
+    return "impatient" if patience <= config.IMPATIENT_PATIENCE else "calm"
+
+
+# ------------------------------------------------------------------ call queue (spec §6.2)
+
+
+@dataclass(frozen=True)
+class QueueItem:
+    slot: int
+    time: str
+    kind: str  # "legit" | "con"
+    legit: LegitCall | None = None
+    plan: PlannedCall | None = None
+
+
+def build_queue(day: int, legit_calls: Iterable[LegitCall], plans: Iterable[PlannedCall]) -> list[QueueItem]:
+    """Legit calls fill slots 0/2/4 from data; planned con calls fill slots 1/3 in order (extras are dropped)."""
+    items = [
+        QueueItem(c.slot, config.SLOT_TIMES[c.slot], "legit", legit=c)
+        for c in legit_calls
+        if c.day == day
+    ]
+    for slot, plan in zip(config.CON_SLOTS, plans):
+        items.append(QueueItem(slot, config.SLOT_TIMES[slot], "con", plan=plan))
+    return sorted(items, key=lambda i: i.slot)
+
+
+# ------------------------------------------------------------------ planner output cleaning (spec §8.2)
+
+
+def clean_plan(
+    result: PlannerResult,
+    *,
+    world: World,
+    burned: Iterable[str],
+    known_facts: Iterable[str],
+    tactic_ids: Iterable[str],
+    max_calls: int = len(config.CON_SLOTS),
+) -> PlannerResult:
+    burned_set, known_set, tactics = set(burned), set(known_facts), set(tactic_ids)
+    valid_facts = {f.id for f in world.facts if f.tier != "public"}
+    cleaned: list[PlannedCall] = []
+    for call in result.calls[:max_calls]:
+        identity = call.claimed_identity
+        if identity is None or identity in burned_set or name_of(world, identity) is None:
+            identity = None
+        cleaned.append(
+            call.model_copy(
+                update={
+                    "claimed_identity": identity,
+                    "target_facts": [t for t in call.target_facts if t in valid_facts and t not in known_set],
+                    "tactic": call.tactic if call.tactic in tactics else "small_ask",
+                }
+            )
+        )
+    return result.model_copy(update={"calls": cleaned})
+
+
+# ------------------------------------------------------------------ caller ID (spec §6.5)
+
+
+def _known_numbers(world: World) -> set[str]:
+    numbers = {e.mobile for e in world.employees}
+    numbers |= {v.official_number for v in world.vendors}
+    numbers.add(world.company.main_number)
+    for call in load_legit_calls():
+        numbers.update(re.findall(r"555-\d{4}", call.caller_id))
+    return numbers
+
+
+def generate_caller_id(world: World, claimed_identity: str | None, rng: random.Random) -> str:
+    """Fake caller ID for a con call. Never matches a directory number; internal extensions are never spoofed."""
+    known = _known_numbers(world)
+    while True:
+        number = f"555-0{rng.randint(0, 999):03d}"
+        if number not in known:
+            break
+    emp = employee_by_id(world, claimed_identity) if claimed_identity else None
+    if emp:
+        return f"{number} (mobile)"
+    vendor = vendor_by_id(world, claimed_identity) if claimed_identity else None
+    if vendor:
+        return f"{number} ({vendor.name})"
+    return number
