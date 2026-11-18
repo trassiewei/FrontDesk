@@ -43,7 +43,7 @@ def get_client() -> openai.OpenAI:
     if _client is None:
         _client = openai.OpenAI(
             api_key=config.llm_api_key() or "not-configured",
-            base_url=config.llm_base_url(),
+            base_url=config.llm_base_url() or None,
             timeout=config.llm_timeout(),
             max_retries=2,
         )

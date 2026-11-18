@@ -105,11 +105,12 @@ def _env_bool(name: str, default: bool) -> bool:
 
 # Read at call time (not import time) so tests and /api/health always see current values.
 def llm_base_url() -> str:
-    return _env("LLM_BASE_URL", "https://api.openai.com/v1")
+    return _env("LLM_BASE_URL")
 
 
 def llm_base_url_host() -> str:
-    return urlparse(llm_base_url()).netloc or llm_base_url()
+    url = llm_base_url()
+    return (urlparse(url).netloc or url) if url else "(SDK default)"
 
 
 def llm_api_key() -> str:
