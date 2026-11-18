@@ -1,0 +1,12 @@
+[
+  { "id": "small_ask", "name": "Start small", "description": "Ask for something trivial and harmless-sounding first, so the next request feels normal." },
+  { "id": "insider_jargon", "name": "Speak like an insider", "description": "Use internal names, system names and formats you already learned so you sound like you belong." },
+  { "id": "authority", "name": "Borrow authority", "description": "Claim to act on behalf of an executive or the IT lead, and imply consequences for delay." },
+  { "id": "urgency", "name": "Manufacture urgency", "description": "Create time pressure so the target skips verification." },
+  { "id": "helpless_newcomer", "name": "Helpless newcomer", "description": "Pose as a new employee or temp who just needs a little help." },
+  { "id": "vendor_pretext", "name": "Trusted vendor", "description": "Pose as a known vendor or contractor doing routine work." },
+  { "id": "name_drop", "name": "Name-drop", "description": "Mention real colleagues by name to imply you were sent by them." },
+  { "id": "sympathy", "name": "Play for sympathy", "description": "Appeal to kindness: you're in trouble, your boss will be angry, please help." },
+  { "id": "wrong_on_purpose", "name": "Wrong on purpose", "description": "State something slightly wrong so the target corrects you with the real detail." },
+  { "id": "reciprocity", "name": "Give to get", "description": "Offer a small favor or inside tip first, so the target feels like returning one." }
+]
