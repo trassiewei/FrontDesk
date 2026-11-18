@@ -428,9 +428,13 @@ def clean_plan(
         identity = call.claimed_identity
         if identity is None or identity in burned_set or name_of(world, identity) is None:
             identity = None
+        beats = [b.strip()[: config.MAX_SCRIPT_TEXT] for b in call.beats if b and b.strip()][: config.MAX_BEATS]
         cleaned.append(
             call.model_copy(
                 update={
+                    "beats": beats,
+                    "if_refused": call.if_refused.strip()[: config.MAX_SCRIPT_TEXT],
+                    "if_verified": call.if_verified.strip()[: config.MAX_SCRIPT_TEXT],
                     "claimed_identity": identity,
                     "target_facts": [t for t in call.target_facts if t in valid_facts and t not in known_set],
                     "tactic": call.tactic if call.tactic in tactics else "small_ask",

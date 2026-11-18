@@ -38,7 +38,7 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 ## How to play
 
 - Each day starts with a briefing, then five calls arrive. Click **Answer next call**, read the call card (who they claim to be and the caller ID), and type your replies.
-- During a call you can **Hold & call back** a person or vendor from the directory, **Transfer** to an employee, **Take a message**, or **Hang up**. Most of these end the call except the callback, which gives you a way to check a claim and costs the caller some patience.
+- During a call you can **Hold & call back** a person or vendor from the directory, **Transfer** to an employee, **Take a message**, or **Hang up**. Most of these end the call except the callback, which gives you a way to check a claim. A callback costs one of your day's replies and some of the caller's patience, and on Normal and Hard the person you phone is not always at their desk (so a missing answer proves nothing).
 - The callback menu also has **Number the caller gave**. It looks like a check, but whoever answers there will vouch for the caller, and a con's accomplice answers too, so it can make a con more convincing. Check people through the directory.
 - Between calls you can **Flag last call** as suspicious. A right flag earns Security points; a wrong one costs Service points.
 - Two scores run all game. **Security** drops when you reveal internal or confidential facts to the con artist and when the company is breached. **Service** is how many real callers you actually helped.
@@ -58,7 +58,7 @@ Five LLM roles, all language work:
 
 1. **Caller** plays every caller. The con artist improvises against your questions and pushes back on your challenges.
 2. **Extractor** reads each of your free-text replies and decides which non-public facts you disclosed, with the quote.
-3. **Planner** (the con artist's planning side) reads everything learned so far before each day, writes the notebook, and plans that day's calls.
+3. **Planner** (the con artist's planning side) reads everything learned so far before each day, writes the notebook and the day's arc, and writes each call as a short script (beats, a fallback if refused, a reaction to being verified). The caller follows the script, and the code decides which beat is current.
 4. **Reporter** turns the real transcript into a cause-and-effect incident report after the game.
 5. **Director** designs the con artist's scenario for each new game: the pretext, the goal, which facts they must learn first, who they are trying to reach, and sometimes a staged incident. Its output is checked by code (`rules.clean_scenario`); if it is invalid or the call fails, a built-in preset is used. `data/scenarios.json` holds three presets; `python cli.py --scenario fake_vendor` plays one directly.
 

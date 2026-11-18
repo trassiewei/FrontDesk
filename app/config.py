@@ -26,6 +26,9 @@ CON_SLOTS = [1, 3]
 MAX_PLAYER_TURNS_PER_CALL = 5
 DAILY_REPLY_BUDGET = 12
 CALLBACK_PATIENCE_COST = 3
+CALLBACK_REPLY_COST = 1  # a callback also uses one of the day's replies
+MAX_BEATS = 4
+MAX_SCRIPT_TEXT = 240
 CON_PATIENCE = 10
 BREACH_THRESHOLD = 6
 IT_ALERT_THRESHOLD_BONUS = 2
@@ -96,7 +99,7 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "about the call convincing. A 'new temp' is fine if you name the department you supposedly joined. "
         "Ask small things, build trust, and ask for the transfer only when your credibility is enough.",
         "",
-        "when_ready", 1.0, 0, False, False,
+        "when_ready", 0.7, 0, False, False,
     ),
     "hard": Difficulty(
         "hard", 4, 12, 3,

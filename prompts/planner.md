@@ -42,7 +42,13 @@ PLANNING RULES
 - claimed_identity: an employee id (E01–E12) or vendor id (V01–V03) to impersonate them, or null for anyone else (new temp, outside caller). Impersonating someone is powerful but a callback can expose you.
 - Your caller cannot spoof an internal extension; impersonated employees must claim to be calling from a mobile or outside line.
 
+SCRIPT: write each call as a short script the caller will follow, not just a pretext.
+- arc: 1–2 sentences on how today's calls fit together (what each one sets up for the next, and what you want known by tonight).
+- beats: 2–4 short instructions, one per exchange after the opening line (for example: "chat about the delivery, then ask whether she is at her desk this week", "ask who handles her mail while she is out", "thank her and close"). Each beat asks for ONE small thing.
+- if_refused: your fallback if the receptionist declines or hedges (a smaller, harmless ask, or a graceful exit).
+- if_verified: how you react if she offers to verify you or calls someone back (fit your crew's style above).
+
 NOTEBOOK: write 80–150 words in first person, in the voice of a cool, observant con artist. Be honest and specific: your read of the receptionist (habits, weak spots, what they guard and what they let slip — quote them when useful), what worked, what failed, and today's plan. The player will read this at the end.
 
 Respond with ONLY a JSON object:
-{"notebook": "...", "calls": [{"persona_name": "...", "claimed_identity": null, "claims": "...", "pretext": "...", "tactic": "small_ask", "target_facts": ["..."], "opening_line": "..."}], "attempt_breach_offstage": false}
+{"notebook": "...", "arc": "...", "calls": [{"persona_name": "...", "claimed_identity": null, "claims": "...", "pretext": "...", "tactic": "small_ask", "target_facts": ["..."], "opening_line": "...", "beats": ["...", "..."], "if_refused": "...", "if_verified": "..."}], "attempt_breach_offstage": false}

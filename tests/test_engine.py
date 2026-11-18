@@ -14,6 +14,8 @@ NOTEBOOK = "NOTEBOOK-PAGE-XYZ"
 # ------------------------------------------------------------------ scripting helpers
 
 
+pytestmark = pytest.mark.usefixtures("full_reach")
+
 def con(name="Alex", identity=None, claims="Alex, new temp in Finance", tactic="small_ask", targets=("cfo_on_leave",),
         opening="Hi, is Diane in today?"):
     return {"persona_name": name, "claimed_identity": identity, "claims": claims, "pretext": "A routine question.",

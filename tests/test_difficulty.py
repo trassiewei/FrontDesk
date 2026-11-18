@@ -27,7 +27,7 @@ def last_prompt(fake, role="caller"):
 def test_each_difficulty_has_its_own_con_behaviour(fake):
     notes = {d: config.get_difficulty(d) for d in ("easy", "normal", "hard")}
     assert notes["easy"].closing == "early" and notes["normal"].closing == "when_ready" == notes["hard"].closing
-    assert notes["easy"].callback_reach == notes["normal"].callback_reach == 1.0 and notes["hard"].callback_reach < 1.0
+    assert notes["easy"].callback_reach == 1.0 > notes["normal"].callback_reach > notes["hard"].callback_reach
     assert "panic" in notes["easy"].verify_note and "cooperate cheerfully" in notes["hard"].verify_note
     assert notes["easy"].legit_note and not notes["normal"].legit_note and "hard to read" in notes["hard"].legit_note
 
@@ -232,3 +232,60 @@ def test_a_survival_bought_with_a_cold_service_gets_a_coda(fake):
     assert engine.cutscene(state).endswith("fewer friends than it had on Monday.")
     state.satisfied_legit = 9
     assert "fewer friends" not in engine.cutscene(state)
+
+
+def test_a_callback_costs_one_reply_and_needs_one_left(fake):
+    state = begin(fake, "easy")
+    take_con(state)
+    before = state.replies_left
+    engine.callback(state, "E04")
+    assert state.replies_left == before - config.CALLBACK_REPLY_COST
+    state2 = begin(fake, "easy", plan(con(claims="Alex, new temp in Finance")))
+    take_con(state2)
+    state2.replies_left = 0
+    with pytest.raises(engine.EngineError) as err:
+        engine.callback(state2, "E09")
+    assert err.value.status == 409 and state2.callbacks_made == 0
+
+
+def test_normal_callbacks_do_not_always_get_through():
+    assert 0 < config.get_difficulty("normal").callback_reach < 1
+
+
+def scripted(**kw):
+    return {**con(), "beats": ["first ask", "second ask", "close"], "if_refused": "ask smaller",
+            "if_verified": "say go ahead", **kw}
+
+
+def test_the_con_follows_the_planners_script_beat_by_beat(fake):
+    state = begin(fake, "normal", {**plan(scripted()), "arc": "Set up Wednesday's ask."})
+    take_con(state)
+    engine.say(state, "Hello?")
+    first = last_prompt(fake)
+    assert "Today's arc: Set up Wednesday's ask." in first and "RIGHT NOW: beat 1" in first
+    assert "ask smaller" in first and "say go ahead" in first
+    engine.say(state, "Who is that?")
+    assert "RIGHT NOW: beat 2" in last_prompt(fake)
+    for _ in range(3):
+        if state.phase != "CALL_ACTIVE":
+            break
+        engine.say(state, "And?")
+    if state.phase == "CALL_ACTIVE":
+        assert "RIGHT NOW: beat 3" in last_prompt(fake)
+
+
+def test_a_call_without_a_script_still_works(fake):
+    state = begin(fake, "normal")
+    take_con(state)
+    engine.say(state, "Hello?")
+    assert "No written script" in last_prompt(fake)
+
+
+def test_script_is_cleaned_and_shown_in_the_reveal():
+    from app.models import PlannedCall, PlannerResult
+
+    call = PlannedCall(persona_name="A", claims="c", pretext="p", tactic="small_ask", opening_line="o",
+                       beats=[" one ", "", "two", "three", "four", "five"], if_refused="x" * 999)
+    out = rules.clean_plan(PlannerResult(notebook="n", calls=[call]), world=load_world(), burned=[], known_facts=[],
+                           tactic_ids=["small_ask"]).calls[0]
+    assert out.beats == ["one", "two", "three", "four"] and len(out.if_refused) == config.MAX_SCRIPT_TEXT

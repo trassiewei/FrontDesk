@@ -121,10 +121,14 @@ class PlannedCall(BaseModel):
     tactic: str
     target_facts: list[str] = Field(default_factory=list)
     opening_line: str
+    beats: list[str] = Field(default_factory=list)  # the script: what to do on each exchange after the opening
+    if_refused: str = ""
+    if_verified: str = ""
 
 
 class PlannerResult(BaseModel):
     notebook: str
+    arc: str = ""  # how today's calls fit together
     calls: list[PlannedCall] = Field(default_factory=list)
     attempt_breach_offstage: bool = False
 

@@ -1,6 +1,8 @@
 """The Art-of-Deception pass: the number-the-caller-gave trap, the revealed-calls table and the playbook."""
 from __future__ import annotations
 
+import pytest
+
 import json
 
 from fastapi.testclient import TestClient
@@ -10,6 +12,8 @@ from app.main import app, public_state
 from app.world import load_playbook, load_tactics, load_world
 from test_scenario import con, draft, fake, give_intel, plan, policy, start, take_con  # noqa: F401
 
+
+pytestmark = pytest.mark.usefixtures("full_reach")
 
 def take_legit(state):
     call = engine.next_call(state)
@@ -32,12 +36,12 @@ def test_dialling_the_callers_number_reads_the_same_for_a_con_and_a_real_caller(
     assert state.exposures == 0 and not state.it_alert
 
 
-def test_number_check_costs_patience_and_no_reply(fake):
+def test_number_check_costs_patience_and_one_reply(fake):
     state = start(fake, draft(incident=None))
     call = take_con(state)
     patience, replies = call.patience, state.replies_left
     engine.callback(state, rules.CALLER_NUMBER)
-    assert call.patience == patience - config.CALLBACK_PATIENCE_COST and state.replies_left == replies
+    assert call.patience == patience - config.CALLBACK_PATIENCE_COST and state.replies_left == replies - config.CALLBACK_REPLY_COST
     assert state.callbacks_made == 1
 
 

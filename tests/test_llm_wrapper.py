@@ -223,7 +223,7 @@ def test_fake_llm_goes_through_validation_and_logging(fake_llm):
 EXPECTED_VARS = {
     "con_caller": {"claims", "persona_name", "pretext", "tactic_name", "tactic_description", "target_descriptions",
                    "skill_note", "public_info", "intel", "patience", "system_note", "transcript", "con_goal", "situation",
-                   "verify_note", "closing_note"},
+                   "verify_note", "closing_note", "script_text"},
     "legit_caller": {"caller_name", "claims", "personality", "goal", "knows", "temptation", "success",
                      "patience", "system_note", "transcript", "situation", "legit_note"},
     "extractor": {"facts", "caller_line", "player_message"},

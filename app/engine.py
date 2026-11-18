@@ -368,6 +368,8 @@ def _apply_leaks(state: GameState, call: CallRecord, msg: Message, extracted: Ex
 
 def callback(state: GameState, target_id: str) -> dict:
     call = _active(state)
+    if state.replies_left < config.CALLBACK_REPLY_COST:
+        raise EngineError("You have no replies left today, so you cannot hold the call to check anyone.", 409)
     world = load_world()
     own_number = target_id == rules.CALLER_NUMBER
     if not own_number and employee_by_id(world, target_id) is None and vendor_by_id(world, target_id) is None:
@@ -382,6 +384,7 @@ def callback(state: GameState, target_id: str) -> dict:
         )
         call.callbacks.append(target_id)
     state.callbacks_made += 1
+    state.replies_left -= config.CALLBACK_REPLY_COST
     call.messages.append(Message(speaker="system", text=result.text, time=call.time))
     call.patience -= effects(state).callback_cost
 

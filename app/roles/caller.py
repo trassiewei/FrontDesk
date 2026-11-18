@@ -49,6 +49,27 @@ def closing_note(state: GameState, call: CallRecord, world: World) -> str:
     )
 
 
+def script_text(state: GameState, call: CallRecord) -> str:
+    """The planner's script for this call. The code picks which beat is current, from the number of exchanges so far."""
+    plan = call.plan
+    assert plan is not None
+    arc = state.planned[call.day].arc if call.day in state.planned else ""
+    lines = []
+    if arc:
+        lines.append(f"Today's arc: {arc}")
+    if plan.beats:
+        lines.append("Beats, one per exchange (your opening line was beat 0):")
+        lines += [f"  {i}. {beat}" for i, beat in enumerate(plan.beats, 1)]
+        current = min(call.player_turns, len(plan.beats) - 1)
+        lines.append(f"RIGHT NOW: beat {current + 1}. Do it in your own words, adapting to what she just said; "
+                     "do not skip ahead and do not invent new goals.")
+    if plan.if_refused:
+        lines.append(f"If she refuses or hedges: {plan.if_refused}")
+    if plan.if_verified:
+        lines.append(f"If she offers to verify you or calls someone back: {plan.if_verified} (the Verification rule below overrides this if they clash)")
+    return "\n".join(lines) or "No written script: improvise from your pretext."
+
+
 def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: str) -> str:
     plan = call.plan
     assert plan is not None
@@ -62,6 +83,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         situation=situation_text(state, insider=True),
         persona_name=plan.persona_name,
         pretext=plan.pretext,
+        script_text=script_text(state, call),
         tactic_name=tactic.name if tactic else plan.tactic,
         tactic_description=tactic.description if tactic else "",
         target_descriptions=target_text,

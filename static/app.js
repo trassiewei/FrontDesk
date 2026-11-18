@@ -248,7 +248,7 @@ function callView() {
     `${G.state.replies_left_today} today`);
 
   const actions = el("div", { class: "actions" },
-    menuButton("callback", "⏸ Hold & call back…", callbackMenu),
+    menuButton("callback", "⏸ Hold & call back… (1 reply)", callbackMenu, noReplies),
     menuButton("transfer", "↪ Transfer…", transferMenu),
     el("button", { disabled: G.busy, onclick: () => run(takeMessage) }, "📝 Take a message"),
     el("button", { disabled: G.busy, onclick: () => run(hangUp) }, "✖ Hang up"));
@@ -259,10 +259,10 @@ function callView() {
   return view;
 }
 
-function menuButton(name, label, build) {
+function menuButton(name, label, build, off = false) {
   const wrap = el("div", { class: "menu-wrap" },
     el("button", {
-      disabled: G.busy,
+      disabled: G.busy || off,
       onclick: (event) => { event.stopPropagation(); G.menu = G.menu === name ? null : name; G.confirmTransfer = null; render(); },
     }, label));
   if (G.menu === name) wrap.append(build());
@@ -570,6 +570,9 @@ function revealCard(c) {
   if (c.tactic) {
     rows.push(el("p", {}, el("span", { class: "label" }, "Move: "), `${c.tactic.name}. ${c.tactic.sign}`),
       el("p", {}, el("span", { class: "label" }, "Counter: "), c.tactic.counter));
+  }
+  if (c.script && c.script.length) {
+    rows.push(el("p", {}, el("span", { class: "label" }, "Their script: "), c.script.map((b, i) => `${i + 1}. ${b}`).join("  ")));
   }
   rows.push(el("p", {}, el("span", { class: "label" }, "How it ended: "), c.outcome));
   if (c.player.length) rows.push(el("p", {}, el("span", { class: "label" }, "You: "), c.player.join("; ")));

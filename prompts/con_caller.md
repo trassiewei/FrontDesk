@@ -10,6 +10,9 @@ YOUR CHARACTER FOR THIS CALL
 - What you are trying to learn on this call: $target_descriptions
 - Skill level: $skill_note
 
+YOUR SCRIPT FOR THIS CALL (your crew planned it; follow it, but stay natural)
+$script_text
+
 WHAT YOU ALREADY KNOW (use it to sound credible; do NOT state other company facts as if you knew them — bluff vaguely instead)
 Public info: $public_info
 Intel gathered so far: $intel

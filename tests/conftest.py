@@ -148,3 +148,13 @@ def fake_client(monkeypatch):
         monkeypatch.setattr(llm, "_client", client)
         return client
     return install
+
+
+@pytest.fixture
+def full_reach(monkeypatch):
+    """Directory callbacks always reach the person (normal is 0.7 in the real game)."""
+    from dataclasses import replace
+
+    from app import config
+
+    monkeypatch.setitem(config.DIFFICULTIES, "normal", replace(config.DIFFICULTIES["normal"], callback_reach=1.0))
