@@ -212,6 +212,7 @@ def test_world_endpoint_has_desk_info_but_no_persona(client):
     assert len(data["employees"]) == 12 and data["vendors"] and data["sticky_notes"] and data["internal_notes"]
     assert set(data["policies"]) == {"easy", "normal", "hard"} and "RED FLAGS" in data["policies"]["easy"]
     assert "persona" not in json.dumps(data) and "available" not in data["employees"][0]
+    assert data["ui"]["start_page"]["footer"] and data["ui"]["llm_banner"]
 
 
 def test_health_reports_configuration(client):

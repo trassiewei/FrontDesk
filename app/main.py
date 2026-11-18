@@ -5,7 +5,8 @@ con artist's notebook must never reach the browser before the game is over.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
+import logging
+from contextlib import asynccontextmanager, contextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -15,9 +16,23 @@ from pydantic import BaseModel
 from . import config, engine, rules, storage, summary
 from .engine import EngineError
 from .models import GameState
-from .world import load_world
+from .world import load_story, load_world
 
-app = FastAPI(title="Front Desk")
+log = logging.getLogger("uvicorn.error")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    problems = config.config_problems()
+    if problems:
+        log.warning("LLM is not configured; the game will run on fallback lines only.")
+        for problem in problems:
+            log.warning("  - %s", problem)
+        log.warning("Copy .env.example to .env, fill it in, then run: python scripts/check_llm.py")
+    yield
+
+
+app = FastAPI(title="Front Desk", lifespan=lifespan)
 
 
 # ------------------------------------------------------------------ public state
@@ -252,6 +267,7 @@ def world() -> dict:
         "sticky_notes": w.desk.sticky_notes,
         "internal_notes": w.desk.internal_notes,
         "policies": {level: engine.policy_text(level) for level in ("easy", "normal", "hard")},
+        "ui": {"start_page": load_story()["start_page"], "llm_banner": load_story()["llm_not_configured_banner"]},
     }
 
 
