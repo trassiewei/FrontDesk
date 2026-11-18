@@ -514,7 +514,8 @@ def test_two_exposures_end_the_game_on_normal_and_burned_identity_is_cleaned(fak
 
 
 def test_hard_needs_three_exposures(fake, monkeypatch):
-    monkeypatch.setitem(config.DIFFICULTIES, "hard", replace(config.DIFFICULTIES["hard"], callback_reach=1.0))
+    monkeypatch.setitem(config.DIFFICULTIES, "hard",
+                        replace(config.DIFFICULTIES["hard"], callback_reach=1.0, outsider_only=False))
     state = new(fake, plan(con(identity="E04")), plan(con(identity="E02")), difficulty="hard")
     take_con(state)
     engine.callback(state, "E04")

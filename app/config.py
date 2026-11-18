@@ -43,6 +43,7 @@ BONUS_EXPOSURE = 15
 BONUS_CORRECT_FLAG = 5
 PENALTY_FALSE_FLAG_SERVICE = 5
 SERVICE_ANGRY_HANGUP_PENALTY = 10
+COLD_SERVICE_BELOW = 50  # a 'survived' ending below this Service score gets the 'turned everyone away' coda
 
 LLM_LEAK_MIN_CONFIDENCE = 0.5
 IMPATIENT_PATIENCE = 3
@@ -64,6 +65,7 @@ class Difficulty:
     closing: str  # "early": the con asks for the IT transfer at once; "when_ready": only once credible enough
     callback_reach: float  # chance a directory callback actually reaches the person
     recon: int  # facts the crew researches on its own each night (no cost to the player's Security)
+    outsider_only: bool  # the crew must pick pretexts the directory cannot confirm (code-checked)
     strict_legit: bool  # genuine callers are only satisfied by being put through or answered, never by a message
 
 
@@ -79,7 +81,7 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "Your crew is sloppy. Pick clumsy pretexts: a pushy boss, an urgent IT person, a vague 'new temp'. "
         "Impersonate someone from the directory. Ask for sensitive things early and clumsily.",
         "You are easygoing and patient. If the receptionist verifies you or asks you to hold, that is completely fine.",
-        "early", 1.0, 0, False,
+        "early", 1.0, 0, False, False,
     ),
     "normal": Difficulty(
         "normal", BREACH_THRESHOLD, CON_PATIENCE, EXPOSURES_TO_GIVE_UP,
@@ -94,7 +96,7 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "about the call convincing. A 'new temp' is fine if you name the department you supposedly joined. "
         "Ask small things, build trust, and ask for the transfer only when your credibility is enough.",
         "",
-        "when_ready", 1.0, 0, False,
+        "when_ready", 1.0, 0, False, False,
     ),
     "hard": Difficulty(
         "hard", 4, 12, 3,
@@ -119,7 +121,7 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "You need a real result: being put through to the right person or getting the answer. A message alone, or a "
         "flat refusal, does not satisfy you: say you are disappointed and end the call (end_call = true, outcome "
         "\"unsatisfied\"); do not escalate or complain loudly.",
-        "when_ready", 0.4, 3, True,
+        "when_ready", 0.4, 3, True, True,
     ),
 }
 

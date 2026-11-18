@@ -5,7 +5,7 @@ import logging
 
 from .. import config, llm, rules
 from ..models import GameState, PlannedCall, PlannerResult, World
-from ..world import employee_by_id, fact_by_id, load_tactics, non_public_facts, scenario_of
+from ..world import employee_by_id, fact_by_id, load_tactics, name_of, non_public_facts, scenario_of
 from .common import fact_lines, incident_plan_text, intel_text, public_info_text
 
 log = logging.getLogger("frontdesk.planner")
@@ -96,10 +96,30 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     except llm.LLMError as exc:
         log.warning("Planner LLM failed, using the fixed fallback call: %s", exc)
         result = fallback_plan()
-    return rules.clean_plan(
-        result,  # type: ignore[arg-type]
-        world=world,
-        burned=state.burned_identities,
-        known_facts=state.intel,
-        tactic_ids=[t.id for t in tactics],
-    )
+    def clean(raw: PlannerResult) -> PlannerResult:
+        return rules.clean_plan(
+            raw, world=world, burned=state.burned_identities, known_facts=state.intel,
+            tactic_ids=[t.id for t in tactics],
+        )
+
+    cleaned = clean(result)  # type: ignore[arg-type]
+    if not diff.outsider_only:
+        return cleaned
+    bad = {c.persona_name: rules.outsider_violations(c, world) for c in cleaned.calls}
+    bad = {name: ids for name, ids in bad.items() if ids}
+    if not bad:
+        return cleaned
+    named = "; ".join(f"{name} (pretends to be or works for {', '.join(name_of(world, i) or i for i in ids)})"
+                      for name, ids in bad.items())
+    try:
+        retry = llm.complete_json(
+            "planner", system, llm.USER_TURN, PlannerResult, state.game_id,
+            extra_messages=[{"role": "user", "content": (
+                f"Your plan breaks your crew's style: {named}. A single directory callback would expose those calls. "
+                "Replace them with outsiders the directory cannot confirm (no claimed_identity, no employee or "
+                "listed-vendor names as the caller's own identity or employer) and return the complete JSON again.")}],
+        )
+        cleaned = clean(retry)  # type: ignore[arg-type]
+    except llm.LLMError as exc:
+        log.warning("Planner retry failed, keeping the first plan: %s", exc)
+    return rules.drop_directory_claims(cleaned, world)

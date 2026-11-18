@@ -440,6 +440,23 @@ def clean_plan(
     return result.model_copy(update={"calls": cleaned})
 
 
+def drop_directory_claims(result: PlannerResult, world: World) -> PlannerResult:
+    """Keep only outsider calls, unless that would leave nothing (then keep the plan as it is)."""
+    good = [c for c in result.calls if not outsider_violations(c, world)]
+    return result.model_copy(update={"calls": good}) if good else result
+
+
+def outsider_violations(call: PlannedCall, world: World) -> list[str]:
+    """Ids of directory people/vendors a planned call pretends to be (or claims to work for).
+
+    A callback to any of them would settle the call, which the hardest crews never allow.
+    """
+    found = [call.claimed_identity] if call.claimed_identity else []
+    found += [i for i in scan_references(call.claims, world) if vendor_by_id(world, i) is not None]
+    found += [e.id for e in world.employees if e.name.lower() == call.persona_name.strip().lower()]
+    return list(dict.fromkeys(found))
+
+
 # ------------------------------------------------------------------ scenario (director output cleaning)
 
 CUTSCENE_KEYS = ("breached", "con_gave_up", "survived")

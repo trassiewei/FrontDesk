@@ -53,5 +53,16 @@
   "bulletin_header": {
     "policy": "POLICY UPDATE",
     "incident": "HEADS UP"
-  }
+  },
+  "survived_cold": "You kept the vault shut, but you did it by turning away almost everyone, and real customers noticed. Starriver is still standing, with fewer friends than it had on Monday.",
+  "recon_hints": [
+    {
+      "title": "Questions about us",
+      "text": "A few people around the building mention that outsiders have been asking oddly specific questions about who works here and how things run. Assume callers may already know more about us than we have told you."
+    },
+    {
+      "title": "Someone is asking around",
+      "text": "Facilities and Sales both say they have heard from people who seem to have done their homework on Starriver. A caller sounding well informed proves nothing."
+    }
+  ]
 }

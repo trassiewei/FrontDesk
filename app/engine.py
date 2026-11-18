@@ -78,7 +78,12 @@ def _add_references(call: CallRecord, text: str, world: World) -> None:
 
 
 def cutscene(state: GameState) -> str | None:
-    return scenario_of(state).cutscenes[state.outcome] if state.game_over and state.outcome else None
+    if not (state.game_over and state.outcome):
+        return None
+    text = scenario_of(state).cutscenes[state.outcome]
+    if state.outcome == "survived" and summary.scores(state)["service"] < config.COLD_SERVICE_BELOW:
+        text += "\n\n" + load_story()["survived_cold"]
+    return text
 
 
 def effects(state: GameState) -> rules.Effects:
@@ -149,26 +154,30 @@ def new_game(player_name: str, difficulty: str, seed: int | None = None, scenari
 def _enter_day(state: GameState, day: int) -> None:
     """Run the planner for `day`, build the call queue and show the morning briefing."""
     world = load_world()
-    _recon(state, world, day)
+    learned = _recon(state, world, day)
     plan = planner.plan_day(state, world, day)
     state.planned[day] = plan
     state.notebooks[day] = plan.notebook
     state.day = day
     _add_notices(state, day)
+    if learned:
+        hint = _rng(state, "recon_hint", day).choice(load_story()["recon_hints"])
+        state.notices.append(Notice(day=day, kind="incident", id="recon_hint", title=hint["title"], text=hint["text"]))
     state.queue = _build_queue(state, plan, world)
     state.last_call_id = None
     state.phase = "DAY_BRIEFING"
 
 
-def _recon(state: GameState, world: World, day: int) -> None:
+def _recon(state: GameState, world: World, day: int) -> list[str]:
     """The crew's overnight research (hard only). Costs the player no Security; the report shows it."""
     count = _diff(state).recon
     if day < 2 or count <= 0:
-        return
-    for fact_id in rules.pick_recon_facts(state.intel, scenario_of(state), world.facts, count,
-                                          _rng(state, "recon", day)):
+        return []
+    picked = rules.pick_recon_facts(state.intel, scenario_of(state), world.facts, count, _rng(state, "recon", day))
+    for fact_id in picked:
         state.intel[fact_id] = IntelRecord(fact_id=fact_id, day=day - 1, time="night", call_id="recon",
                                            quote="(found out on their own)", source="recon")
+    return picked
 
 
 def _build_queue(state: GameState, plan: PlannerResult, world: World) -> list[CallRecord]:

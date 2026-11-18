@@ -84,7 +84,8 @@ def test_planner_prompt_carries_the_crew_style(fake):
         assert config.get_difficulty(difficulty).planner_note in last_prompt(fake, "planner")
 
 
-def test_hard_callbacks_often_do_not_get_through_but_always_the_same_way_for_a_con_and_a_real_caller(fake):
+def test_hard_callbacks_often_do_not_get_through_but_always_the_same_way_for_a_con_and_a_real_caller(fake, monkeypatch):
+    monkeypatch.setitem(config.DIFFICULTIES, "hard", replace(config.DIFFICULTIES["hard"], outsider_only=False))
     outcomes = set()
     for call_id in range(40):
         state = begin(fake, "hard", plan(con(identity="E04", claims="Raj Patel, IT")))
@@ -98,7 +99,8 @@ def test_hard_callbacks_often_do_not_get_through_but_always_the_same_way_for_a_c
 
 
 def test_unreachable_person_does_not_expose_a_con(fake, monkeypatch):
-    monkeypatch.setitem(config.DIFFICULTIES, "hard", replace(config.DIFFICULTIES["hard"], callback_reach=0.0))
+    monkeypatch.setitem(config.DIFFICULTIES, "hard",
+                        replace(config.DIFFICULTIES["hard"], callback_reach=0.0, outsider_only=False))
     state = begin(fake, "hard", plan(con(identity="E04", claims="Raj Patel, IT")))
     call = take_con(state)
     out = engine.callback(state, "E04")
@@ -186,3 +188,47 @@ def test_hard_message_does_not_satisfy_a_genuine_caller():
     assert legit_call_by_id("L1").message_ok
     assert rules.take_message(Call()).satisfied is True
     assert rules.take_message(Call(), strict=True).satisfied is False
+
+
+def test_hard_crew_is_asked_again_when_a_call_pretends_to_be_in_the_directory(fake):
+    bad = plan(con(identity="E04", claims="Raj Patel, IT"), con(claims="Dana from NetCore IT Services"))
+    good = plan(con(claims="Dana from a courier company"))
+    state = begin(fake, "hard", bad, good)
+    assert len(fake.calls_for("planner")) == 2
+    assert "breaks your crew's style" in fake.calls_for("planner")[1]["messages"][-1]["content"]
+    assert [c.claims for c in state.planned[1].calls] == ["Dana from a courier company"]
+
+
+def test_normal_crew_is_never_second_guessed(fake):
+    begin(fake, "normal", plan(con(identity="E04", claims="Raj Patel, IT")))
+    assert len(fake.calls_for("planner")) == 1
+
+
+def test_hard_keeps_the_plan_if_the_retry_fails_and_nothing_else_is_left(fake):
+    from app import llm
+
+    bad = plan(con(identity="E04", claims="Raj Patel, IT"))
+    state = begin(fake, "hard", bad, llm.LLMError("down"))
+    assert [c.claimed_identity for c in state.planned[1].calls] == ["E04"]
+
+
+def test_recon_leaves_a_vague_heads_up_for_the_player(fake):
+    state = begin(fake, "hard")
+    assert not any(n.id == "recon_hint" for n in state.notices)
+    while state.queue:
+        engine.next_call(state)
+        engine.hang_up(state)
+    fake.script("planner", plan(con()))
+    engine.end_day(state)
+    hints = [n for n in state.notices if n.id == "recon_hint"]
+    assert len(hints) == 1 and hints[0].day == 2
+    assert not any(f in hints[0].text for f in state.intel)
+
+
+def test_a_survival_bought_with_a_cold_service_gets_a_coda(fake):
+    state = begin(fake, "normal")
+    state.game_over, state.outcome = True, "survived"
+    state.handled_legit, state.satisfied_legit = 9, 2
+    assert engine.cutscene(state).endswith("fewer friends than it had on Monday.")
+    state.satisfied_legit = 9
+    assert "fewer friends" not in engine.cutscene(state)
