@@ -162,7 +162,8 @@ def _enter_day(state: GameState, day: int) -> None:
         planning = pool.submit(planner.plan_day, state, world, day)
         casting_job = pool.submit(casting.cast_day, state, world, day)
         plan, legit_calls = planning.result(), casting_job.result()
-    plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls])
+    earlier_legit = [c.caller_name for c in state.calls if not c.is_con]
+    plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls] + earlier_legit)
     state.planned[day] = plan
     state.notebooks[day] = plan.notebook
     if learned:
@@ -456,7 +457,9 @@ def transfer(state: GameState, target_id: str) -> dict:
     )
     text = result.text
     penalty = effects(state).it_transfer_penalty
-    if penalty and employee_by_id(world, target_id).dept == "IT" and not call.callbacks:  # type: ignore[union-attr]
+    # A call on an internal extension cannot be spoofed, so it counts as verified for this rule.
+    internal = call.caller_id.startswith("Ext ")
+    if penalty and employee_by_id(world, target_id).dept == "IT" and not call.callbacks and not internal:  # type: ignore[union-attr]
         state.security = rules.apply_security_delta(state.security, -penalty)
         text += f" (Policy: an unverified transfer to IT was logged. −{penalty} Security.)"
     call.messages.append(Message(speaker="system", text=text, time=call.time))

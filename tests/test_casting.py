@@ -184,3 +184,21 @@ def test_slips_come_one_reply_later_every_second_day():
 def test_naming_a_listed_vendor_in_the_introduction_makes_the_caller_that_vendors_rep():
     call = clean([draft(claims="Mia Park, account manager at Brightline Office Supply")])[0]
     assert call.claimed_identity == "V02" and call.caller_id == "555-0720 (Brightline Office Supply)"
+
+
+def test_a_call_card_never_shows_the_planners_description_of_the_call():
+    world = load_world()
+    assert rules.card_claims("Gareth Lomax", "Gareth Lomax, Starboard support", world) == "Gareth Lomax, Starboard support"
+    assert rules.card_claims("Colin Draper", "Same client's coordinator, following up on the signature", world) == "Colin Draper"
+    assert rules.card_claims("Alex", "Dave Davis, IT", world) == "Dave Davis, IT"
+
+
+def test_internal_callers_count_as_verified_for_the_it_transfer_rule(fake):
+    from app.models import Notice
+    state = start(fake, [cast(draft(caller_name="Bob Baker", claims="Bob Baker, Finance", claimed_identity="E02"),
+                              draft(caller_name="Omar Ali"), draft(caller_name="Rita Cole"))])
+    state.notices.append(Notice(day=1, kind="policy", id="it_verify", title="t", text="t"))
+    engine.next_call(state)
+    before = state.security
+    out = engine.transfer(state, "E05")
+    assert state.security == before and "Policy" not in out["result_text"]

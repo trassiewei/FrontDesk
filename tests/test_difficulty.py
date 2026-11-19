@@ -191,12 +191,12 @@ def test_hard_message_does_not_satisfy_a_genuine_caller():
 
 
 def test_hard_crew_is_asked_again_when_a_call_pretends_to_be_in_the_directory(fake):
-    bad = plan(con(identity="E04", claims="Dave Davis, IT"), con(claims="Dana from NetCore IT Services"))
-    good = plan(con(claims="Dana from a courier company"))
+    bad = plan(con(identity="E04", claims="Dave Davis, IT"), con(claims="Alex from NetCore IT Services"))
+    good = plan(con(claims="Alex from a courier company"))
     state = begin(fake, "hard", bad, good)
     assert len(fake.calls_for("planner")) == 2
     assert "breaks your crew's style" in fake.calls_for("planner")[1]["messages"][-1]["content"]
-    assert [c.claims for c in state.planned[1].calls] == ["Dana from a courier company"]
+    assert [c.claims for c in state.planned[1].calls] == ["Alex from a courier company"]
 
 
 def test_normal_crew_is_never_second_guessed(fake):

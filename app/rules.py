@@ -433,6 +433,20 @@ def build_queue(day: int, legit_calls: Iterable[LegitCall], plans: Iterable[Plan
 _PLACEHOLDER = re.compile(r"\[[^\]\n]{1,40}\]|\{[^}\n]{1,40}\}|<[^>\n]{1,40}>")
 
 
+_MAX_CLAIMS = 80
+
+
+def card_claims(persona_name: str, claims: str, world: World | None = None) -> str:
+    """The call card must read like a caller's self-introduction. A planner's description of the call ("A billing
+    clerk following up on...") would give the con away, so it is replaced by the persona's name."""
+    claims = claims.strip()
+    first = persona_name.split()[0].lower() if persona_name.split() else ""
+    named = (first and first in claims.lower()) or (world is not None and scan_references(claims, world))
+    if not claims or len(claims) > _MAX_CLAIMS or not named:
+        return persona_name.strip() or claims[:_MAX_CLAIMS]
+    return claims
+
+
 def has_placeholder(text: str) -> bool:
     """A template slot such as [backup name] left in text the caller would speak aloud."""
     return bool(_PLACEHOLDER.search(text or ""))
@@ -467,7 +481,7 @@ def clean_plan(
                 update={
                     "beats": beats[: config.MAX_BEATS],
                     "tells": tells[: config.MAX_TELLS],
-                    "claims": scrub_placeholders(call.claims),
+                    "claims": card_claims(call.persona_name, scrub_placeholders(call.claims), world),
                     "pretext": scrub_placeholders(call.pretext),
                     "opening_line": scrub_placeholders(call.opening_line),
                     "if_refused": scrub_placeholders(call.if_refused).strip()[: config.MAX_SCRIPT_TEXT],
