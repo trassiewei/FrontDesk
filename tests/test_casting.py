@@ -202,3 +202,23 @@ def test_internal_callers_count_as_verified_for_the_it_transfer_rule(fake):
     before = state.security
     out = engine.transfer(state, "E05")
     assert state.security == before and "Policy" not in out["result_text"]
+
+
+def test_a_renamed_persona_is_renamed_in_the_other_calls_of_the_day_too():
+    from app.models import PlannedCall, PlannerResult
+    a = PlannedCall(persona_name="Priya Nandakumar", claims="Priya Nandakumar, Meridian Research", pretext="p",
+                    tactic="small_ask", opening_line="Hi, Priya here.")
+    b = PlannedCall(persona_name="Owen Fairhurst", claims="Owen Fairhurst, Meridian Research", pretext="p",
+                    tactic="small_ask", opening_line="Priya spoke to you earlier, Owen here.")
+    out = rules.dedupe_personas(PlannerResult(notebook="Priya opens.", calls=[a, b]), load_world(),
+                                ["Priya Nathan", "Owen Marsh", "Dana Voss"])
+    first, second = out.calls
+    assert first.persona_name.split()[0] not in {"Priya", "Dana"}
+    new_first = first.persona_name.split()[0]
+    assert second.opening_line.startswith(f"{new_first} spoke to you earlier") and "Owen" not in second.opening_line
+    assert out.notebook == f"{new_first} opens."
+
+
+def test_genuine_call_cards_also_read_name_then_role():
+    call = clean([draft(claims="Office manager at Brightline Office Supply")])[0]
+    assert call.claims == "Mia Park, office manager at Brightline Office Supply"

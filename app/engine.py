@@ -163,8 +163,9 @@ def _enter_day(state: GameState, day: int) -> None:
         planning = pool.submit(planner.plan_day, state, world, day)
         casting_job = pool.submit(casting.cast_day, state, world, day)
         plan, legit_calls = planning.result(), casting_job.result()
-    earlier_legit = [c.caller_name for c in state.calls if not c.is_con]
-    plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls] + earlier_legit)
+    # The planner already avoids its own earlier personas; this also keeps clear of every genuine caller.
+    earlier = [c.caller_name for c in state.calls]
+    plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls] + earlier)
     state.planned[day] = plan
     state.notebooks[day] = plan.notebook
     if plan.method:

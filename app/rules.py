@@ -435,6 +435,7 @@ _PLACEHOLDER = re.compile(r"\[[^\]\n]{1,40}\]|\{[^}\n]{1,40}\}|<[^>\n]{1,40}>")
 
 
 _MAX_CLAIMS = 80
+_SHORT_ROLE = 50
 
 
 def card_claims(persona_name: str, claims: str, world: World | None = None) -> str:
@@ -442,9 +443,15 @@ def card_claims(persona_name: str, claims: str, world: World | None = None) -> s
     clerk following up on...") would give the con away, so it is replaced by the persona's name."""
     claims = claims.strip()
     first = persona_name.split()[0].lower() if persona_name.split() else ""
-    named = (first and first in claims.lower()) or (world is not None and scan_references(claims, world))
-    if not claims or len(claims) > _MAX_CLAIMS or not named:
+    named = (first and first in claims.lower()) or (
+        world is not None and any(employee_by_id(world, i) for i in scan_references(claims, world)))
+    if not claims or len(claims) > _MAX_CLAIMS:
         return persona_name.strip() or claims[:_MAX_CLAIMS]
+    if not named:
+        # "Office manager at Brightline" -> "Helen Okafor, office manager at Brightline"; a long description goes.
+        if persona_name.strip() and len(claims) <= _SHORT_ROLE:
+            return f"{persona_name.strip()}, {claims[0].lower() + claims[1:]}"
+        return persona_name.strip() or claims
     return claims
 
 
@@ -503,12 +510,13 @@ _PERSONA_POOL = ["Dana", "Ellis", "Morgan", "Tessa", "Brent", "Nora", "Wendy", "
 
 def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) -> PlannerResult:
     """Give each con a fresh first name: not a directory employee's (a 'Henry' next to Henry Hill reads as the
-    same person), and not one a previous call or an earlier call today already used. The old name is replaced
-    everywhere in the script."""
+    same person), and not one an earlier caller or an earlier call today already used. The old name is replaced
+    everywhere in the day's plan, so a call that refers to another of today's callers still names them right."""
     taken = {n.split()[0].lower() for n in used if n.strip()}
     directory = {e.name.split()[0].lower() for e in world.employees}
     pool = [n for n in _PERSONA_POOL if n.lower() not in taken | directory]
-    calls: list[PlannedCall] = []
+    renames: list[tuple[re.Pattern, str]] = []
+    personas: list[str] = []
     for call in result.calls:
         parts = call.persona_name.split()
         first = parts[0] if parts else ""
@@ -516,21 +524,29 @@ def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) ->
         clash = first.lower() in taken or (first.lower() in directory and not impersonating)
         if first and clash and pool:
             new = pool.pop(0)
-            pattern = re.compile(rf"\b{re.escape(first)}\b")
-
-            def swap(text: str, pattern=pattern, new=new) -> str:
-                return pattern.sub(new, text)
-
-            call = call.model_copy(update={
-                "persona_name": " ".join([new, *parts[1:]]),
-                "claims": swap(call.claims), "pretext": swap(call.pretext), "opening_line": swap(call.opening_line),
-                "beats": [swap(b) for b in call.beats], "tells": [swap(t) for t in call.tells],
-                "if_refused": swap(call.if_refused), "if_verified": swap(call.if_verified),
-            })
+            renames.append((re.compile(rf"\b{re.escape(first)}\b"), new))
+            parts = [new, *parts[1:]]
             first = new
         taken.add(first.lower())
-        calls.append(call)
-    return result.model_copy(update={"calls": calls})
+        personas.append(" ".join(parts))
+    if not renames:
+        return result
+
+    def swap(text: str) -> str:
+        for pattern, new in renames:
+            text = pattern.sub(new, text)
+        return text
+
+    calls = [
+        call.model_copy(update={
+            "persona_name": persona,
+            "claims": swap(call.claims), "pretext": swap(call.pretext), "opening_line": swap(call.opening_line),
+            "beats": [swap(b) for b in call.beats], "tells": [swap(t) for t in call.tells],
+            "if_refused": swap(call.if_refused), "if_verified": swap(call.if_verified), "purpose": swap(call.purpose),
+        })
+        for call, persona in zip(result.calls, personas)
+    ]
+    return result.model_copy(update={"calls": calls, "arc": swap(result.arc), "notebook": swap(result.notebook)})
 
 
 def drop_directory_claims(result: PlannerResult, world: World) -> PlannerResult:
@@ -701,6 +717,7 @@ def _legit_from_draft(
             pattern = re.compile(rf"\b{re.escape(first)}\b")
             fields = {k: pattern.sub(new, v) for k, v in fields.items()}
         taken.add(_first_name(fields["caller_name"]).lower())
+    fields["claims"] = card_claims(fields["caller_name"], fields["claims"], world)
     reachable = [e.id for e in world.employees if e.available]
     accept = list(dict.fromkeys(i for i in d.accept_transfer_to if i in reachable))[:3]
     return LegitCall(
@@ -825,7 +842,9 @@ def receptionist_profile(calls: Iterable[CallRecord]) -> str:
     dead = [f for f, n in asked.items() if n >= 2 and f not in got]
     if dead:
         lines.append(f"- You have asked about {', '.join(dead)} on two or more calls and got nothing: she will not "
-                     "answer that directly. Come at it from a completely different angle, or go after something else.")
+                     "answer that directly, and asking it again in any wording marks the caller as one of yours. Do not "
+                     "ask for it at all today: get it from somewhere else (another fact that implies it, someone she "
+                     "transfers you to) or go after something else.")
     slipped = sum(1 for c in cons if c.slip_shown)
     if slipped:
         lines.append(f"- You made a slip on {slipped} call(s) and cannot be sure she did not notice.")
