@@ -179,3 +179,8 @@ def test_slips_come_one_reply_later_every_second_day():
     assert [config.tell_turn_on(normal, d) for d in (1, 2, 3)] == [1, 1, 2]
     easy = config.get_difficulty("easy")
     assert [config.tell_turn_on(easy, d) for d in (1, 2, 3)] == [0, 0, 1]
+
+
+def test_naming_a_listed_vendor_in_the_introduction_makes_the_caller_that_vendors_rep():
+    call = clean([draft(claims="Mia Park, account manager at Brightline Office Supply")])[0]
+    assert call.claimed_identity == "V02" and call.caller_id == "555-0720 (Brightline Office Supply)"

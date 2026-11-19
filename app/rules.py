@@ -671,6 +671,9 @@ def _legit_from_draft(
     vendor = vendor_by_id(world, ident) if ident else None
     if ident and not (emp or vendor):
         ident = None  # an unknown id is just an outsider
+    if ident is None:
+        # Naming a listed vendor in the introduction means that vendor, so a directory check works as it should.
+        ident = next((i for i in scan_references(fields["claims"], world) if vendor_by_id(world, i)), None)
     if emp:
         # A staff caller must really be that colleague, and someone who can plausibly phone in.
         if not emp.available or emp.name.split()[0].lower() not in (fields["caller_name"] + " " + fields["claims"]).lower():
