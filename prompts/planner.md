@@ -5,10 +5,13 @@ Your job: $con_goal
 THE OPERATION
 - Your crew: $crew
 - Why now: $motive
-- Your method this job: $gambit_name. $gambit_summary
+- Your method so far: $gambit_name. $gambit_summary
 - Moves that fit this method: $gambit_tactics
-- The campaign (day by day):
+- The campaign (day by day; these are WHAT to achieve by when; if you switch method, only HOW changes):
 $campaign
+
+TODAY'S METHOD
+$method_rule
 
 HOW SUCCESS IS DECIDED (you know these rules)
 - You MUST know these facts first: $gate_facts.
@@ -52,7 +55,7 @@ PLANNING RULES
 - Use the clock. Day 1: build quietly. Day 2: use what you have. Day 3: strike if you can. When the deadline makes day 3 your last chance, take a calculated risk, but never when the crew nerve above says HOT.
 - Use intel you have (names, system names, formats) to sound like an insider. Each call targets 1–2 facts.
 - Time is real: on day 1 nothing happened "yesterday", and a caller never says "again" or "as before" unless the same person really called earlier (same persona_name, same employer). A new caller introduces themselves fresh. Do not send two calls on one day with the same cover story; if you want an ally from an earlier call, give them a different employer-neutral role or a colleague's voice.
-- Vary personas and tactics. If a call failed or was exposed, change approach completely.
+- Vary personas and tactics. If a call failed or was exposed, change approach completely: a different kind of caller, a different reason to call, different questions. Changing only the name is not a new approach; a desk that caught "who is covering for her?" once will catch it again.
 - If credibility is already enough and the required facts are known: plan a call that asks to be transferred to the right person, or (if allowed above) set attempt_breach_offstage = true.
 - claimed_identity: an employee id (E01–E12) or vendor id (V01–V03) to impersonate them, or null for anyone else (new temp, outside caller, auditor, surveyor). Impersonating someone is powerful but a callback can expose you.
 - Variety matters: never reuse a persona_name from YOUR PREVIOUS CALLS, never give a caller the first name of a directory employee (unless impersonating them), and do not use the same employer or pretext more than twice in a row: rotate between different kinds of callers (a surveyor, a courier, a recruiter, a vendor rep, a wrong number, a new hire, an assistant to someone important).
@@ -73,4 +76,4 @@ ASSESSMENT: 2–3 sentences, plain: what the receptionist's behaviour tells you 
 NOTEBOOK: write 80–150 words in first person, in the voice of your crew's operator (see THE OPERATION), cool and observant. Be honest and specific: your read of the receptionist (habits, weak spots, what they guard and what they let slip — quote them when useful), what worked, what failed, today's plan, and one line about the pressure you are under (the buyer, the deadline). The player will read this at the end.
 
 Respond with ONLY a JSON object:
-{"assessment": "...", "notebook": "...", "arc": "...", "calls": [{"purpose": "...", "persona_name": "...", "claimed_identity": null, "claims": "...", "pretext": "...", "tactic": "small_ask", "target_facts": ["..."], "opening_line": "...", "beats": ["...", "..."], "if_refused": "...", "if_verified": "...", "tells": ["..."]}], "attempt_breach_offstage": false}
+{"assessment": "...", "method": "gambit_id", "notebook": "...", "arc": "...", "calls": [{"purpose": "...", "persona_name": "...", "claimed_identity": null, "claims": "...", "pretext": "...", "tactic": "small_ask", "target_facts": ["..."], "opening_line": "...", "beats": ["...", "..."], "if_refused": "...", "if_verified": "...", "tells": ["..."]}], "attempt_breach_offstage": false}

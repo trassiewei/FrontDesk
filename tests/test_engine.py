@@ -22,8 +22,8 @@ def con(name="Alex", identity=None, claims="Alex, new temp in Finance", tactic="
             "tactic": tactic, "target_facts": list(targets), "opening_line": opening}
 
 
-def plan(*calls, offstage=False, notebook=NOTEBOOK):
-    return {"notebook": notebook, "calls": list(calls), "attempt_breach_offstage": offstage}
+def plan(*calls, offstage=False, notebook=NOTEBOOK, method=""):
+    return {"notebook": notebook, "calls": list(calls), "attempt_breach_offstage": offstage, "method": method}
 
 
 def leak(fact_id, quote="a quote", confidence=0.9, explicitness="explicit"):
@@ -494,7 +494,7 @@ def test_offstage_needs_the_helpdesk_extension(fake):
 def test_exposures_never_end_the_game_the_crew_plays_all_three_days(fake):
     state = new(fake, plan(con(identity="E04", claims="Dave Davis, IT")),
                 plan(con(identity="E04", claims="Dave Davis again", targets=("cfo_on_leave", "it_lead_name", "nope"),
-                         tactic="made_up_tactic")),
+                         tactic="made_up_tactic"), method="borrowed_boss"),
                 plan(con(identity="E02", claims="Bob Baker, Finance")))
     take_con(state)
     engine.callback(state, "E04")
@@ -520,7 +520,7 @@ def test_exposures_never_end_the_game_the_crew_plays_all_three_days(fake):
 def test_hard_needs_three_exposures(fake, monkeypatch):
     monkeypatch.setitem(config.DIFFICULTIES, "hard",
                         replace(config.DIFFICULTIES["hard"], callback_reach=1.0, outsider_only=False))
-    state = new(fake, plan(con(identity="E04")), plan(con(identity="E02")), difficulty="hard")
+    state = new(fake, plan(con(identity="E04")), plan(con(identity="E02"), method="borrowed_boss"), difficulty="hard")
     take_con(state)
     engine.callback(state, "E04")
     finish_day(state)
@@ -551,7 +551,7 @@ def test_planner_sees_what_the_con_learned_and_last_notebook(fake):
     prompt = fake.calls_for("planner")[-1]["messages"][0]["content"]
     assert "it_lead_name | Dave Davis | " in prompt and "She is away" in prompt
     assert "Day one page" in prompt and "Day 2 of 3" in prompt
-    assert "Day 1 | Alex | claimed: Alex, new temp in Finance | tactic: small_ask | purpose: - | result: hung_up" in prompt
+    assert "Day 1 | method: chain_of_favors | Alex | claimed: Alex, new temp in Finance | tactic: small_ask | purpose: - | result: hung_up" in prompt
     unknown_section = prompt.split("FACTS YOU COULD STILL LEARN")[1].split("INTEL YOU HAVE")[0]
     assert "it_lead_name" not in unknown_section and "Dave Davis" not in unknown_section
     assert "erp_name | Name of the internal ERP system | 2" in unknown_section
@@ -605,7 +605,8 @@ def test_report_and_export_are_locked_until_the_game_ends(fake):
 
 
 def test_report_after_game_over_is_cached(fake):
-    state = new(fake, plan(con(identity="E04")), plan(con(identity="E02")), plan(con()))
+    state = new(fake, plan(con(identity="E04")), plan(con(identity="E02"), method="borrowed_boss"),
+                plan(con(), method="lost_new_hire"))
     take_con(state)
     say(fake, state, "Dave is here.")
     engine.callback(state, "E04")

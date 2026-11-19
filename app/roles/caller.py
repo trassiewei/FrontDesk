@@ -5,7 +5,7 @@ import logging
 
 from .. import config, llm, rules
 from ..models import CallerTurn, CallRecord, GameState, World
-from ..world import employee_by_id, fact_by_id, gambit_by_id, load_tactics, scenario_of, vendor_by_id
+from ..world import employee_by_id, fact_by_id, load_tactics, method_for, scenario_of, vendor_by_id
 from .common import intel_text, public_info_text, situation_text, transcript_text
 
 log = logging.getLogger("frontdesk.caller")
@@ -115,7 +115,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
     tactic = next((t for t in load_tactics() if t.id == plan.tactic), None)
     targets = [fact_by_id(world, fid) for fid in plan.target_facts]
     target_text = "; ".join(f.description for f in targets if f) or "whatever small details the receptionist lets slip"
-    gambit = gambit_by_id(scenario_of(state).gambit)
+    gambit = method_for(state, call.day)
     return llm.render_prompt(
         "con_caller",
         gambit_name=gambit.name if gambit else "a patient pretext",

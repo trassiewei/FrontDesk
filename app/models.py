@@ -170,6 +170,7 @@ class PlannerResult(BaseModel):
     arc: str = ""  # how today's calls fit together
     calls: list[PlannedCall] = Field(default_factory=list)
     attempt_breach_offstage: bool = False
+    method: str = ""  # gambit id the crew works with today (it may switch after being spotted)
 
 
 class IncidentDraft(BaseModel):
@@ -321,6 +322,8 @@ class GameState(BaseModel):
     notebooks: dict[int, str] = Field(default_factory=dict)
     planned: dict[int, PlannerResult] = Field(default_factory=dict)  # day -> cleaned planner output
     burned_identities: list[str] = Field(default_factory=list)
+    methods: dict[int, str] = Field(default_factory=dict)  # day -> gambit id the crew used that day
+    heat_log: dict[int, int] = Field(default_factory=dict)  # day -> exposures when that day was planned
     it_alert: bool = False
     scenario: Scenario | None = None  # None only in hand-built test states; use world.scenario_of(state)
     notices: list[Notice] = Field(default_factory=list)

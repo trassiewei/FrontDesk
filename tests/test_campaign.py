@@ -204,3 +204,77 @@ def test_the_method_is_not_exposed_before_the_game_is_over(fake):
     client = TestClient(app)
     created = client.post("/api/game", json={"player_name": "J", "difficulty": "normal"}).json()
     assert "Friendly Survey" not in str(created) and "gambit" not in str(created)
+
+
+# ------------------------------------------------------------------ switching method after being spotted
+
+
+def impostor_plan(**extra) -> dict:
+    call = {"persona_name": "Dave Davis", "claimed_identity": "E04", "claims": "Dave Davis, IT", "pretext": "p",
+            "tactic": "authority", "target_facts": ["cfo_on_leave"], "opening_line": "Dave here, is Alice in?"}
+    return {"notebook": "nb", "calls": [call], **extra}
+
+
+def expose_first_con(state):
+    while state.queue and not state.queue[0].is_con:
+        engine.next_call(state)
+        engine.hang_up(state)
+    engine.next_call(state)
+    engine.callback(state, "E04")
+    while state.queue:
+        engine.next_call(state)
+        engine.hang_up(state)
+    engine.end_day(state)
+
+
+def test_a_spotted_crew_must_switch_method_and_the_whole_game_follows(fake):
+    state = start(fake, impostor_plan(), plan_json(method="lost_new_hire"))
+    expose_first_con(state)
+    prompt = fake.calls_for("planner")[1]["messages"][0]["content"]
+    assert "YOUR METHOD WAS SPOTTED" in prompt and "lost_new_hire | The Lost New Hire" in prompt
+    assert "friendly_survey |" not in prompt.split("TODAY'S METHOD")[1].split("HOW SUCCESS")[0]
+    assert state.methods == {1: "friendly_survey", 2: "lost_new_hire"}
+    engine.start_day(state)
+    while not state.queue[0].is_con:
+        engine.next_call(state)
+        engine.hang_up(state)
+    engine.next_call(state)
+    engine.say(state, "Hello?")
+    assert "The Lost New Hire" in fake.calls_for("caller")[-1]["messages"][0]["content"]
+    switches = engine._scenario_reveal(state)["switches"]
+    assert [(s["day"], s["name"]) for s in switches] == [(2, "The Lost New Hire")]
+
+
+def test_a_spotted_crew_that_keeps_its_method_is_asked_once_more(fake):
+    state = start(fake, impostor_plan(), plan_json(method="friendly_survey"), plan_json(method="borrowed_boss"))
+    expose_first_con(state)
+    assert len(fake.calls_for("planner")) == 3
+    assert "already spotted" in fake.calls_for("planner")[2]["messages"][-1]["content"]
+    assert state.methods[2] == "borrowed_boss"
+
+
+def test_an_unspotted_crew_keeps_its_method(fake):
+    state = start(fake, plan_json(), plan_json(method="borrowed_boss"))
+    while state.queue:
+        engine.next_call(state)
+        engine.hang_up(state)
+    engine.end_day(state)
+    prompt = fake.calls_for("planner")[1]["messages"][0]["content"]
+    assert "Yesterday got you nothing" in prompt
+    assert state.methods[2] == "borrowed_boss"  # a free choice after a fruitless day
+
+
+def test_method_options_skip_used_ones_and_incident_methods_without_an_incident():
+    sc = next(s for s in load_scenarios() if s.id == "survey_reset")
+    ids = {g.id for g in rules.method_options(load_gambits(), "friendly_survey", ["borrowed_boss"], sc, 2)}
+    assert "friendly_survey" not in ids and "borrowed_boss" not in ids and "fix_what_we_broke" not in ids
+    assert "lost_new_hire" in ids
+    assert "Keep your method" in rules.method_rule(False, False, gambit_by_id("friendly_survey"), [])
+
+
+def test_the_crew_notices_a_question_she_keeps_refusing(make_call):
+    from app.models import PlannedCall
+    p = PlannedCall(persona_name="A", claims="A", pretext="p", tactic="small_ask", target_facts=["cfo_backup_name"],
+                    opening_line="hi")
+    calls = [make_call(id=f"c{i}", is_con=True, plan=p, status="ended", end_reason="hung_up") for i in range(2)]
+    assert "cfo_backup_name on two or more calls" in rules.receptionist_profile(calls)

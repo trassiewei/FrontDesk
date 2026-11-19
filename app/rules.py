@@ -16,6 +16,7 @@ from .models import (
     CallRecord,
     Door,
     Fact,
+    Gambit,
     Incident,
     LegitCall,
     LegitCastResult,
@@ -815,10 +816,43 @@ def receptionist_profile(calls: Iterable[CallRecord]) -> str:
         bits = [f"{hung} hung up on" if hung else "", f"{taken} had a message taken" if taken else "",
                 f"{sent} sent elsewhere" if sent else ""]
         lines.append("- Of your calls: " + ", ".join(b for b in bits if b) + ".")
+    asked: dict[str, int] = {}
+    got: set[str] = set()
+    for c in cons:
+        got.update(c.gained_facts)
+        for f in (c.plan.target_facts if c.plan else []):
+            asked[f] = asked.get(f, 0) + 1
+    dead = [f for f, n in asked.items() if n >= 2 and f not in got]
+    if dead:
+        lines.append(f"- You have asked about {', '.join(dead)} on two or more calls and got nothing: she will not "
+                     "answer that directly. Come at it from a completely different angle, or go after something else.")
     slipped = sum(1 for c in cons if c.slip_shown)
     if slipped:
         lines.append(f"- You made a slip on {slipped} call(s) and cannot be sure she did not notice.")
     return "\n".join(lines)
+
+
+def method_options(gambits: Iterable[Gambit], current: str, used: Iterable[str], scenario: Scenario,
+                   day: int) -> list[Gambit]:
+    """Methods the crew can switch to: not one it already used, and one that needs a staged incident only if the
+    scenario still has one to come."""
+    used_set = set(used) | {current}
+    incident_ahead = scenario.incident is not None and scenario.incident.day >= day
+    return [g for g in gambits if g.id not in used_set and (incident_ahead or not g.requires_incident)]
+
+
+def method_rule(spotted: bool, stalled: bool, current: Gambit | None, options: list[Gambit]) -> str:
+    """The planner's instruction about its method today. Whether it must switch is decided here, not by the model."""
+    keep = f'"{current.id}"' if current else "your current method"
+    menu = "\n".join(f"  {g.id} | {g.name} | {g.summary}" for g in options)
+    if spotted and options:
+        return ("YOUR METHOD WAS SPOTTED: at least one of yesterday's callers was exposed, so the desk knows that "
+                f"pattern now. You MUST switch to a different method today. Pick one of these and set \"method\" to its "
+                f"id. New method, new kinds of caller, new questions: nothing today may sound like yesterday.\n{menu}")
+    if stalled and options:
+        return (f"Yesterday got you nothing. Keep {keep} only if you can see why it will work today; otherwise switch to "
+                f"one of these (set \"method\" to its id):\n{menu}")
+    return f'Keep your method today: set "method" to {keep}.'
 
 
 def crew_heat(exposures: int, rattled_after: int) -> str:

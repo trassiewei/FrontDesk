@@ -544,6 +544,8 @@ function renderEnd() {
       sc.phases && sc.phases.length ? el("p", {}, el("span", { class: "label" }, "Their plan: "),
         sc.phases.map((p, i) => `Day ${i + 1}: ${p}`).join("  ")) : null,
       sc.gambit ? el("p", {}, el("span", { class: "label" }, "How to spot it: "), `${sc.gambit.sign} ${sc.gambit.counter}`) : null,
+      ...(sc.switches || []).map((m) => el("p", {}, el("span", { class: "label" }, `${m.day_name}, after being spotted, they switched to “${m.name}”: `),
+        `${m.summary} How to spot it: ${m.sign} ${m.counter}`)),
       sc.incident ? el("p", {}, el("span", { class: "label" }, `The ${sc.incident.title.toLowerCase()} (${sc.incident.day_name}): `), sc.incident.method) : null)));
   }
 

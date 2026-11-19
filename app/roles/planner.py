@@ -5,7 +5,10 @@ import logging
 
 from .. import config, llm, rules
 from ..models import GameState, PlannedCall, PlannerResult, World
-from ..world import employee_by_id, fact_by_id, gambit_by_id, load_tactics, name_of, non_public_facts, scenario_of
+from ..world import (
+    employee_by_id, fact_by_id, gambit_by_id, load_gambits, load_tactics, method_for, name_of, non_public_facts,
+    scenario_of,
+)
 from .common import fact_lines, incident_plan_text, intel_text, public_info_text
 
 log = logging.getLogger("frontdesk.planner")
@@ -37,8 +40,10 @@ def history_text(state: GameState) -> str:
         if not call.is_con or call.plan is None:
             continue
         gained = ", ".join(call.gained_facts) or "nothing"
+        method = state.methods.get(call.day, "")
         lines.append(
-            f"Day {call.day} | {call.plan.persona_name} | claimed: {call.claims} | tactic: {call.plan.tactic} "
+            f"Day {call.day} | method: {method or '-'} | {call.plan.persona_name} | claimed: {call.claims} "
+            f"| tactic: {call.plan.tactic} "
             f"| purpose: {call.plan.purpose or '-'} | result: {call.result} | gained: {gained}"
         )
     return "\n".join(lines) if lines else "none yet"
@@ -77,7 +82,13 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     tactics = load_tactics()
     unknown = [f for f in non_public_facts(world) if f.id not in state.intel]
     scenario = scenario_of(state)
-    gambit = gambit_by_id(scenario.gambit)
+    gambit = method_for(state, day - 1) if day > 1 else gambit_by_id(scenario.gambit)
+    current = gambit.id if gambit else ""
+    yesterday = [c for c in state.calls if c.is_con and c.day == day - 1]
+    spotted = day > 1 and state.exposures > state.heat_log.get(day - 1, 0)
+    stalled = bool(yesterday) and not any(c.gained_facts for c in yesterday)
+    options = rules.method_options(load_gambits(), current, state.methods.values(), scenario, day)
+    must_switch = spotted and bool(options)
     fitting = [t for t in tactics if gambit and t.id in gambit.tactics]
     system = llm.render_prompt(
         "planner",
@@ -89,6 +100,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         campaign=campaign_text(state, day),
         profile=rules.receptionist_profile(state.calls),
         heat=rules.crew_heat(state.exposures, diff.rattled_after),
+        method_rule=rules.method_rule(spotted, stalled, gambit, options),
         premise=scenario.premise,
         con_goal=scenario.con_goal,
         gate_facts=", ".join(
@@ -116,6 +128,18 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     except llm.LLMError as exc:
         log.warning("Planner LLM failed, using the fixed fallback call: %s", exc)
         result = fallback_plan()
+    allowed = {g.id for g in options}
+    if must_switch and result.method not in allowed and result.calls:  # type: ignore[union-attr]
+        try:
+            result = llm.complete_json(
+                "planner", system, llm.USER_TURN, PlannerResult, state.game_id,
+                extra_messages=[{"role": "assistant", "content": result.model_dump_json()}, {"role": "user", "content": (
+                    "You kept a method the desk has already spotted. Switch to one of: "
+                    f"{', '.join(sorted(allowed))}, rewrite every call for it, and return the complete JSON again.")}],
+            )
+        except llm.LLMError as exc:
+            log.warning("Planner method retry failed, keeping the first plan: %s", exc)
+    chosen = result.method if result.method in allowed else current  # type: ignore[union-attr]
     def clean_plain(raw: PlannerResult) -> PlannerResult:
         return rules.clean_plan(
             raw, world=world, burned=state.burned_identities, known_facts=state.intel,
@@ -127,7 +151,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     def clean(raw: PlannerResult) -> PlannerResult:
         return rules.dedupe_personas(clean_plain(raw), world, used)
 
-    cleaned = clean(result)  # type: ignore[arg-type]
+    cleaned = clean(result).model_copy(update={"method": chosen})  # type: ignore[arg-type]
     if not diff.outsider_only:
         return cleaned
     bad = {c.persona_name: rules.outsider_violations(c, world) for c in cleaned.calls}
@@ -147,4 +171,4 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         cleaned = clean(retry)  # type: ignore[arg-type]
     except llm.LLMError as exc:
         log.warning("Planner retry failed, keeping the first plan: %s", exc)
-    return rules.drop_directory_claims(cleaned, world)
+    return rules.drop_directory_claims(cleaned, world).model_copy(update={"method": chosen})

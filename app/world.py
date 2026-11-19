@@ -94,3 +94,11 @@ def public_facts(world: World) -> list[Fact]:
 
 def non_public_facts(world: World) -> list[Fact]:
     return [f for f in world.facts if f.tier != "public"]
+
+
+def method_for(state: GameState, day: int) -> Gambit | None:
+    """The crew's method on `day`: the last one it switched to, or the scenario's own."""
+    for d in range(day, 0, -1):
+        if d in state.methods:
+            return gambit_by_id(state.methods[d])
+    return gambit_by_id(scenario_of(state).gambit)

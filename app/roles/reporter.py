@@ -78,6 +78,13 @@ def scenario_text(state: GameState) -> str:
     gambit = gambit_by_id(sc.gambit)
     if gambit:
         lines.append(f"The crew's method: {gambit.name} — {gambit.summary}")
+    last = sc.gambit
+    for day in sorted(state.methods):
+        new = gambit_by_id(state.methods[day])
+        if state.methods[day] != last and new:
+            lines.append(f"On {config.DAY_NAMES[day - 1]} the crew dropped that method and switched to: "
+                         f"{new.name} — {new.summary}")
+        last = state.methods[day]
     if sc.crew:
         lines.append(f"The crew: {sc.crew}")
     if sc.motive:

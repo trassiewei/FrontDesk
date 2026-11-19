@@ -156,6 +156,7 @@ def _enter_day(state: GameState, day: int) -> None:
     world = load_world()
     learned = _recon(state, world, day)
     state.day = day
+    state.heat_log[day] = state.exposures
     _add_notices(state, day)
     # The crew's plan and the day's genuine callers are independent, so they are written at the same time.
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -166,6 +167,8 @@ def _enter_day(state: GameState, day: int) -> None:
     plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls] + earlier_legit)
     state.planned[day] = plan
     state.notebooks[day] = plan.notebook
+    if plan.method:
+        state.methods[day] = plan.method
     if learned:
         hint = _rng(state, "recon_hint", day).choice(load_story()["recon_hints"])
         state.notices.append(Notice(day=day, kind="incident", id="recon_hint", title=hint["title"], text=hint["text"]))
@@ -567,7 +570,20 @@ def _scenario_reveal(state: GameState) -> dict:
     return {"title": sc.title, "premise": sc.premise, "con_goal": sc.con_goal, "incident": incident,
             "crew": sc.crew, "motive": sc.motive, "phases": sc.phases,
             "gambit": {"name": gambit.name, "summary": gambit.summary, "sign": gambit.sign,
-                       "counter": gambit.counter} if gambit else None}
+                       "counter": gambit.counter} if gambit else None,
+            "switches": _method_switches(state)}
+
+
+def _method_switches(state: GameState) -> list[dict]:
+    """Each time the crew dropped its method after being spotted (day, name, summary, how to spot it)."""
+    out, last = [], scenario_of(state).gambit
+    for day in sorted(state.methods):
+        gid = state.methods[day]
+        if gid != last and (g := gambit_by_id(gid)):
+            out.append({"day": day, "day_name": config.DAY_NAMES[day - 1], "name": g.name, "summary": g.summary,
+                        "sign": g.sign, "counter": g.counter})
+        last = gid
+    return out
 
 
 def get_report(state: GameState) -> dict:

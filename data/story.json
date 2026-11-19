@@ -1,6 +1,6 @@
 {
   "briefings": {
-    "1": "Morning {name}! Quick notes for the week:\n• Alice (CFO) is on vacation all week — back Mon the 23rd. Bob is covering Finance.\n• Starboard is still being glitchy since the September rollout. Point people to the helpdesk (x4200).\n• Board meeting Wednesday at 2, so Jack's office will be hectic.\nHave a good one! — Frank",
+    "1": "Morning {name}! Quick notes for the week:\n• Alice (CFO) is on vacation all week — back Mon the 23rd. Bob is covering Finance.\n• Starboard is still being glitchy since the September rollout. Staff can call the helpdesk on x4200 (internal only: outside callers go through the main line).\n• Board meeting Wednesday at 2, so Jack's office will be hectic.\nHave a good one! — Frank",
     "2": "Morning! Starboard maintenance tonight 8pm–midnight. NetCore is sending a tech on Thursday.\n{phishing_warning}— Frank",
     "3": "Board meeting at 2 today. Jack and Kate will be heads-down — please hold non-urgent calls for them. Last push of the week, you've got this. — Frank"
   },
