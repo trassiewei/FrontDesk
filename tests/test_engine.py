@@ -491,7 +491,7 @@ def test_offstage_needs_the_helpdesk_extension(fake):
     assert not state.game_over and state.it_alert is False
 
 
-def test_two_exposures_end_the_game_on_normal_and_burned_identity_is_cleaned(fake):
+def test_exposures_never_end_the_game_the_crew_plays_all_three_days(fake):
     state = new(fake, plan(con(identity="E04", claims="Dave Davis, IT")),
                 plan(con(identity="E04", claims="Dave Davis again", targets=("cfo_on_leave", "it_lead_name", "nope"),
                          tactic="made_up_tactic")),
@@ -511,8 +511,10 @@ def test_two_exposures_end_the_game_on_normal_and_burned_identity_is_cleaned(fak
     engine.start_day(state)
     take_con(state)
     out = engine.callback(state, "E02")
-    assert out["game_over"] and state.outcome == "con_gave_up" and state.exposures == 2
-    assert "notebook closes" in out["cutscene"]
+    assert not out["game_over"] and state.exposures == 2
+    out = finish_day(state)
+    assert out["game_over"] and state.outcome == "survived" and state.exposures == 2
+    assert len(fake.calls_for("planner")) == 3
 
 
 def test_hard_needs_three_exposures(fake, monkeypatch):
@@ -603,7 +605,7 @@ def test_report_and_export_are_locked_until_the_game_ends(fake):
 
 
 def test_report_after_game_over_is_cached(fake):
-    state = new(fake, plan(con(identity="E04")), plan(con(identity="E02")))
+    state = new(fake, plan(con(identity="E04")), plan(con(identity="E02")), plan(con()))
     take_con(state)
     say(fake, state, "Dave is here.")
     engine.callback(state, "E04")
@@ -611,16 +613,21 @@ def test_report_after_game_over_is_cached(fake):
     engine.start_day(state)
     take_con(state)
     engine.callback(state, "E02")
+    finish_day(state)
+    engine.start_day(state)
+    take_con(state)
+    engine.hang_up(state)
+    finish_day(state)
     report = engine.get_report(state)
     assert report["title"] == "Report title" and "<h2>Verdict</h2>" in report["html"]
-    assert report["outcome"] == "con_gave_up" and report["labels"]["security"] == "Vault"
+    assert report["outcome"] == "survived" and report["labels"]["security"] == "Vault"
     assert report["notebooks"]["1"] == NOTEBOOK and report["intel_timeline"][0]["fact_id"] == "it_lead_name"
     assert engine.get_report(state) is report and len(fake.calls_for("reporter")) == 1
     prompt = fake.calls_for("reporter")[0]["messages"][0]["content"]
     assert "con artist using the persona 'Alex'" in prompt and "impersonating Dave Davis" in prompt
-    assert "Receptionist: Dave is here." in prompt and "OUTCOME: The con artist was exposed" in prompt
+    assert "Receptionist: Dave is here." in prompt and "OUTCOME: The con artist never got in. The crew kept working all three days" in prompt
     exported = engine.export_game(state)
-    assert exported["outcome"] == "con_gave_up" and exported["calls"][0]["is_con"] is False
+    assert exported["outcome"] == "survived" and exported["calls"][0]["is_con"] is False
 
 
 def test_report_html_neutralises_raw_html(fake):

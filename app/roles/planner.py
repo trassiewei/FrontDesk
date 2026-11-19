@@ -88,7 +88,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         gambit_tactics=", ".join(f"{t.id} ({t.name})" for t in fitting) or "any",
         campaign=campaign_text(state, day),
         profile=rules.receptionist_profile(state.calls),
-        heat=rules.crew_heat(state.exposures, diff.exposures_to_give_up),
+        heat=rules.crew_heat(state.exposures, diff.rattled_after),
         premise=scenario.premise,
         con_goal=scenario.con_goal,
         gate_facts=", ".join(

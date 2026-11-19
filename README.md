@@ -47,7 +47,7 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 - You get 12 replies per day, shared across all calls, and at most 5 per call. Spend them on checking suspicious callers, but keep some for real colleagues who need help.
 - On Easy and Normal the Policy tab also holds a **Playbook** of common con-artist moves and how to counter them. After the game, the report lists every call with its hidden truth ("Every call, revealed").
 - The **Policy** tab and the directory, desk notes and your own notes tab are on the right. Use them.
-- The game ends when the con artist gets what they need (breach), gives up after being exposed enough times, or when Wednesday ends.
+- The game ends when the con artist gets what they need (breach), or when Wednesday ends. The crew never gives up: even exposed, it keeps calling with a new face for all three days, and only the final report shows what it got (often nothing).
 - Difficulty changes the whole feel of the con artists:
   - **Easy**: clumsy cons who impersonate people from the directory, ask for the transfer right away and panic the moment you say you will check. Verifying is enough to win, and their slips are obvious.
   - **Normal**: smooth cons who impersonate real staff or vendors. They stay calm if you verify, so you must check them: call the directory entry back (not the number they gave) or catch the one small slip in how they talk, before helping.
@@ -55,13 +55,13 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 
 ## What the LLM does, and what it does not
 
-Five LLM roles, all language work:
+Five LLM roles, all language work (the director has two jobs):
 
 1. **Caller** plays every caller. The con artist improvises against your questions and pushes back on your challenges.
 2. **Extractor** reads each of your free-text replies and decides which non-public facts you disclosed, with the quote.
-3. **Planner** (the con artist's planning side) reads everything learned so far before each day, writes the notebook, an assessment of the receptionist and the day's arc, and writes each call as a short script (a purpose in the plan, beats, a fallback if refused, a reaction to being verified). The caller follows the script, and the code decides which beat is current. It is told how the crew works (see below), what the receptionist has shown so far (never a flag, only what a caller could notice: callbacks, hang-ups, questions, what she let slip) and how close the crew is to quitting.
+3. **Planner** (the con artist's planning side) reads everything learned so far before each day, writes the notebook, an assessment of the receptionist and the day's arc, and writes each call as a short script (a purpose in the plan, beats, a fallback if refused, a reaction to being verified). The caller follows the script, and the code decides which beat is current. It is told how the crew works (see below), what the receptionist has shown so far (never a flag, only what a caller could notice: callbacks, hang-ups, questions, what she let slip) and how careful the crew now has to be (it never quits).
 4. **Reporter** turns the real transcript into a cause-and-effect incident report after the game.
-5. **Director** designs the con artist's scenario for each new game: the pretext, the goal, which facts they must learn first, who they are trying to reach, and sometimes a staged incident. Its output is checked by code (`rules.clean_scenario`); if it is invalid or the call fails, a built-in preset is used. `data/scenarios.json` holds six presets; `python cli.py --scenario fake_vendor` plays one directly.
+5. **Director** designs the con artist's scenario for each new game: the pretext, the goal, which facts they must learn first, who they are trying to reach, and sometimes a staged incident. Its output is checked by code (`rules.clean_scenario`); if it is invalid or the call fails, a built-in preset is used. `data/scenarios.json` holds six presets; `python cli.py --scenario fake_vendor` plays one directly. Its second job is **casting**: each morning it writes that day's three genuine callers (customers, drivers, applicants, sometimes a real colleague or vendor), so no two games sound alike. They are checked by code (`rules.clean_legit_calls`: staff must really be a reachable colleague, names are made fresh, caller IDs are assigned by the code, transfer targets must exist), and any bad draft is replaced by a fixed call from `data/legit_calls.json`. On Hard the genuine callers are written to read like con artists.
 
 Each game is an *operation*: the code picks one of nine **gambits** from `data/gambits.json` (chain of favours, fixing what we broke, the borrowed boss, the friendly survey, the lost new hire, the surprise inspector, the wrong-number funnel, the name relay, the vouching accomplice), and the director writes the crew (a codename and a profile), the motive (who is paying and the deadline) and a three-day campaign around it. The planner follows the campaign, chains each call onto the last, and the end page and report reveal the method, the motive, each call's purpose and how to spot that kind of attack.
 

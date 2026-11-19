@@ -11,7 +11,7 @@ from app.main import app
 SECRET_THOUGHT = "PRIVATE-THOUGHT-XYZ"
 NOTEBOOK = "NOTEBOOK-PAGE-XYZ"
 FORBIDDEN_KEYS = {"is_con", "private_thought", "notebook", "notebooks", "intel", "credibility", "it_alert", "planned",
-                  "llm_leaks", "pattern_leaks", "debug", "persona", "available", "legit_id", "burned_identities"}
+                  "llm_leaks", "pattern_leaks", "debug", "persona", "available", "legit", "legit_id", "burned_identities"}
 
 
 def plan(*calls, offstage=False):

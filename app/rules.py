@@ -18,6 +18,8 @@ from .models import (
     Fact,
     Incident,
     LegitCall,
+    LegitCastResult,
+    LegitDraft,
     Leak,
     PlannedCall,
     PlannerResult,
@@ -25,7 +27,7 @@ from .models import (
     ScenarioResult,
     World,
 )
-from .world import employee_by_id, legit_call_by_id, load_legit_calls, name_of, vendor_by_id
+from .world import employee_by_id, load_legit_calls, name_of, vendor_by_id
 
 # ------------------------------------------------------------------ texts shown to the player
 
@@ -281,8 +283,7 @@ def transfer(
     text = f"Call transferred to {name}."
 
     if not call.is_con:
-        legit_call = legit_call_by_id(call.legit_id)
-        legit = bool(legit_call and target_id in legit_call.accept_transfer_to)
+        legit = bool(call.legit and target_id in call.legit.accept_transfer_to)
         return TransferResult(text, "satisfied" if legit else "unsatisfied", satisfied=legit)
 
     door = door_for(scenario, target_id)
@@ -327,8 +328,7 @@ class MessageResult:
 def take_message(call: CallRecord, *, strict: bool = False) -> MessageResult:
     if call.is_con:
         return MessageResult(MESSAGE_TEXT, "took_message")
-    legit_call = legit_call_by_id(call.legit_id)
-    ok = bool(legit_call and legit_call.message_ok) and not strict
+    ok = bool(call.legit and call.legit.message_ok) and not strict
     return MessageResult(MESSAGE_TEXT, "took_message", satisfied=ok)
 
 
@@ -537,7 +537,7 @@ def outsider_violations(call: PlannedCall, world: World) -> list[str]:
 
 # ------------------------------------------------------------------ scenario (director output cleaning)
 
-CUTSCENE_KEYS = ("breached", "con_gave_up", "survived")
+CUTSCENE_KEYS = ("breached", "survived")
 _MAX_TEXT = 700
 
 
@@ -635,6 +635,90 @@ def pick_policy_update(
     return None
 
 
+# ------------------------------------------------------------------ genuine callers (casting output cleaning)
+
+_CALLER_POOL = ["Mia", "Owen", "Rita", "Sam", "Lena", "Omar", "Pablo", "Nina", "Gus", "Tara", "Ravi", "June"]
+_LEGIT_TEXT_FIELDS = ("caller_name", "claims", "personality", "goal", "knows", "temptation", "success", "opening_line")
+
+
+def _first_name(name: str) -> str:
+    parts = name.split()
+    return parts[0] if parts else ""
+
+
+def legit_caller_id(world: World, claimed_identity: str | None, claims: str, rng: random.Random,
+                    avoid: Iterable[str] = ()) -> str:
+    """The number a genuine caller shows. Staff show their own line (or mobile), vendors their official number."""
+    emp = employee_by_id(world, claimed_identity) if claimed_identity else None
+    if emp:
+        return f"{emp.mobile} (mobile)" if "mobile" in claims.lower() else f"Ext {emp.ext} ({emp.name})"
+    vendor = vendor_by_id(world, claimed_identity) if claimed_identity else None
+    if vendor:
+        return f"{vendor.official_number} ({vendor.name})"
+    return _fresh_number(_known_numbers(world) | set(avoid), rng)
+
+
+def _legit_from_draft(
+    d: LegitDraft, *, day: int, slot: int, world: World, taken: set[str], pool: list[str],
+    rng: random.Random, avoid: set[str],
+) -> LegitCall | None:
+    fields = {f: getattr(d, f).strip() for f in _LEGIT_TEXT_FIELDS}
+    required = ("caller_name", "claims", "personality", "goal", "knows", "success", "opening_line")
+    if not all(fields[f] and len(fields[f]) <= _MAX_TEXT and not has_placeholder(fields[f]) for f in required):
+        return None
+    ident = d.claimed_identity if d.claimed_identity else None
+    emp = employee_by_id(world, ident) if ident else None
+    vendor = vendor_by_id(world, ident) if ident else None
+    if ident and not (emp or vendor):
+        ident = None  # an unknown id is just an outsider
+    if emp:
+        # A staff caller must really be that colleague, and someone who can plausibly phone in.
+        if not emp.available or emp.name.split()[0].lower() not in (fields["caller_name"] + " " + fields["claims"]).lower():
+            return None
+    else:
+        first = _first_name(fields["caller_name"])
+        directory = {e.name.split()[0].lower() for e in world.employees}
+        if first and (first.lower() in taken or first.lower() in directory) and pool:
+            new = pool.pop(0)
+            pattern = re.compile(rf"\b{re.escape(first)}\b")
+            fields = {k: pattern.sub(new, v) for k, v in fields.items()}
+        taken.add(_first_name(fields["caller_name"]).lower())
+    reachable = [e.id for e in world.employees if e.available]
+    accept = list(dict.fromkeys(i for i in d.accept_transfer_to if i in reachable))[:3]
+    return LegitCall(
+        id=f"G{day}S{slot}", day=day, slot=slot, claimed_identity=ident,
+        caller_id=legit_caller_id(world, ident, fields["claims"], rng, avoid),
+        accept_transfer_to=accept, message_ok=d.message_ok, patience=max(4, min(9, d.patience)),
+        **{**fields, "temptation": fields["temptation"] or "None"},
+    )
+
+
+def clean_legit_calls(
+    result: LegitCastResult, *, day: int, world: World, fallbacks: Iterable[LegitCall], taken: Iterable[str],
+    rng: random.Random, avoid: Iterable[str] = (),
+) -> list[LegitCall]:
+    """The day's genuine calls, one per legit slot. A draft that fails validation is replaced by the fixed call
+    for that slot, so a bad model answer can never leave a hole in the day or break the rules."""
+    fallbacks = list(fallbacks)
+    used = {_first_name(n).lower() for n in taken if n.strip()}
+    directory = {e.name.split()[0].lower() for e in world.employees}
+    persona = {n.lower() for n in _PERSONA_POOL}
+    pool = [n for n in _CALLER_POOL if n.lower() not in used | directory | persona]
+    avoid_set = set(avoid)
+    calls: list[LegitCall] = []
+    for i, slot in enumerate(config.LEGIT_SLOTS):
+        call = None
+        if i < len(result.calls):
+            call = _legit_from_draft(result.calls[i], day=day, slot=slot, world=world, taken=used, pool=pool,
+                                     rng=rng, avoid=avoid_set)
+        if call is None:
+            call = next((c for c in fallbacks if c.slot == slot), None)
+        if call is not None:
+            avoid_set.update(re.findall(r"555-\d{4}", call.caller_id))
+            calls.append(call)
+    return calls
+
+
 # ------------------------------------------------------------------ caller ID (spec §6.5)
 
 
@@ -647,8 +731,16 @@ def _known_numbers(world: World) -> set[str]:
     return numbers
 
 
+def _fresh_number(known: set[str], rng: random.Random) -> str:
+    while True:
+        number = f"555-0{rng.randint(0, 999):03d}"
+        if number not in known:
+            return number
+
+
 def generate_caller_id(
-    world: World, claimed_identity: str | None, rng: random.Random, claims: str = "", spoof_chance: float = 0.0
+    world: World, claimed_identity: str | None, rng: random.Random, claims: str = "", spoof_chance: float = 0.0,
+    avoid: Iterable[str] = (),
 ) -> str:
     """Caller ID for a con call. Internal extensions are never spoofed; a con posing as a listed vendor may show
     the vendor's real number (`spoof_chance`), so a matching number proves nothing."""
@@ -657,11 +749,7 @@ def generate_caller_id(
     if vendor_id and rng.random() < spoof_chance:
         vendor = vendor_by_id(world, vendor_id)
         return f"{vendor.official_number} ({vendor.name})"
-    known = _known_numbers(world)
-    while True:
-        number = f"555-0{rng.randint(0, 999):03d}"
-        if number not in known:
-            break
+    number = _fresh_number(_known_numbers(world) | set(avoid), rng)
     emp = employee_by_id(world, claimed_identity) if claimed_identity else None
     if emp:
         return f"{number} (mobile)"
@@ -716,12 +804,11 @@ def receptionist_profile(calls: Iterable[CallRecord]) -> str:
     return "\n".join(lines)
 
 
-def crew_heat(exposures: int, limit: int) -> str:
-    """How close the crew is to pulling out (it quits at `limit` exposures)."""
-    left = limit - exposures
+def crew_heat(exposures: int, rattled_after: int) -> str:
+    """How careful the crew has to be. It never quits: the buyer expects a result by Friday whatever happens."""
     if exposures <= 0:
-        return f"Clean so far. The crew pulls out after {limit} exposure(s)."
-    if left <= 1:
-        return (f"HOT: you have been exposed {exposures} time(s). One more and the buyer pulls the plug. "
+        return "Clean so far. Nobody suspects you."
+    if exposures >= rattled_after:
+        return (f"HOT: you have been exposed {exposures} time(s). The desk is on guard. "
                 "Play safe: use a fresh outsider with a quiet, believable reason to call.")
-    return f"Warm: exposed {exposures} time(s) of {limit} allowed. Change your approach rather than repeat it."
+    return f"Warm: exposed {exposures} time(s). Change your approach rather than repeat it."

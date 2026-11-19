@@ -22,7 +22,7 @@ PHASES = ["Learn the names.", "Use the names.", "Ask for the reset."]
 def draft(**overrides) -> dict:
     data = dict(
         title="T", premise="P", con_goal="G", gate_facts=["it_vendor_name"], doors=["E06"],
-        cutscenes={"breached": "b", "con_gave_up": "g", "survived": "s"},
+        cutscenes={"breached": "b", "survived": "s"},
         crew=CREW, motive=MOTIVE, phases=PHASES,
     )
     data.update(overrides)
@@ -173,10 +173,11 @@ def test_profile_does_not_reveal_flags(make_call):
     assert "flag" not in text.lower()
 
 
-def test_crew_heat_warns_when_one_exposure_from_quitting():
+def test_crew_heat_never_mentions_quitting():
     assert rules.crew_heat(0, 2).startswith("Clean")
-    assert rules.crew_heat(1, 2).startswith("HOT")
-    assert rules.crew_heat(1, 3).startswith("Warm")
+    assert rules.crew_heat(1, 2).startswith("Warm")
+    assert rules.crew_heat(2, 2).startswith("HOT")
+    assert "quit" not in rules.crew_heat(5, 2) and "pull" not in rules.crew_heat(5, 2)
 
 
 # ------------------------------------------------------------------ the end page and report

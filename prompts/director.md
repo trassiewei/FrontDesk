@@ -29,8 +29,8 @@ $example
 
 WRITING RULES
 - All text in English. premise and con_goal: 1–2 sentences each, written for the training report the player reads at the end.
-- cutscenes: three short endings that reflect the crew and what it was after (2–4 sentences, atmospheric, past tense is fine) for: "breached" (the con worked; show the consequence), "con_gave_up" (the con artist moved on after being exposed; it can happen on any evening from the second day on, so name no weekday), "survived" (the week ended safely). Do not mention the receptionist by name.
+- cutscenes: two short endings that reflect the crew and what it was after (2–4 sentences, atmospheric, past tense is fine) for: "breached" (the con worked; show the consequence), "survived" (the week ended and the crew left with nothing it could use). Do not mention the receptionist by name.
 - incident (if requested): "announcement" is what a colleague would tell the receptionist the morning it happens — symptoms only, no hint of foul play, one or two sentences. "method" is the secret truth: how the crew caused it. "title" is a few words.
 
 Respond with ONLY a JSON object:
-{"title": "...", "premise": "...", "con_goal": "...", "gate_facts": ["..."], "doors": ["E00"], "offstage_fact": null, "incident": null, "cutscenes": {"breached": "...", "con_gave_up": "...", "survived": "..."}, "crew": "...", "motive": "...", "phases": ["day 1 ...", "day 2 ...", "day 3 ..."]}
+{"title": "...", "premise": "...", "con_goal": "...", "gate_facts": ["..."], "doors": ["E00"], "offstage_fact": null, "incident": null, "cutscenes": {"breached": "...", "survived": "..."}, "crew": "...", "motive": "...", "phases": ["day 1 ...", "day 2 ...", "day 3 ..."]}

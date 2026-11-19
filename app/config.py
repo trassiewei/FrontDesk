@@ -41,8 +41,7 @@ INCIDENT_CHANCE = 0.6  # chance that the director is asked to stage an incident
 PENALTY_UNVERIFIED_IT_TRANSFER = 4
 CALLBACK_PATIENCE_COST_FAST = 2
 VOUCH_CREDIBILITY = 2  # credibility a con gains on a call after the receptionist dials the number the caller gave
-EXPOSURES_TO_GIVE_UP = 2
-GIVE_UP_EARLIEST_DAY = 2  # the crew never quits on day 1, so every game shows at least two days of the plot
+RATTLED_AFTER = 2  # exposures after which the crew treats its cover as hot (it never quits, it only gets careful)
 PENALTY_INTERNAL = 5
 PENALTY_CONFIDENTIAL = 15
 PENALTY_BREACH = 40
@@ -64,7 +63,7 @@ class Difficulty:
     name: str
     breach_threshold: int
     con_patience: int
-    exposures_to_give_up: int
+    rattled_after: int
     skill_note: str  # how the con artist behaves on the phone
     policy_level: str  # "easy" | "normal" | "hard"
     day2_phishing_warning: bool
@@ -80,11 +79,17 @@ class Difficulty:
     tell_turn: int  # the con makes its scripted slip once it has had this many replies from the player
     tell_note: str  # how obvious the slip is at this level
     spoof_chance: float = 0.0  # chance a con posing as a listed vendor shows that vendor's real number
+    cast_note: str = ""  # how the casting director writes the genuine callers at this level
+
+
+def tell_turn_on(diff: Difficulty, day: int) -> int:
+    """The crew warms up over the week: scripted slips come one reply later every second day."""
+    return diff.tell_turn + (day - 1) // 2
 
 
 DIFFICULTIES: dict[str, Difficulty] = {
     "easy": Difficulty(
-        "easy", 8, 8, 1,
+        "easy", 8, 8, 4,
         "You are an amateur: sloppy and nervous. You over-explain, get small details wrong (a colleague's name, a "
         "system name), lean hard on urgency or on a boss's name, and say things that sound a little off. "
         "You cannot bluff when asked something you do not know.",
@@ -98,9 +103,11 @@ DIFFICULTIES: dict[str, Difficulty] = {
         2, 0,
         "Make the slip clumsy and easy to notice: a wrong first name for a colleague, a department that does not "
         "exist, or an answer that contradicts what you said a moment ago.",
+        cast_note=("Plain, friendly callers with clear errands who are easy to place. Nobody is rushed or vague; "
+                   "staff and vendors give their names and reasons plainly."),
     ),
     "normal": Difficulty(
-        "normal", BREACH_THRESHOLD, CON_PATIENCE, EXPOSURES_TO_GIVE_UP,
+        "normal", BREACH_THRESHOLD, CON_PATIENCE, RATTLED_AFTER,
         "You are competent and natural: smooth, plausible and never pushy. You sound like a busy colleague or vendor "
         "with an ordinary request. You are good, but you are bluffing: you do not know private details of the person "
         "you claim to be, and under direct questions you hesitate or fudge.",
@@ -119,6 +126,8 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "Make the slip small but fair: a detail about the person you claim to be that is slightly off, or a hesitation "
         "when asked something only the real person would answer at once. Say it casually, do not draw attention to it.",
         spoof_chance=0.5,
+        cast_note=("Ordinary, believable callers. One of them may be a little hurried or name-drop a colleague, "
+                   "but nothing about them is hard to read."),
     ),
     "hard": Difficulty(
         "hard", 4, 12, 3,
@@ -147,6 +156,9 @@ DIFFICULTIES: dict[str, Difficulty] = {
         1, 2,
         "Make the slip very subtle: one small inconsistency (a detail that does not quite fit your story) that only a "
         "careful listener would catch. Never hint at it.",
+        cast_note=("Genuine callers that read like con artists: hurried, vague, chatty, asking who is in or who is the "
+                   "right person, mentioning colleagues, sometimes a little pushy about their goal. Two of the three "
+                   "should have a pretext a careful receptionist could suspect, yet all are real."),
     ),
 }
 

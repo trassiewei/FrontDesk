@@ -179,13 +179,13 @@ def scenario_gate(state):
 
 
 def test_hard_message_does_not_satisfy_a_genuine_caller():
-    from app.world import legit_call_by_id
+    from app.world import load_legit_calls
 
     class Call:
         is_con = False
-        legit_id = "L1"
+        legit = load_legit_calls()[0]
 
-    assert legit_call_by_id("L1").message_ok
+    assert Call.legit.message_ok
     assert rules.take_message(Call()).satisfied is True
     assert rules.take_message(Call(), strict=True).satisfied is False
 

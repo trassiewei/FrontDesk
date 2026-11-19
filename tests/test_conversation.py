@@ -144,7 +144,7 @@ def test_flagging_a_con_without_a_slip_is_only_a_small_bonus(fake):
     assert state.exposures == 0 and state.security == 80 + config.BONUS_CORRECT_FLAG
 
 
-def test_catching_enough_slips_ends_the_game_and_the_flag_reports_it(fake):
+def test_catching_slips_never_ends_the_game_even_after_the_day_settles(fake):
     state = begin(fake, "easy", slip_plan())
     call = take_con(state)
     call.slip_shown = True
@@ -153,12 +153,11 @@ def test_catching_enough_slips_ends_the_game_and_the_flag_reports_it(fake):
     assert not state.game_over and not out["game_over"]  # the flag never answers itself
     assert state.exposures == 1 and state.settled_exposures == 0
     state.queue.clear()
-    state.day = config.GIVE_UP_EARLIEST_DAY
     result = engine.end_day(state)
-    assert state.game_over and state.outcome == "con_gave_up" and result["game_over"] and result["cutscene"]
+    assert not state.game_over and not result["game_over"] and state.day == 2 and state.settled_exposures == 1
 
 
-def test_the_crew_never_quits_on_day_one(fake):
+def test_a_crew_exposed_five_times_still_plays_on(fake):
     state = begin(fake, "easy", slip_plan())
     state.exposures = 5
     state.queue.clear()

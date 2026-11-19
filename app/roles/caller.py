@@ -5,7 +5,7 @@ import logging
 
 from .. import config, llm, rules
 from ..models import CallerTurn, CallRecord, GameState, World
-from ..world import employee_by_id, fact_by_id, gambit_by_id, legit_call_by_id, load_tactics, scenario_of, vendor_by_id
+from ..world import employee_by_id, fact_by_id, gambit_by_id, load_tactics, scenario_of, vendor_by_id
 from .common import intel_text, public_info_text, situation_text, transcript_text
 
 log = logging.getLogger("frontdesk.caller")
@@ -79,7 +79,7 @@ def slip_text(state: GameState, call: CallRecord) -> str:
         return "You have no scripted slip on this call."
     if call.slip_shown:
         return "You have already made your slip. Do not repeat it and never draw attention to it."
-    if call.player_turns < diff.tell_turn:
+    if call.player_turns < config.tell_turn_on(diff, call.day):
         return "Not yet: make no slip in this line."
     options = " OR ".join(f'"{t}"' for t in plan.tells)
     return (
@@ -142,7 +142,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
 
 
 def _legit_prompt(state: GameState, call: CallRecord, world: World, system_note: str) -> str:
-    data = legit_call_by_id(call.legit_id)
+    data = call.legit
     assert data is not None
     return llm.render_prompt(
         "legit_caller",

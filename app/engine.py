@@ -19,17 +19,16 @@ from .models import (
     ExtractorResult,
     GameState,
     IntelRecord,
+    LegitCall,
     Message,
     Notice,
     PlannerResult,
     World,
 )
-from .roles import caller, director, extractor, planner, reporter
+from .roles import caller, casting, director, extractor, planner, reporter
 from .world import (
     employee_by_id,
     gambit_by_id,
-    legit_call_by_id,
-    load_legit_calls,
     load_story,
     load_world,
     name_of,
@@ -53,10 +52,6 @@ def _rng(state: GameState, *parts: object) -> random.Random:
     if state.seed is None:
         return random.Random()
     return random.Random(":".join(str(p) for p in (state.seed, *parts)))
-
-
-def _crew_quits(state: GameState) -> bool:
-    return state.exposures >= _diff(state).exposures_to_give_up and state.day >= config.GIVE_UP_EARLIEST_DAY
 
 
 def _diff(state: GameState) -> config.Difficulty:
@@ -160,15 +155,20 @@ def _enter_day(state: GameState, day: int) -> None:
     """Run the planner for `day`, build the call queue and show the morning briefing."""
     world = load_world()
     learned = _recon(state, world, day)
-    plan = planner.plan_day(state, world, day)
-    state.planned[day] = plan
-    state.notebooks[day] = plan.notebook
     state.day = day
     _add_notices(state, day)
+    # The crew's plan and the day's genuine callers are independent, so they are written at the same time.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        planning = pool.submit(planner.plan_day, state, world, day)
+        casting_job = pool.submit(casting.cast_day, state, world, day)
+        plan, legit_calls = planning.result(), casting_job.result()
+    plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls])
+    state.planned[day] = plan
+    state.notebooks[day] = plan.notebook
     if learned:
         hint = _rng(state, "recon_hint", day).choice(load_story()["recon_hints"])
         state.notices.append(Notice(day=day, kind="incident", id="recon_hint", title=hint["title"], text=hint["text"]))
-    state.queue = _build_queue(state, plan, world)
+    state.queue = _build_queue(state, plan, legit_calls, world)
     state.last_call_id = None
     state.phase = "DAY_BRIEFING"
 
@@ -185,16 +185,17 @@ def _recon(state: GameState, world: World, day: int) -> list[str]:
     return picked
 
 
-def _build_queue(state: GameState, plan: PlannerResult, world: World) -> list[CallRecord]:
+def _build_queue(state: GameState, plan: PlannerResult, legit_calls: list[LegitCall], world: World) -> list[CallRecord]:
     diff = _diff(state)
     calls: list[CallRecord] = []
-    for item in rules.build_queue(state.day, load_legit_calls(), plan.calls):
+    legit_numbers = [c.caller_id for c in legit_calls] + [c.caller_id for c in state.calls if not c.is_con]
+    for item in rules.build_queue(state.day, legit_calls, plan.calls):
         call_id = f"D{state.day}S{item.slot}"
         if item.legit is not None:
             data = item.legit
             calls.append(
                 CallRecord(
-                    id=call_id, day=state.day, slot=item.slot, time=item.time, is_con=False, legit_id=data.id,
+                    id=call_id, day=state.day, slot=item.slot, time=item.time, is_con=False, legit=data,
                     caller_name=data.caller_name, claims=data.claims, caller_id=data.caller_id,
                     claimed_identity=data.claimed_identity, patience=data.patience,
                 )
@@ -207,7 +208,7 @@ def _build_queue(state: GameState, plan: PlannerResult, world: World) -> list[Ca
                     id=call_id, day=state.day, slot=item.slot, time=item.time, is_con=True, plan=p,
                     caller_name=p.persona_name, claims=p.claims,
                     caller_id=rules.generate_caller_id(world, p.claimed_identity, _rng(state, "caller_id", call_id),
-                                                   p.claims, diff.spoof_chance),
+                                                   p.claims, diff.spoof_chance, legit_numbers),
                     claimed_identity=p.claimed_identity, patience=diff.con_patience,
                 )
             )
@@ -230,7 +231,7 @@ def next_call(state: GameState) -> CallRecord:
         raise EngineError("No calls are waiting. End the day.", 409)
     world = load_world()
     call = state.queue.pop(0)
-    opening = call.plan.opening_line if call.is_con and call.plan else _legit_opening(call)
+    opening = call.plan.opening_line if call.is_con and call.plan else call.legit.opening_line  # type: ignore[union-attr]
     call.status = "active"
     call.messages.append(Message(speaker="caller", text=opening, time=call.time))
     if call.claimed_identity:
@@ -241,12 +242,6 @@ def next_call(state: GameState) -> CallRecord:
     state.last_call_id = None  # the previous call can no longer be flagged
     state.phase = "CALL_ACTIVE"
     return call
-
-
-def _legit_opening(call: CallRecord) -> str:
-    data = legit_call_by_id(call.legit_id)
-    assert data is not None
-    return data.opening_line
 
 
 def _finish(
@@ -418,8 +413,6 @@ def callback(state: GameState, target_id: str) -> dict:
             state.burned_identities.append(call.claimed_identity)
         state.it_alert = state.it_alert or result.it_alert
         _finish(state, call, "exposed", "exposed")
-        if _crew_quits(state):
-            _game_over(state, "con_gave_up")
         out.update(call_ended=True, end_reason="exposed", game_over=state.game_over, cutscene=cutscene(state))
         return out
 
@@ -508,7 +501,6 @@ def flag_last_call(state: GameState) -> dict:
             state.exposures += 1
             if call.claimed_identity and call.claimed_identity not in state.burned_identities:
                 state.burned_identities.append(call.claimed_identity)
-            # Whether the crew gives up is only decided when the day ends, so a flag never answers itself.
     else:
         state.false_flags += 1
         state.service_penalty += -result.service_delta
@@ -530,9 +522,7 @@ def end_day(state: GameState) -> dict:
 
     scenario = scenario_of(state)
     before = (state.settled_security, state.settled_service)
-    if _crew_quits(state):
-        _game_over(state, "con_gave_up")
-    elif plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(state.intel, scenario.offstage_fact):
+    if plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(state.intel, scenario.offstage_fact):
         if rules.check_breach(state.intel, diff.breach_threshold, state.it_alert, world.facts, scenario.gate_facts):
             _breach(state, "offstage", "after hours")
         else:

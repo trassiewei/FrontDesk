@@ -19,7 +19,7 @@ def draft(**overrides) -> dict:
         title="The Fake Auditor", premise="The crew poses as an auditor.", con_goal="Get HR to send payroll data.",
         gate_facts=["it_vendor_name"], doors=["E06", "E03"], offstage_fact="helpdesk_ext",
         incident={"day": 9, "title": "Email outage", "announcement": ANNOUNCEMENT, "method": METHOD},
-        cutscenes={"breached": "It worked.", "con_gave_up": "They left.", "survived": "Safe."},
+        cutscenes={"breached": "It worked.", "survived": "Safe."},
     )
     data.update(overrides)
     return data
@@ -60,7 +60,7 @@ def test_presets_are_valid_against_the_world():
     for sc in load_scenarios():
         assert set(sc.gate_facts) <= non_public and {d.employee_id for d in sc.doors} <= available
         assert sc.offstage_fact is None or sc.offstage_fact in non_public
-        assert set(sc.cutscenes) == {"breached", "con_gave_up", "survived"}
+        assert set(sc.cutscenes) == {"breached", "survived"}
         assert [d.bonus for d in sc.doors] == [0] + [config.SECONDARY_DOOR_BONUS] * (len(sc.doors) - 1)
         assert sc.incident is None or sc.incident.day in config.INCIDENT_DAYS
     assert load_scenarios()[0].id == "bec_cfo" and load_scenarios()[0].incident is None

@@ -15,7 +15,6 @@
     "incident": null,
     "cutscenes": {
       "breached": "Thursday, 08:02. An email from Alice Adams's account lands in Bob's inbox: \"Urgent — please wire $48,300 to our new freight partner before noon. I'm in meetings abroad, don't call.\" Bob, overworked and eager to help, sends it.\nBy the time Alice reads her email on Monday, the money is gone.",
-      "con_gave_up": "That evening. The calls with the strange little questions have stopped. Somewhere across town, a notebook closes. Trassiewei's front desk was a dead end.",
       "survived": "Friday. Alice comes back to an inbox full of routine emails and nothing else. Nobody at Trassiewei will ever know how close it came — except you, after you read this report."
     },
     "gambit": "chain_of_favors",
@@ -48,7 +47,6 @@
     },
     "cutscenes": {
       "breached": "Thursday, 03:14. A NetCore \"technician\" disconnects from a remote session that nobody at Trassiewei can explain later. By Friday morning every file server shows the same red message, and the ransom note is addressed to Jack Jones.",
-      "con_gave_up": "That evening. The odd little IT questions have stopped. Somewhere across town, a laptop lid closes. Trassiewei's network was too well guarded by its own receptionist.",
       "survived": "Friday. The real NetCore tech finally visits, grumbles about the Wi-Fi and leaves. Nobody at Trassiewei will ever know someone else tried to use his name first — except you, after you read this report."
     },
     "gambit": "fix_what_we_broke",
@@ -82,7 +80,6 @@
     },
     "cutscenes": {
       "breached": "Friday, 17:30. Payroll runs as usual. Alice's salary lands in an account that has never belonged to anyone at Trassiewei, and is gone within the hour. Alice finds out on Monday, when her bank asks where she has been.",
-      "con_gave_up": "That evening. The calls asking about employee IDs and who is out of the office have stopped. Somewhere across town, a spreadsheet is deleted. Trassiewei was not worth the trouble.",
       "survived": "Friday. Payroll runs and Alice's salary lands where it always does. Nobody at Trassiewei will ever know how close the ghost came — except you, after you read this report."
     },
     "gambit": "name_relay",
@@ -110,7 +107,6 @@
     "incident": null,
     "cutscenes": {
       "breached": "Wednesday, 16:48. A password is reset at the helpdesk, in good faith, for a caller who knew the name of every system and the shape of every ticket. By morning someone has been reading Trassiewei's email for hours.",
-      "con_gave_up": "That evening. The cheerful survey calls have stopped. Somewhere across town a clipboard is binned. Trassiewei's front desk answered nothing it should not have.",
       "survived": "Friday. The helpdesk queue is full of ordinary problems. Nobody at Trassiewei will ever know a friendly voice once asked five minutes of questions, none of which got an answer."
     },
     "gambit": "friendly_survey",
@@ -138,7 +134,6 @@
     "incident": null,
     "cutscenes": {
       "breached": "Wednesday, 13:40. Kate sends the board packet to the address she was given, a few minutes before the meeting starts. By evening a competitor's lawyers are quoting from it.",
-      "con_gave_up": "That evening. The calls from the executive's 'office' have stopped. Somewhere across town a name is crossed out of a list. The board meets without an audience.",
       "survived": "Friday. The board packet stayed where it belonged. Nobody at Trassiewei will ever know how much someone wanted to read it."
     },
     "gambit": "borrowed_boss",
@@ -166,7 +161,6 @@
     "incident": null,
     "cutscenes": {
       "breached": "Thursday, 11:20. The spreadsheet leaves Trassiewei's mail server in a polite reply to a polite auditor. Within a week every employee on it receives a perfectly targeted email asking them to log in.",
-      "con_gave_up": "That evening. The auditors' calls have stopped. Somewhere across town a form letter is filed unsent. The front desk asked for a paper trail, and nobody had one.",
       "survived": "Friday. The real auditors, if there are any, will write. Nobody at Trassiewei will ever know about the ones who tried to hurry the paperwork."
     },
     "gambit": "surprise_inspector",

@@ -85,6 +85,27 @@ class LegitCall(BaseModel):
     patience: int
 
 
+class LegitDraft(BaseModel):
+    """One genuine call as the casting director writes it. Cleaned into a LegitCall by rules.clean_legit_calls."""
+
+    caller_name: str = ""
+    claims: str = ""
+    claimed_identity: str | None = None
+    personality: str = ""
+    goal: str = ""
+    knows: str = ""
+    temptation: str = ""
+    success: str = ""
+    accept_transfer_to: list[str] = Field(default_factory=list)
+    message_ok: bool = True
+    opening_line: str = ""
+    patience: int = 7
+
+
+class LegitCastResult(BaseModel):
+    calls: list[LegitDraft] = Field(default_factory=list)
+
+
 class Tactic(BaseModel):
     id: str
     name: str
@@ -226,7 +247,7 @@ class Notice(BaseModel):
 # ---------------------------------------------------------------- game state
 
 Phase = Literal["SETUP", "DAY_BRIEFING", "BETWEEN_CALLS", "CALL_ACTIVE", "DAY_END", "GAME_OVER"]
-Outcome = Literal["breached", "con_gave_up", "survived"]
+Outcome = Literal["breached", "survived"]
 EndReason = Literal["caller_ended", "patience", "max_turns", "exposed", "transferred", "message", "hung_up"]
 LeakSource = Literal["llm", "pattern", "both", "recon"]
 
@@ -259,7 +280,7 @@ class CallRecord(BaseModel):
     slot: int
     time: str
     is_con: bool
-    legit_id: str | None = None
+    legit: LegitCall | None = None  # the cast of a genuine call (None for a con)
     plan: PlannedCall | None = None
     caller_name: str
     claims: str

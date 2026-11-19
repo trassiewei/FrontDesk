@@ -106,10 +106,10 @@ def outcome_text(state: GameState) -> str:
             f"BREACHED — the con artist reached its goal ({scenario_of(state).con_goal}) "
             f"({state.breach_method}, {state.breach_time})"
         )
-    if state.outcome == "con_gave_up":
-        return (f"The con artist was exposed too many times and gave up at the end of {config.DAY_NAMES[state.day - 1]}; "
-                "nothing after that day happened")
-    return "The con artist never got in; the three days ended safely"
+    got = len(state.intel)
+    haul = "walked away with nothing" if got == 0 else f"collected only {got} scrap(s) of information"
+    return (f"The con artist never got in. The crew kept working all three days, and when the week ended it "
+            f"{haul} it could use ({scenario_of(state).con_goal} stayed out of reach)")
 
 
 def fallback_report(state: GameState, world: World) -> ReportResult:
