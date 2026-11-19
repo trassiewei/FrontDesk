@@ -153,8 +153,17 @@ def test_catching_enough_slips_ends_the_game_and_the_flag_reports_it(fake):
     assert not state.game_over and not out["game_over"]  # the flag never answers itself
     assert state.exposures == 1 and state.settled_exposures == 0
     state.queue.clear()
+    state.day = config.GIVE_UP_EARLIEST_DAY
     result = engine.end_day(state)
     assert state.game_over and state.outcome == "con_gave_up" and result["game_over"] and result["cutscene"]
+
+
+def test_the_crew_never_quits_on_day_one(fake):
+    state = begin(fake, "easy", slip_plan())
+    state.exposures = 5
+    state.queue.clear()
+    result = engine.end_day(state)
+    assert not state.game_over and not result["game_over"] and state.day == 2
 
 
 def test_scores_only_settle_when_the_day_ends(fake):

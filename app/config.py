@@ -42,6 +42,7 @@ PENALTY_UNVERIFIED_IT_TRANSFER = 4
 CALLBACK_PATIENCE_COST_FAST = 2
 VOUCH_CREDIBILITY = 2  # credibility a con gains on a call after the receptionist dials the number the caller gave
 EXPOSURES_TO_GIVE_UP = 2
+GIVE_UP_EARLIEST_DAY = 2  # the crew never quits on day 1, so every game shows at least two days of the plot
 PENALTY_INTERNAL = 5
 PENALTY_CONFIDENTIAL = 15
 PENALTY_BREACH = 40

@@ -55,6 +55,10 @@ def _rng(state: GameState, *parts: object) -> random.Random:
     return random.Random(":".join(str(p) for p in (state.seed, *parts)))
 
 
+def _crew_quits(state: GameState) -> bool:
+    return state.exposures >= _diff(state).exposures_to_give_up and state.day >= config.GIVE_UP_EARLIEST_DAY
+
+
 def _diff(state: GameState) -> config.Difficulty:
     return config.get_difficulty(state.difficulty)
 
@@ -414,7 +418,7 @@ def callback(state: GameState, target_id: str) -> dict:
             state.burned_identities.append(call.claimed_identity)
         state.it_alert = state.it_alert or result.it_alert
         _finish(state, call, "exposed", "exposed")
-        if state.exposures >= _diff(state).exposures_to_give_up:
+        if _crew_quits(state):
             _game_over(state, "con_gave_up")
         out.update(call_ended=True, end_reason="exposed", game_over=state.game_over, cutscene=cutscene(state))
         return out
@@ -526,7 +530,7 @@ def end_day(state: GameState) -> dict:
 
     scenario = scenario_of(state)
     before = (state.settled_security, state.settled_service)
-    if state.exposures >= diff.exposures_to_give_up:
+    if _crew_quits(state):
         _game_over(state, "con_gave_up")
     elif plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(state.intel, scenario.offstage_fact):
         if rules.check_breach(state.intel, diff.breach_threshold, state.it_alert, world.facts, scenario.gate_facts):
