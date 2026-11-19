@@ -14,8 +14,8 @@ def run_cli(monkeypatch, capsys, inputs, argv=("--seed", "5")):
 
 def script(fake):
     plan = {"notebook": "SECRET-NOTEBOOK", "attempt_breach_offstage": False, "calls": [
-        {"persona_name": "Alex", "claimed_identity": "E04", "claims": "Raj Patel, IT", "pretext": "p",
-         "tactic": "small_ask", "target_facts": ["cfo_on_leave"], "opening_line": "Hi, Raj from IT."}]}
+        {"persona_name": "Alex", "claimed_identity": "E04", "claims": "Dave Davis, IT", "pretext": "p",
+         "tactic": "small_ask", "target_facts": ["cfo_on_leave"], "opening_line": "Hi, Dave from IT."}]}
     fake.default("planner", plan)
     fake.default("caller", {"say": "Okay.", "private_thought": "SECRET-THOUGHT"})
     fake.default("extractor", {"leaks": []})
@@ -32,7 +32,7 @@ def test_cli_plays_a_full_game_and_prints_the_report(fake_llm, monkeypatch, caps
     assert "Morning Jordan!" in text and "Starboard" in text and "Caller ID:" in text
     before_report = text.split("Writing the post-game report")[0]
     assert "SECRET-THOUGHT" not in text and "SECRET-NOTEBOOK" not in before_report
-    assert "Friday. Diane comes back" in text and "Writing the post-game report" in text
+    assert "Friday. Alice comes back" in text and "Writing the post-game report" in text
     assert "## Verdict" in text and "Stats:" in text
 
 
@@ -40,7 +40,7 @@ def test_cli_debug_shows_hidden_state_and_survives_to_the_report(fake_llm, monke
     script(fake_llm)
     fake_llm.script("extractor", {"leaks": [{"fact_id": "cfo_on_leave", "quote": "away", "explicitness": "explicit",
                                              "confidence": 0.9}]})
-    inputs = ["", "/next", "/hangup", "/next", "She is away, ask Patel.", "/callback E04", "/message"]
+    inputs = ["", "/next", "/hangup", "/next", "She is away, ask Davis.", "/callback E04", "/message"]
     code, text = run_cli(monkeypatch, capsys, inputs + ["/quit"], argv=("--seed", "5", "--debug"))
     assert "[debug] llm leaks: cfo_on_leave" in text and "pattern leaks: it_lead_name" in text
     assert "SECRET-NOTEBOOK" in text and "it_alert" in text

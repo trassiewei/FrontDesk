@@ -29,11 +29,11 @@ from .world import employee_by_id, legit_call_by_id, load_legit_calls, name_of, 
 
 # ------------------------------------------------------------------ texts shown to the player
 
-FLAG_TEXT = "Raj: 'Thanks — I'll look into it and give the helpdesk a heads-up.'"
+FLAG_TEXT = "Dave: 'Thanks — I'll look into it and give the helpdesk a heads-up.'"
 MESSAGE_TEXT = "You took a message."
 VOICEMAIL_TEMPLATE = (
     "{name}'s voicemail: 'I'm out of the office until Monday, November 23. "
-    "For urgent Finance matters, please contact Paul Nguyen.'"
+    "For urgent Finance matters, please contact Bob Baker.'"
 )
 CALLBACK_EXPOSED = "{speaker}: 'No, I didn't call — and I didn't send anyone. Who is this?'"
 CALLBACK_SELF = "{speaker}: 'Yes, that was me calling. Put me back through.'"
@@ -483,11 +483,11 @@ def clean_plan(
         "calls": cleaned, "assessment": scrub_placeholders(result.assessment).strip()[: config.MAX_SCRIPT_TEXT * 2]})
 
 
-_PERSONA_POOL = ["Dana", "Ellis", "Morgan", "Tessa", "Brent", "Nora", "Leo", "Claire", "Victor", "Ivy", "Hugo", "Jade"]
+_PERSONA_POOL = ["Dana", "Ellis", "Morgan", "Tessa", "Brent", "Nora", "Wendy", "Claire", "Victor", "Zane", "Hugo", "Jade"]
 
 
 def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) -> PlannerResult:
-    """Give each con a fresh first name: not a directory employee's (a 'Marcus' next to Marcus Lee reads as the
+    """Give each con a fresh first name: not a directory employee's (a 'Henry' next to Henry Hill reads as the
     same person), and not one a previous call or an earlier call today already used. The old name is replaced
     everywhere in the script."""
     taken = {n.split()[0].lower() for n in used if n.strip()}

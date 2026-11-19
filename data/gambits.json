@@ -72,7 +72,7 @@
   {
     "id": "name_relay",
     "name": "The Name Relay",
-    "summary": "Names are the credential. Call one collects a real colleague's name, call two drops it ('Paul said you were the right person to ask'), and by call three the crew sounds like an old acquaintance of the office.",
+    "summary": "Names are the credential. Call one collects a real colleague's name, call two drops it ('Bob said you were the right person to ask'), and by call three the crew sounds like an old acquaintance of the office.",
     "angle": "turning a few real colleagues' names into a believable inside story that unlocks an introduction to someone important",
     "requires_incident": false,
     "tactics": ["name_drop", "small_ask", "rapport", "social_proof"],

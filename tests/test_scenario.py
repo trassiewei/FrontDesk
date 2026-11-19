@@ -27,7 +27,7 @@ def draft(**overrides) -> dict:
 
 def con(identity=None, claims="Alex, new temp in Finance"):
     return {"persona_name": "Alex", "claimed_identity": identity, "claims": claims, "pretext": "p",
-            "tactic": "small_ask", "target_facts": ["cfo_on_leave"], "opening_line": "Hi, is Diane in today?"}
+            "tactic": "small_ask", "target_facts": ["cfo_on_leave"], "opening_line": "Hi, is Alice in today?"}
 
 
 def plan(*calls):
@@ -114,7 +114,7 @@ def test_director_uses_the_models_scenario(fake, monkeypatch):
     sc = director.design("g", load_world(), "normal", random.Random(1))
     assert sc.title == "The Fake Auditor" and sc.incident and sc.incident.day == 3
     prompt = fake.calls_for("director")[0]["messages"][0]["content"]
-    assert "day 3 of 3" in prompt and "E04 | Raj Patel" in prompt and "it_vendor_name | internal" in prompt
+    assert "day 3 of 3" in prompt and "E04 | Dave Davis" in prompt and "it_vendor_name | internal" in prompt
 
 
 def test_director_asks_for_no_incident_when_the_roll_says_so(fake, monkeypatch):
@@ -174,10 +174,10 @@ def test_planner_prompt_is_built_from_the_scenario(fake):
     start(fake, draft(incident=None))
     prompt = fake.calls_for("planner")[0]["messages"][0]["content"]
     assert "The crew poses as an auditor." in prompt and "Get HR to send payroll data." in prompt
-    assert "Laura Chen (E06, HR Manager (your manager)): credibility >= 6" in prompt
-    assert "Grace Kim (E03" in prompt and "credibility >= 8" in prompt
+    assert "Frank Foster (E06, HR Manager (your manager)): credibility >= 6" in prompt
+    assert "Carol Clark (E03" in prompt and "credibility >= 8" in prompt
     assert "it_vendor_name (Name of the outsourced IT contractor)" in prompt
-    assert "Diane Mercer's mailbox" not in prompt
+    assert "Alice Adams's mailbox" not in prompt
 
 
 def test_doors_and_gate_come_from_the_scenario(fake):

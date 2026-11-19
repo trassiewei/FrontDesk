@@ -1,6 +1,6 @@
 # Front Desk
 
-A text-based social-engineering training game. You are the receptionist at Starriver Logistics, three weeks into the job. Over three working days you answer a dozen phone calls by typing, and one of the callers is a con artist who plans each new call around every careless thing you said before. When the game ends you get an incident report that quotes your own words back at you, plus the con artist's notebook.
+A text-based social-engineering training game. You are the receptionist at Trassiewei Inc, three weeks into the job. Over three working days you answer a dozen phone calls by typing, and one of the callers is a con artist who plans each new call around every careless thing you said before. When the game ends you get an incident report that quotes your own words back at you, plus the con artist's notebook.
 
 <!-- Screenshots: add images of the call screen and the end page here. (placeholder) -->
 
@@ -69,16 +69,16 @@ Every rule is ordinary deterministic code in `app/rules.py`: callback and transf
 
 ## Background story
 
-- **Starriver Logistics**: a regional freight and warehousing company founded in 2009, about 140 employees, on the 4th floor of an office building in Riverton's harbour district.
+- **Trassiewei Inc**: a regional freight and warehousing company founded in 2009, about 140 employees, on the 4th floor of an office building in Riverton's harbour district.
 - **Recent changes**: the new ERP system "Starboard" went live in September and still breaks often, and many staff don't know it well. In October IT support was outsourced to NetCore IT Services. Both make "I'm new here" and "I'm from the IT contractor" very believable excuses.
-- **This week**: CFO Diane Mercer is on vacation in Portugal, and Paul Nguyen is covering for her from Monday afternoon. The quarterly board meeting is Wednesday at 2 pm, so the CEO and the CEO's assistant will be busy.
-- **You**: the receptionist in the third week of the job, reporting to HR manager Laura Chen. You don't know everyone's voice yet.
-- **The con artist**: a freelance social engineer working for a fraud ring. The default scenario is business email compromise: the ring wants the CFO's mailbox so that, while she is away, they can email Finance in her name and ask for an urgent wire transfer, and the con artist's job is to get IT to reset Diane's email password. Each game the director can pick a different angle (a fake vendor, a payroll diversion, ...). The company, employees and facts stay the same.
+- **This week**: CFO Alice Adams is on vacation in Portugal, and Bob Baker is covering for her from Monday afternoon. The quarterly board meeting is Wednesday at 2 pm, so the CEO and the CEO's assistant will be busy.
+- **You**: the receptionist in the third week of the job, reporting to HR manager Frank Foster. You don't know everyone's voice yet.
+- **The con artist**: a freelance social engineer working for a fraud ring. The default scenario is business email compromise: the ring wants the CFO's mailbox so that, while she is away, they can email Finance in her name and ask for an urgent wire transfer, and the con artist's job is to get IT to reset Alice's email password. Each game the director can pick a different angle (a fake vendor, a payroll diversion, ...). The company, employees and facts stay the same.
 - **Staged incidents**: in some games the con artist causes a fault first (a login flood that takes the ERP down, a spoofed phone-system alert) and then calls pretending to be IT. While the incident is active, calling back someone in IT only gets "busy". The announcement describes symptoms only; the post-game report reveals the cause.
 
 ## Where the ideas come from
 
-- **The Art of Deception** (Kevin Mitnick): harmless-looking facts add up to something dangerous, inside jargon buys credibility, and calling back on a known number is the cheap defence. The game turns those three ideas into mechanics.
+- **The Art of Deception** (Grace Mitnick): harmless-looking facts add up to something dangerous, inside jargon buys credibility, and calling back on a known number is the cheap defence. The game turns those three ideas into mechanics.
 - **Papers, Please**: a gatekeeper checks claims against a rulebook and documents under time pressure, and every decision has a cost on both sides. The Policy tab, the directory and the caller ID play that part here.
 - **Contextual integrity**: whether sharing a fact is fine depends on who is asking and why. "She's on vacation" is polite chat to a colleague and a gift to a stranger. The game scores disclosures by sensitivity and by whether the fact was new to the con artist.
 

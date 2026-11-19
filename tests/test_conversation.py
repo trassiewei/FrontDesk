@@ -16,7 +16,7 @@ from test_scenario import con, draft, fake, plan, take_con  # noqa: F401
 
 def begin(fake, difficulty, *plans):
     fake.script("director", draft(incident=None))
-    fake.script("planner", *(plans or (plan(con(identity="E04", claims="Raj Patel, IT")),)))
+    fake.script("planner", *(plans or (plan(con(identity="E04", claims="Dave Davis, IT")),)))
     state = engine.new_game("Jordan", difficulty, seed=3)
     engine.start_day(state)
     return state
@@ -90,7 +90,7 @@ def test_checking_a_con_costs_no_service(fake, monkeypatch):
 # ---- slips
 
 def slip_plan(**kw):
-    return plan({**con(), "tells": ["call Diane 'Dana' once"], **kw})
+    return plan({**con(), "tells": ["call Alice 'Dana' once"], **kw})
 
 
 def test_the_slip_waits_for_the_difficulty_tell_turn(fake, monkeypatch):
@@ -101,7 +101,7 @@ def test_the_slip_waits_for_the_difficulty_tell_turn(fake, monkeypatch):
     assert "Not yet" in last_prompt(fake)
     engine.say(state, "Who is calling?")
     prompt = last_prompt(fake)
-    assert "NOW work ONE of these slips" in prompt and "call Diane 'Dana' once" in prompt
+    assert "NOW work ONE of these slips" in prompt and "call Alice 'Dana' once" in prompt
     assert not call.slip_shown
 
 
@@ -125,7 +125,7 @@ def test_no_tells_means_no_slip_even_if_the_model_claims_one(fake):
 
 
 def test_flagging_a_con_after_its_slip_burns_the_crew(fake):
-    state = begin(fake, "normal", slip_plan(claimed_identity="E04", claims="Raj Patel, IT"))
+    state = begin(fake, "normal", slip_plan(claimed_identity="E04", claims="Dave Davis, IT"))
     call = take_con(state)
     call.slip_shown = True
     engine.hang_up(state)
@@ -241,7 +241,7 @@ def test_repeating_the_callers_own_word_is_not_a_leak():
 
 def test_new_detail_next_to_an_echoed_one_still_counts():
     facts = load_world().facts
-    _, pattern, _ = rules.merge_leaks([], "Yes, ask Patel.", facts, "Hi, Raj from IT.")
+    _, pattern, _ = rules.merge_leaks([], "Yes, ask Davis.", facts, "Hi, Dave from IT.")
     assert "it_lead_name" in pattern
 
 
@@ -296,7 +296,7 @@ def test_hanging_up_after_the_goal_was_met_is_not_a_failed_call(fake):
     state = begin(fake, "normal")
     take_legit(state)
     fake.default("caller", {"say": "Great, thanks. One more thing?", "goal_met": True})
-    engine.say(state, "Please email hr@starriver.example.")
+    engine.say(state, "Please email hr@trassiewei.example.")
     engine.hang_up(state)
     call = state.calls[-1]
     assert call.goal_met and call.satisfied is True and state.satisfied_legit == 1
@@ -347,20 +347,20 @@ def test_a_vendor_named_only_in_the_claims_can_also_be_spoofed():
 def test_personas_get_fresh_first_names_everywhere_in_the_script():
     world = load_world()
     call = PlannedCall(
-        persona_name="Marcus Cole", claims="Marcus from NetCore", pretext="Marcus is fixing it", tactic="small_ask",
-        opening_line="Hi, Marcus here.", beats=["Marcus asks for the extension"], tells=["Marcus calls Diane 'Dana'"],
+        persona_name="Henry Cole", claims="Henry from NetCore", pretext="Henry is fixing it", tactic="small_ask",
+        opening_line="Hi, Henry here.", beats=["Henry asks for the extension"], tells=["Henry calls Alice 'Dana'"],
     )
     again = call.model_copy(update={"persona_name": "Ellis", "claims": "Ellis, courier", "opening_line": "Ellis here"})
     out = rules.dedupe_personas(PlannerResult(notebook="n", calls=[call, again]), world, used=["Ellis"])
     first, second = out.calls
-    assert "Marcus" not in first.persona_name + first.claims + first.opening_line + first.beats[0] + first.tells[0]
+    assert "Henry" not in first.persona_name + first.claims + first.opening_line + first.beats[0] + first.tells[0]
     assert first.persona_name.endswith("Cole") and first.opening_line.startswith("Hi, ")
     assert second.persona_name != "Ellis" and "Ellis" not in second.claims
 
 
 def test_an_impersonated_employees_own_name_is_kept():
     world = load_world()
-    call = PlannedCall(persona_name="Raj Patel", claimed_identity="E04", claims="Raj Patel, IT", pretext="p",
-                       tactic="small_ask", opening_line="It's Raj.")
+    call = PlannedCall(persona_name="Dave Davis", claimed_identity="E04", claims="Dave Davis, IT", pretext="p",
+                       tactic="small_ask", opening_line="It's Dave.")
     out = rules.dedupe_personas(PlannerResult(notebook="n", calls=[call]), world, used=[])
-    assert out.calls[0].persona_name == "Raj Patel"
+    assert out.calls[0].persona_name == "Dave Davis"

@@ -72,7 +72,7 @@ def test_callback_to_cfo_gives_voicemail_and_cannot_confirm(world, make_call):
     call = make_call(claimed_identity="E04", references=["E04"])
     result = rules.callback(call, "E01", world)
     assert result.kind == "voicemail" and not result.exposed
-    assert "November 23" in result.text and "Paul Nguyen" in result.text
+    assert "November 23" in result.text and "Bob Baker" in result.text
 
 
 def test_callback_voicemail_wins_even_if_con_claims_the_cfo(world, make_call):
@@ -128,7 +128,7 @@ def test_transfer_con_to_helpdesk_breaches_at_threshold(world, make_call):
     call = make_call()
     result = rules.transfer(call, "E05", world=world, intel=SIX, it_alert=False, threshold=6, scenario=SCENARIO)
     assert result.breached and result.result == "breached"
-    assert result.text == "Call transferred to Tom Becker."
+    assert result.text == "Call transferred to Eve Evans."
 
 
 def test_transfer_con_to_helpdesk_without_enough_intel_alerts_it(world, make_call):
@@ -153,7 +153,7 @@ def test_transfer_legit_satisfaction(world, make_call):
     good = rules.transfer(call, "E02", world=world, intel=set(), it_alert=False, threshold=6, scenario=SCENARIO)
     bad = rules.transfer(call, "E12", world=world, intel=set(), it_alert=False, threshold=6, scenario=SCENARIO)
     assert good.satisfied is True and bad.satisfied is False
-    assert good.text == "Call transferred to Paul Nguyen."
+    assert good.text == "Call transferred to Bob Baker."
 
 
 # ------------------------------------------------------------------ flag / message
@@ -181,10 +181,10 @@ def test_take_message_respects_message_ok(make_call):
 @pytest.mark.parametrize(
     "text, expected",
     [
-        ("Raj can help", "it_lead_name"),
+        ("Dave can help", "it_lead_name"),
         ("we run starboard here", "erp_name"),
         ("her ID is 20417", "cfo_employee_id"),
-        ("paul is covering", "cfo_backup_name"),
+        ("bob is covering", "cfo_backup_name"),
         ("try x4200", "helpdesk_ext"),
         ("It's in the board meeting", "board_meeting"),
         ("She's back on the 23rd", "cfo_return_date"),
@@ -201,7 +201,7 @@ def test_pattern_respects_word_boundaries(world):
 
 
 def test_public_facts_never_match(world):
-    assert rules.match_patterns("Diane Mercer and Helen Brooks at 880 Harbor Way", world.facts) == []
+    assert rules.match_patterns("Alice Adams and Jack Jones at 880 Harbor Way", world.facts) == []
 
 
 def test_symbol_edged_patterns_match_inside_longer_tokens(world):
@@ -216,7 +216,7 @@ def test_merge_keeps_llm_and_pattern_sets_separate(world):
         Leak(fact_id="ceo_name", quote="x", explicitness="explicit", confidence=0.95),  # public
         Leak(fact_id="nope", quote="x", explicitness="explicit", confidence=0.95),  # invalid id
     ]
-    llm, pattern, merged = rules.merge_leaks(leaks, "She's away, ask Raj", world.facts)
+    llm, pattern, merged = rules.merge_leaks(leaks, "She's away, ask Dave", world.facts)
     assert llm == ["cfo_on_leave"]
     assert pattern == ["it_lead_name"]
     assert set(merged) == {"cfo_on_leave", "it_lead_name"}
@@ -229,9 +229,9 @@ def test_leak_source_labels():
 
 
 def test_scan_references_finds_full_first_and_last_names(world):
-    assert rules.scan_references("Paul said so", world) == ["E02"]
-    assert rules.scan_references("ask Nguyen", world) == ["E02"]
-    assert rules.scan_references("Kevin O'Brien sent me", world) == ["E07"]
+    assert rules.scan_references("Bob said so", world) == ["E02"]
+    assert rules.scan_references("ask Baker", world) == ["E02"]
+    assert rules.scan_references("Grace Green sent me", world) == ["E07"]
     assert "V03" in rules.scan_references("we're NetCore IT Services", world)
     assert rules.scan_references("Paulina", world) == []
 

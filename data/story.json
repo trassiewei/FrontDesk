@@ -1,11 +1,11 @@
 {
   "briefings": {
-    "1": "Morning {name}! Quick notes for the week:\n• Diane (CFO) is on vacation all week — back Mon the 23rd. Paul is covering Finance.\n• Starboard is still being glitchy since the September rollout. Point people to the helpdesk (x4200).\n• Board meeting Wednesday at 2, so Helen's office will be hectic.\nHave a good one! — Laura",
-    "2": "Morning! Starboard maintenance tonight 8pm–midnight. NetCore is sending a tech on Thursday.\n{phishing_warning}— Laura",
-    "3": "Board meeting at 2 today. Helen and Nina will be heads-down — please hold non-urgent calls for them. Last push of the week, you've got this. — Laura"
+    "1": "Morning {name}! Quick notes for the week:\n• Alice (CFO) is on vacation all week — back Mon the 23rd. Bob is covering Finance.\n• Starboard is still being glitchy since the September rollout. Point people to the helpdesk (x4200).\n• Board meeting Wednesday at 2, so Jack's office will be hectic.\nHave a good one! — Frank",
+    "2": "Morning! Starboard maintenance tonight 8pm–midnight. NetCore is sending a tech on Thursday.\n{phishing_warning}— Frank",
+    "3": "Board meeting at 2 today. Jack and Kate will be heads-down — please hold non-urgent calls for them. Last push of the week, you've got this. — Frank"
   },
   "day2_phishing_warning": "Also — two companies down the street got some weird phone calls last week, people pretending to be IT. Stay sharp.\n",
-  "briefing_sender": "Message from Laura Chen (HR Manager)",
+  "briefing_sender": "Message from Frank Foster (HR Manager)",
   "day_summary": "{day_name} is over. You handled {n} calls.",
   "day_summary_flavor": [
     "Something about today's calls is still nagging at you.",
@@ -13,14 +13,14 @@
     "You replay a couple of conversations in your head on the way home."
   ],
   "policies": {
-    "normal": "STARRIVER FRONT DESK GUIDELINES\n1. Be helpful and polite — you're the first voice people hear.\n2. Don't share colleagues' schedules, whereabouts, mobile numbers or employee IDs with callers you haven't verified.\n3. If a caller claims to be a colleague or vendor and asks for anything non-public, verify by calling back the number in the directory — not the number they give you.\n4. Never help with passwords or account access. Route to the helpdesk only after verifying the caller.\n5. Taking a message is always an option.\n6. Report anything suspicious to Raj (IT).",
+    "normal": "STARRIVER FRONT DESK GUIDELINES\n1. Be helpful and polite — you're the first voice people hear.\n2. Don't share colleagues' schedules, whereabouts, mobile numbers or employee IDs with callers you haven't verified.\n3. If a caller claims to be a colleague or vendor and asks for anything non-public, verify by calling back the number in the directory — not the number they give you.\n4. Never help with passwords or account access. Route to the helpdesk only after verifying the caller.\n5. Taking a message is always an option.\n6. Report anything suspicious to Dave (IT).",
     "easy_extra": "RED FLAGS: urgency (\"right now!\"), name-dropping bosses, callers who are \"new\" and need inside details, caller ID that doesn't match the directory, requests to skip the usual process.",
     "hard": "Be helpful. Use your judgment."
   },
   "start_page": {
     "title": "FRONT DESK",
     "lines": [
-      "It's your third week as the receptionist at Starriver Logistics.",
+      "It's your third week as the receptionist at Trassiewei Inc.",
       "Answer the phones. Be helpful. Protect your colleagues.",
       "Somewhere in this week's calls, someone is not who they say they are."
     ],
@@ -35,11 +35,11 @@
   "llm_not_configured_banner": "LLM is not configured — see README",
   "policy_updates": {
     "leak_audit": {
-      "title": "Audit notice from Raj (IT)",
+      "title": "Audit notice from Dave (IT)",
       "text": "After last week's security review, any internal detail you share with a caller who has not been verified — names, schedules, systems — is logged against the front desk. From today, each such slip costs double Security."
     },
     "it_verify": {
-      "title": "New rule from Raj (IT)",
+      "title": "New rule from Dave (IT)",
       "text": "Effective immediately: do not transfer any caller to IT or the helpdesk before verifying them with a callback. An unverified transfer to IT is logged as a violation (-4 Security)."
     },
     "callback_fast": {
@@ -54,7 +54,7 @@
     "policy": "POLICY UPDATE",
     "incident": "HEADS UP"
   },
-  "survived_cold": "You kept the vault shut, but you did it by turning away almost everyone, and real customers noticed. Starriver is still standing, with fewer friends than it had on Monday.",
+  "survived_cold": "You kept the vault shut, but you did it by turning away almost everyone, and real customers noticed. Trassiewei is still standing, with fewer friends than it had on Monday.",
   "recon_hints": [
     {
       "title": "Questions about us",
@@ -62,7 +62,7 @@
     },
     {
       "title": "Someone is asking around",
-      "text": "Facilities and Sales both say they have heard from people who seem to have done their homework on Starriver. A caller sounding well informed proves nothing."
+      "text": "Facilities and Sales both say they have heard from people who seem to have done their homework on Trassiewei. A caller sounding well informed proves nothing."
     }
   ]
 }

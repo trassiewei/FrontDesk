@@ -20,7 +20,7 @@ def plan(*calls, offstage=False):
 
 def con_call(identity=None, claims="Alex, new temp in Finance"):
     return {"persona_name": "Alex", "claimed_identity": identity, "claims": claims, "pretext": "p",
-            "tactic": "small_ask", "target_facts": ["cfo_on_leave"], "opening_line": "Hi, is Diane in today?"}
+            "tactic": "small_ask", "target_facts": ["cfo_on_leave"], "opening_line": "Hi, is Alice in today?"}
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def client(fake_llm):
     fake_llm.default("caller", {"say": "Okay, thanks.", "private_thought": SECRET_THOUGHT})
     fake_llm.default("extractor", {"leaks": []})
     fake_llm.default("reporter", {"title": "Report title", "markdown": "## Verdict\nFine."})
-    fake_llm.default("planner", plan(con_call(identity="E04", claims="Raj Patel, IT")))
+    fake_llm.default("planner", plan(con_call(identity="E04", claims="Dave Davis, IT")))
     c = TestClient(app)
     c.fake = fake_llm
     return c
@@ -84,7 +84,7 @@ class Game:
     def skip_to_con(self):
         while True:
             call = self.act("call/next")["call"]
-            if call["claims"].startswith("Raj Patel"):
+            if call["claims"].startswith("Dave Davis"):
                 return call
             self.act("call/hangup")
 
@@ -93,7 +93,7 @@ def test_full_game_from_creation_to_report(client, full_reach):
     game = Game(client)
     first = game.responses[0]
     assert first["state"]["phase"] == "DAY_BRIEFING" and first["briefing"]["text"].startswith("Morning Jordan!")
-    assert game.get(f"/api/game/{game.id}")["briefing"]["sender"].startswith("Message from Laura")
+    assert game.get(f"/api/game/{game.id}")["briefing"]["sender"].startswith("Message from Frank")
     assert game.act("day/start")["state"]["phase"] == "BETWEEN_CALLS"
     for day in (1, 2, 3):
         call = game.skip_to_con()
@@ -113,7 +113,7 @@ def test_full_game_from_creation_to_report(client, full_reach):
         if day < 3:
             assert ended["briefing"] and ended["day_summary"].startswith(("Monday", "Tuesday"))
             game.act("day/start")
-    assert ended["game_over"] and ended["state"]["outcome"] == "survived" and "Diane comes back" in ended["cutscene"]
+    assert ended["game_over"] and ended["state"]["outcome"] == "survived" and "Alice comes back" in ended["cutscene"]
 
     report = game.get(f"/api/game/{game.id}/report", check=False)
     assert report["title"] == "Report title" and "<h2>Verdict</h2>" in report["html"]
@@ -129,7 +129,7 @@ def test_nothing_secret_leaks_through_any_response(client, full_reach):
     game = Game(client)
     game.act("day/start")
     game.skip_to_con()
-    game.act("call/say", {"text": "She is away. Ask Raj."})
+    game.act("call/say", {"text": "She is away. Ask Dave."})
     game.act("call/callback", {"target_id": "E01"})
     game.act("call/transfer", {"target_id": "E03"})
     game.state()
@@ -206,7 +206,7 @@ def test_report_and_export_are_forbidden_before_game_over(client):
 
 
 def test_breach_returns_cutscene_and_game_over_on_transfer(client):
-    client.fake.script("planner", plan(con_call(claims="Raj Patel, IT")))
+    client.fake.script("planner", plan(con_call(claims="Dave Davis, IT")))
     client.fake.default("extractor", {"leaks": [{"fact_id": "cfo_on_leave", "quote": "away",
                                                 "explicitness": "explicit", "confidence": 0.9}]})
     game = Game(client)
@@ -217,7 +217,7 @@ def test_breach_returns_cutscene_and_game_over_on_transfer(client):
         for f in ("cfo_on_leave", "erp_name", "it_lead_name", "cfo_backup_name")})
     game.skip_to_con()
     out = game.act("call/transfer", {"target_id": "E05"})
-    assert out["game_over"] and "Paul's inbox" in out["cutscene"] and out["state"]["outcome"] == "breached"
+    assert out["game_over"] and "Bob's inbox" in out["cutscene"] and out["state"]["outcome"] == "breached"
     assert game.get(f"/api/game/{game.id}/report", check=False)["outcome"] == "breached"
 
 

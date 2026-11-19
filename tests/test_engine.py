@@ -17,7 +17,7 @@ NOTEBOOK = "NOTEBOOK-PAGE-XYZ"
 pytestmark = pytest.mark.usefixtures("full_reach")
 
 def con(name="Alex", identity=None, claims="Alex, new temp in Finance", tactic="small_ask", targets=("cfo_on_leave",),
-        opening="Hi, is Diane in today?"):
+        opening="Hi, is Alice in today?"):
     return {"persona_name": name, "claimed_identity": identity, "claims": claims, "pretext": "A routine question.",
             "tactic": tactic, "target_facts": list(targets), "opening_line": opening}
 
@@ -99,7 +99,7 @@ def test_difficulty_sets_con_patience(fake):
 
 
 def test_con_caller_id_never_matches_the_directory(fake):
-    state = new(fake, plan(con(identity="E02", claims="Paul Nguyen, Finance")))
+    state = new(fake, plan(con(identity="E02", claims="Bob Baker, Finance")))
     caller_id = state.queue[1].caller_id
     assert caller_id.endswith("(mobile)")
     assert caller_id.split()[0] not in {e.mobile for e in engine.load_world().employees}
@@ -173,8 +173,8 @@ def test_llm_and_pattern_leaks_are_stored_separately_and_merged(fake):
 def test_source_both_and_repeat_leaks_penalised_once(fake):
     state = new(fake, plan(con()))
     take_con(state)
-    say(fake, state, "Ask Raj.", leak("it_lead_name", "Raj"))
-    say(fake, state, "Raj again.", leak("it_lead_name", "Raj"))
+    say(fake, state, "Ask Dave.", leak("it_lead_name", "Dave"))
+    say(fake, state, "Dave again.", leak("it_lead_name", "Dave"))
     assert state.intel["it_lead_name"].source == "both"
     assert state.security == 95
     assert state.calls[-1].gained_facts == ["it_lead_name"]
@@ -306,14 +306,14 @@ def test_hang_up_and_message(fake):
 
 
 def test_callback_note_reaches_the_caller_prompt_and_costs_patience(fake):
-    state = new(fake, plan(con(identity="E02", claims="Paul Nguyen, Finance")))
+    state = new(fake, plan(con(identity="E02", claims="Bob Baker, Finance")))
     take_con(state)
-    out = engine.callback(state, "E01")  # Diane is on leave: voicemail
+    out = engine.callback(state, "E01")  # Alice is on leave: voicemail
     assert "voicemail" in out["callback_result"] and not out["call_ended"]
     call = state.calls[-1]
     assert call.patience == 10 - config.CALLBACK_PATIENCE_COST
     system = fake.calls_for("caller")[-1]["messages"][0]["content"]
-    assert "The receptionist put you on hold to verify by calling Diane Mercer. Result: " in system
+    assert "The receptionist put you on hold to verify by calling Alice Adams. Result: " in system
     assert out["callback_result"] in system
     assert out["caller_reply"] == "Okay, thanks." and call.callbacks == ["E01"]
     assert state.callbacks_made == 1
@@ -332,11 +332,11 @@ def test_callback_that_exhausts_patience_ends_the_call_without_an_llm_turn(fake)
 
 
 def test_callback_on_the_impersonated_person_exposes_the_con(fake):
-    state = new(fake, plan(con(identity="E04", claims="Raj Patel, IT")))
+    state = new(fake, plan(con(identity="E04", claims="Dave Davis, IT")))
     take_con(state)
     state.security = 80
     out = engine.callback(state, "E04")
-    assert out["callback_result"].startswith("Raj Patel: 'No, I didn't call")
+    assert out["callback_result"].startswith("Dave Davis: 'No, I didn't call")
     assert out["call_ended"] and out["end_reason"] == "exposed" and not out["game_over"]
     assert state.exposures == 1 and state.it_alert is True and state.burned_identities == ["E04"]
     assert state.security == 95 and state.calls[-1].result == "exposed"
@@ -344,22 +344,22 @@ def test_callback_on_the_impersonated_person_exposes_the_con(fake):
 
 
 def test_security_bonus_is_capped_at_100(fake):
-    state = new(fake, plan(con(identity="E04", claims="Raj Patel, IT")))
+    state = new(fake, plan(con(identity="E04", claims="Dave Davis, IT")))
     take_con(state)
     engine.callback(state, "E04")
     assert state.security == 100
 
 
 def test_caller_mentioning_a_colleague_makes_them_a_valid_callback_target(fake):
-    state = new(fake, plan(con(identity="E04", claims="Raj Patel, IT")))
+    state = new(fake, plan(con(identity="E04", claims="Dave Davis, IT")))
     take_con(state)
-    say(fake, state, "Hm.", caller={"say": "Paul told me you could help."})
+    say(fake, state, "Hm.", caller={"say": "Bob told me you could help."})
     assert "E02" in state.calls[-1].references
     assert engine.callback(state, "E02")["end_reason"] == "exposed"
 
 
 def test_callback_to_an_unrelated_person_gives_a_mild_clue_only(fake):
-    state = new(fake, plan(con(identity="E04", claims="Raj Patel, IT")))
+    state = new(fake, plan(con(identity="E04", claims="Dave Davis, IT")))
     take_con(state)
     out = engine.callback(state, "E06")
     assert "don't know anything about that call" in out["callback_result"] and not out["call_ended"]
@@ -373,7 +373,7 @@ def test_transfer_to_other_person_gets_nothing(fake):
     state = new(fake, plan(con()))
     take_con(state)
     out = engine.transfer(state, "E03")
-    assert out["result_text"] == "Call transferred to Grace Kim." and not out["game_over"]
+    assert out["result_text"] == "Call transferred to Carol Clark." and not out["game_over"]
     assert state.calls[-1].result == "transferred_away" and state.it_alert is False
 
 
@@ -438,7 +438,7 @@ def test_full_game_breached_by_transfer_to_helpdesk(fake):
     assert state.day == 2 and state.phase == "DAY_BRIEFING" and out["briefing"] and out["day_summary"]
     engine.start_day(state)
     take_con(state)
-    say(fake, state, "Raj and Paul are the people.")
+    say(fake, state, "Dave and Bob are the people.")
     engine.hang_up(state)
     finish_day(state)
     assert state.day == 3
@@ -448,7 +448,7 @@ def test_full_game_breached_by_transfer_to_helpdesk(fake):
     assert summary.scores(state)["security"] == 70  # day-2 leaks cost double after the day-1 leak triggered an audit
     out = engine.transfer(state, "E05")
     assert out["game_over"] and state.outcome == "breached" and state.breach_method == "transfer"
-    assert state.phase == "GAME_OVER" and "Paul's inbox" in out["cutscene"]
+    assert state.phase == "GAME_OVER" and "Bob's inbox" in out["cutscene"]
     assert state.security == 26 and state.breach_time  # 70 - 40 breach - 4 unverified IT transfer (day-3 policy).startswith("Wednesday, Nov 18")
     with pytest.raises(EngineError):
         engine.next_call(state)
@@ -457,7 +457,7 @@ def test_full_game_breached_by_transfer_to_helpdesk(fake):
 def test_it_alert_raises_the_bar_by_two(fake):
     state = new(fake, plan(con()))
     take_con(state)
-    say(fake, state, "Starboard, Raj, Paul.", leak("cfo_on_leave"))  # 2+2+2 = 6
+    say(fake, state, "Starboard, Dave, Bob.", leak("cfo_on_leave"))  # 2+2+2 = 6
     state.it_alert = True
     out = engine.transfer(state, "E05")
     assert not out["game_over"] and state.calls[-1].result == "refused_by_it"
@@ -466,11 +466,11 @@ def test_it_alert_raises_the_bar_by_two(fake):
 def test_offstage_breach_at_day_end(fake):
     state = new(fake, plan(con(), offstage=True))
     take_con(state)
-    say(fake, state, "Starboard, Raj, Paul, extension 4200.", leak("cfo_on_leave"))  # 1+2+2+2 = 7
+    say(fake, state, "Starboard, Dave, Bob, extension 4200.", leak("cfo_on_leave"))  # 1+2+2+2 = 7
     engine.hang_up(state)
     out = finish_day(state)
     assert out["game_over"] and state.outcome == "breached" and state.breach_method == "offstage"
-    assert "Paul's inbox" in out["cutscene"] and out["briefing"] is None
+    assert "Bob's inbox" in out["cutscene"] and out["briefing"] is None
 
 
 def test_offstage_attempt_that_falls_short_raises_the_alert(fake):
@@ -485,17 +485,17 @@ def test_offstage_attempt_that_falls_short_raises_the_alert(fake):
 def test_offstage_needs_the_helpdesk_extension(fake):
     state = new(fake, plan(con(), offstage=True), plan())
     take_con(state)
-    say(fake, state, "Starboard, Raj, Paul.", leak("cfo_on_leave"))
+    say(fake, state, "Starboard, Dave, Bob.", leak("cfo_on_leave"))
     engine.hang_up(state)
     finish_day(state)
     assert not state.game_over and state.it_alert is False
 
 
 def test_two_exposures_end_the_game_on_normal_and_burned_identity_is_cleaned(fake):
-    state = new(fake, plan(con(identity="E04", claims="Raj Patel, IT")),
-                plan(con(identity="E04", claims="Raj Patel again", targets=("cfo_on_leave", "it_lead_name", "nope"),
+    state = new(fake, plan(con(identity="E04", claims="Dave Davis, IT")),
+                plan(con(identity="E04", claims="Dave Davis again", targets=("cfo_on_leave", "it_lead_name", "nope"),
                          tactic="made_up_tactic")),
-                plan(con(identity="E02", claims="Paul Nguyen, Finance")))
+                plan(con(identity="E02", claims="Bob Baker, Finance")))
     take_con(state)
     engine.callback(state, "E04")
     finish_day(state)
@@ -536,33 +536,33 @@ def test_three_quiet_days_end_in_survival_and_final_planner_is_not_run(fake):
         out = finish_day(state)
         if day < 3:
             engine.start_day(state)
-    assert out["game_over"] and state.outcome == "survived" and "Diane comes back" in out["cutscene"]
+    assert out["game_over"] and state.outcome == "survived" and "Alice comes back" in out["cutscene"]
     assert len(fake.calls_for("planner")) == 3
 
 
 def test_planner_sees_what_the_con_learned_and_last_notebook(fake):
     state = new(fake, plan(con(), notebook="Day one page"), plan())
     take_con(state)
-    say(fake, state, "Raj can help.", leak("cfo_on_leave", "She is away"))
+    say(fake, state, "Dave can help.", leak("cfo_on_leave", "She is away"))
     engine.hang_up(state)
     finish_day(state)
     prompt = fake.calls_for("planner")[-1]["messages"][0]["content"]
-    assert "it_lead_name | Raj Patel | " in prompt and "She is away" in prompt
+    assert "it_lead_name | Dave Davis | " in prompt and "She is away" in prompt
     assert "Day one page" in prompt and "Day 2 of 3" in prompt
     assert "Day 1 | Alex | claimed: Alex, new temp in Finance | tactic: small_ask | purpose: - | result: hung_up" in prompt
     unknown_section = prompt.split("FACTS YOU COULD STILL LEARN")[1].split("INTEL YOU HAVE")[0]
-    assert "it_lead_name" not in unknown_section and "Raj Patel" not in unknown_section
+    assert "it_lead_name" not in unknown_section and "Dave Davis" not in unknown_section
     assert "erp_name | Name of the internal ERP system | 2" in unknown_section
 
 
 def test_con_prompt_only_contains_known_intel(fake):
     state = new(fake, plan(con()))
     take_con(state)
-    say(fake, state, "Raj.", leak("cfo_on_leave"))
+    say(fake, state, "Dave.", leak("cfo_on_leave"))
     say(fake, state, "Hm.")
     prompt = fake.calls_for("caller")[-1]["messages"][0]["content"]
-    assert "Raj Patel" in prompt and "SR-20417" not in prompt and "Harbor-Guest-88" not in prompt
-    assert "Receptionist: Raj." in prompt and "Skill level: You are competent and natural:" in prompt
+    assert "Dave Davis" in prompt and "SR-20417" not in prompt and "Harbor-Guest-88" not in prompt
+    assert "Receptionist: Dave." in prompt and "Skill level: You are competent and natural:" in prompt
 
 
 def test_planner_failure_uses_the_fixed_fallback_call(fake):
@@ -580,13 +580,13 @@ def test_day_two_briefing_phishing_warning_depends_on_difficulty(fake):
         skip_legit(state)
         text = engine.end_day(state)["briefing"]["text"]
         assert ("weird phone calls" in text) is expected
-        assert text.startswith("Morning!") and text.rstrip().endswith("— Laura")
+        assert text.startswith("Morning!") and text.rstrip().endswith("— Frank")
 
 
 def test_briefing_and_policy_texts(fake):
     state = new(fake, plan())
     assert engine.briefing(state)["text"].startswith("Morning Jordan! Quick notes")
-    assert engine.briefing(state)["sender"] == "Message from Laura Chen (HR Manager)"
+    assert engine.briefing(state)["sender"] == "Message from Frank Foster (HR Manager)"
     assert "RED FLAGS" in engine.policy_text("easy") and "RED FLAGS" not in engine.policy_text("normal")
     assert engine.policy_text("hard") == "Be helpful. Use your judgment."
 
@@ -605,7 +605,7 @@ def test_report_and_export_are_locked_until_the_game_ends(fake):
 def test_report_after_game_over_is_cached(fake):
     state = new(fake, plan(con(identity="E04")), plan(con(identity="E02")))
     take_con(state)
-    say(fake, state, "Raj is here.")
+    say(fake, state, "Dave is here.")
     engine.callback(state, "E04")
     finish_day(state)
     engine.start_day(state)
@@ -617,8 +617,8 @@ def test_report_after_game_over_is_cached(fake):
     assert report["notebooks"]["1"] == NOTEBOOK and report["intel_timeline"][0]["fact_id"] == "it_lead_name"
     assert engine.get_report(state) is report and len(fake.calls_for("reporter")) == 1
     prompt = fake.calls_for("reporter")[0]["messages"][0]["content"]
-    assert "con artist using the persona 'Alex'" in prompt and "impersonating Raj Patel" in prompt
-    assert "Receptionist: Raj is here." in prompt and "OUTCOME: The con artist was exposed" in prompt
+    assert "con artist using the persona 'Alex'" in prompt and "impersonating Dave Davis" in prompt
+    assert "Receptionist: Dave is here." in prompt and "OUTCOME: The con artist was exposed" in prompt
     exported = engine.export_game(state)
     assert exported["outcome"] == "con_gave_up" and exported["calls"][0]["is_con"] is False
 

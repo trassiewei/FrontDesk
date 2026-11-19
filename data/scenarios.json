@@ -2,8 +2,8 @@
   {
     "id": "bec_cfo",
     "title": "The Vacation Heist",
-    "premise": "The crew wants to take over CFO Diane Mercer's mailbox and, while she cannot be reached, ask Finance for an urgent wire transfer in her name.",
-    "con_goal": "Get Starriver's IT helpdesk to reset Diane Mercer's email password and hand it over.",
+    "premise": "The crew wants to take over CFO Alice Adams's mailbox and, while she cannot be reached, ask Finance for an urgent wire transfer in her name.",
+    "con_goal": "Get Trassiewei's IT helpdesk to reset Alice Adams's email password and hand it over.",
     "gate_facts": [
       "cfo_on_leave"
     ],
@@ -14,15 +14,15 @@
     "offstage_fact": "helpdesk_ext",
     "incident": null,
     "cutscenes": {
-      "breached": "Thursday, 08:02. An email from Diane Mercer's account lands in Paul's inbox: \"Urgent — please wire $48,300 to our new freight partner before noon. I'm in meetings abroad, don't call.\" Paul, overworked and eager to help, sends it.\nBy the time Diane reads her email on Monday, the money is gone.",
-      "con_gave_up": "Wednesday evening. The calls with the strange little questions have stopped. Somewhere across town, a notebook closes. Starriver's front desk was a dead end.",
-      "survived": "Friday. Diane comes back to an inbox full of routine emails and nothing else. Nobody at Starriver will ever know how close it came — except you, after you read this report."
+      "breached": "Thursday, 08:02. An email from Alice Adams's account lands in Bob's inbox: \"Urgent — please wire $48,300 to our new freight partner before noon. I'm in meetings abroad, don't call.\" Bob, overworked and eager to help, sends it.\nBy the time Alice reads her email on Monday, the money is gone.",
+      "con_gave_up": "Wednesday evening. The calls with the strange little questions have stopped. Somewhere across town, a notebook closes. Trassiewei's front desk was a dead end.",
+      "survived": "Friday. Alice comes back to an inbox full of routine emails and nothing else. Nobody at Trassiewei will ever know how close it came — except you, after you read this report."
     },
     "gambit": "chain_of_favors",
     "crew": "'Lantern', a two-person crew: one voice on the phone, one running the bank accounts. Patient, polite and forgettable.",
-    "motive": "A broker pays them per hijacked executive mailbox, and he wants this one by Thursday, before Starriver's end-of-quarter payment run.",
+    "motive": "A broker pays them per hijacked executive mailbox, and he wants this one by Thursday, before Trassiewei's end-of-quarter payment run.",
     "phases": [
-      "Learn whether Diane is really out and who covers for her. Ask nothing else.",
+      "Learn whether Alice is really out and who covers for her. Ask nothing else.",
       "Sound like someone who works with Finance: use what you learned to find out how IT handles a locked account.",
       "Ask IT for the mailbox reset, as someone who has been dealing with this office all week."
     ]
@@ -30,8 +30,8 @@
   {
     "id": "fake_vendor",
     "title": "The Helpful Technician",
-    "premise": "The crew wants a foothold inside Starriver's network. Their plan: pose as NetCore IT Services, the outsourced IT contractor, and talk the helpdesk into giving 'the technician' a remote-access session.",
-    "con_goal": "Get Starriver's IT staff to grant a fake NetCore technician remote access to the internal network.",
+    "premise": "The crew wants a foothold inside Trassiewei's network. Their plan: pose as NetCore IT Services, the outsourced IT contractor, and talk the helpdesk into giving 'the technician' a remote-access session.",
+    "con_goal": "Get Trassiewei's IT staff to grant a fake NetCore technician remote access to the internal network.",
     "gate_facts": [
       "it_vendor_name"
     ],
@@ -43,19 +43,19 @@
     "incident": {
       "day": 2,
       "title": "Starboard outage",
-      "announcement": "Starboard (the ERP) went down at 7am and nobody can log in. Raj's team is swamped with tickets — expect IT to be hard to reach today.",
+      "announcement": "Starboard (the ERP) went down at 7am and nobody can log in. Dave's team is swamped with tickets — expect IT to be hard to reach today.",
       "method": "The crew flooded the Starboard login page with junk requests until it fell over, so IT would be too busy to double-check anyone and a 'NetCore engineer' could offer to help."
     },
     "cutscenes": {
-      "breached": "Thursday, 03:14. A NetCore \"technician\" disconnects from a remote session that nobody at Starriver can explain later. By Friday morning every file server shows the same red message, and the ransom note is addressed to Helen Brooks.",
-      "con_gave_up": "Wednesday evening. The odd little IT questions have stopped. Somewhere across town, a laptop lid closes. Starriver's network was too well guarded by its own receptionist.",
-      "survived": "Friday. The real NetCore tech finally visits, grumbles about the Wi-Fi and leaves. Nobody at Starriver will ever know someone else tried to use his name first — except you, after you read this report."
+      "breached": "Thursday, 03:14. A NetCore \"technician\" disconnects from a remote session that nobody at Trassiewei can explain later. By Friday morning every file server shows the same red message, and the ransom note is addressed to Jack Jones.",
+      "con_gave_up": "Wednesday evening. The odd little IT questions have stopped. Somewhere across town, a laptop lid closes. Trassiewei's network was too well guarded by its own receptionist.",
+      "survived": "Friday. The real NetCore tech finally visits, grumbles about the Wi-Fi and leaves. Nobody at Trassiewei will ever know someone else tried to use his name first — except you, after you read this report."
     },
     "gambit": "fix_what_we_broke",
     "crew": "'Static', a freelance intrusion crew. They like leverage more than lies: break something, then be the one with the fix.",
     "motive": "A ransomware affiliate has paid them a retainer for any foothold in a logistics firm before the holiday freight rush, when downtime hurts most.",
     "phases": [
-      "Find out who Starriver's outside IT contractor is, and nothing that would make anyone suspicious.",
+      "Find out who Trassiewei's outside IT contractor is, and nothing that would make anyone suspicious.",
       "Cause trouble on Starboard, then phone in as the helpful NetCore technician.",
       "Get the remote session while IT is too busy to double-check."
     ]
@@ -64,7 +64,7 @@
     "id": "payroll_diversion",
     "title": "The Ghost on the Payroll",
     "premise": "The crew has a stolen identity and a bank account. They want HR or Finance to redirect the absent CFO's salary payments to that account.",
-    "con_goal": "Get HR or Finance to change Diane Mercer's direct-deposit bank details.",
+    "con_goal": "Get HR or Finance to change Alice Adams's direct-deposit bank details.",
     "gate_facts": [
       "cfo_on_leave",
       "emp_id_format"
@@ -81,9 +81,9 @@
       "method": "The crew tampered with the company's cloud phone account so internal callbacks would fail, then planned to pose as the phone provider's support line."
     },
     "cutscenes": {
-      "breached": "Friday, 17:30. Payroll runs as usual. Diane's salary lands in an account that has never belonged to anyone at Starriver, and is gone within the hour. Diane finds out on Monday, when her bank asks where she has been.",
-      "con_gave_up": "Wednesday evening. The calls asking about employee IDs and who is out of the office have stopped. Somewhere across town, a spreadsheet is deleted. Starriver was not worth the trouble.",
-      "survived": "Friday. Payroll runs and Diane's salary lands where it always does. Nobody at Starriver will ever know how close the ghost came — except you, after you read this report."
+      "breached": "Friday, 17:30. Payroll runs as usual. Alice's salary lands in an account that has never belonged to anyone at Trassiewei, and is gone within the hour. Alice finds out on Monday, when her bank asks where she has been.",
+      "con_gave_up": "Wednesday evening. The calls asking about employee IDs and who is out of the office have stopped. Somewhere across town, a spreadsheet is deleted. Trassiewei was not worth the trouble.",
+      "survived": "Friday. Payroll runs and Alice's salary lands where it always does. Nobody at Trassiewei will ever know how close the ghost came — except you, after you read this report."
     },
     "gambit": "name_relay",
     "crew": "'Ledger', a pair of ex-bookkeepers who know exactly how payroll changes get approved and which approvals nobody checks.",
@@ -97,7 +97,7 @@
   {
     "id": "survey_reset",
     "title": "The Five-Minute Survey",
-    "premise": "The crew wants to reset a Starriver employee's password. Instead of asking for it, they ask how Starriver's IT works, under cover of a friendly satisfaction survey, so the real request sounds routine.",
+    "premise": "The crew wants to reset a Trassiewei employee's password. Instead of asking for it, they ask how Trassiewei's IT works, under cover of a friendly satisfaction survey, so the real request sounds routine.",
     "con_goal": "Get the IT helpdesk to reset an employee's password and hand the new one to a caller.",
     "gate_facts": [
       "erp_name"
@@ -109,9 +109,9 @@
     "offstage_fact": "helpdesk_ext",
     "incident": null,
     "cutscenes": {
-      "breached": "Wednesday, 16:48. A password is reset at the helpdesk, in good faith, for a caller who knew the name of every system and the shape of every ticket. By morning someone has been reading Starriver's email for hours.",
-      "con_gave_up": "Wednesday evening. The cheerful survey calls have stopped. Somewhere across town a clipboard is binned. Starriver's front desk answered nothing it should not have.",
-      "survived": "Friday. The helpdesk queue is full of ordinary problems. Nobody at Starriver will ever know a friendly voice once asked five minutes of questions, none of which got an answer."
+      "breached": "Wednesday, 16:48. A password is reset at the helpdesk, in good faith, for a caller who knew the name of every system and the shape of every ticket. By morning someone has been reading Trassiewei's email for hours.",
+      "con_gave_up": "Wednesday evening. The cheerful survey calls have stopped. Somewhere across town a clipboard is binned. Trassiewei's front desk answered nothing it should not have.",
+      "survived": "Friday. The helpdesk queue is full of ordinary problems. Nobody at Trassiewei will ever know a friendly voice once asked five minutes of questions, none of which got an answer."
     },
     "gambit": "friendly_survey",
     "crew": "'Clipboard', a small crew that sells access to other crews. Their specialty is sounding bored, harmless and slightly behind on their quota.",
@@ -137,13 +137,13 @@
     "offstage_fact": "other_extension",
     "incident": null,
     "cutscenes": {
-      "breached": "Wednesday, 13:40. Nina sends the board packet to the address she was given, a few minutes before the meeting starts. By evening a competitor's lawyers are quoting from it.",
+      "breached": "Wednesday, 13:40. Kate sends the board packet to the address she was given, a few minutes before the meeting starts. By evening a competitor's lawyers are quoting from it.",
       "con_gave_up": "Wednesday evening. The calls from the executive's 'office' have stopped. Somewhere across town a name is crossed out of a list. The board meets without an audience.",
-      "survived": "Friday. The board packet stayed where it belonged. Nobody at Starriver will ever know how much someone wanted to read it."
+      "survived": "Friday. The board packet stayed where it belonged. Nobody at Trassiewei will ever know how much someone wanted to read it."
     },
     "gambit": "borrowed_boss",
     "crew": "'Gavel', a crew that works for competitors and activist investors. They sound like people who are always five minutes from a meeting.",
-    "motive": "A client who bids against Starriver wants the board papers before they are discussed on Wednesday afternoon. A day late is worth nothing to them.",
+    "motive": "A client who bids against Trassiewei wants the board papers before they are discussed on Wednesday afternoon. A day late is worth nothing to them.",
     "phases": [
       "Find out when the board meets and who looks after the CEO's diary. Sound busy, not curious.",
       "Speak as someone from outside the building who works with the CEO, and set up the request.",
@@ -165,9 +165,9 @@
     "offstage_fact": null,
     "incident": null,
     "cutscenes": {
-      "breached": "Thursday, 11:20. The spreadsheet leaves Starriver's mail server in a polite reply to a polite auditor. Within a week every employee on it receives a perfectly targeted email asking them to log in.",
+      "breached": "Thursday, 11:20. The spreadsheet leaves Trassiewei's mail server in a polite reply to a polite auditor. Within a week every employee on it receives a perfectly targeted email asking them to log in.",
       "con_gave_up": "Wednesday evening. The auditors' calls have stopped. Somewhere across town a form letter is filed unsent. The front desk asked for a paper trail, and nobody had one.",
-      "survived": "Friday. The real auditors, if there are any, will write. Nobody at Starriver will ever know about the ones who tried to hurry the paperwork."
+      "survived": "Friday. The real auditors, if there are any, will write. Nobody at Trassiewei will ever know about the ones who tried to hurry the paperwork."
     },
     "gambit": "surprise_inspector",
     "crew": "'Folio', three former office temps who learned that officials are rarely questioned if they sound tired and carry a deadline.",

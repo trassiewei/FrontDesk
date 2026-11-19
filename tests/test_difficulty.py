@@ -46,14 +46,14 @@ def test_easy_con_asks_for_the_transfer_at_once_and_normal_waits_until_credible(
     world = load_world()
     state = begin(fake, "easy")
     call = take_con(state)
-    assert "ask to be put straight through to Laura Chen" in caller.closing_note(state, call, world)
+    assert "ask to be put straight through to Frank Foster" in caller.closing_note(state, call, world)
 
     state = begin(fake, "normal")
     call = take_con(state)
     assert "do NOT ask to be transferred" in caller.closing_note(state, call, world)
     give_intel(state, "it_vendor_name", "erp_name", "it_lead_name", "cfo_backup_name")
     note = caller.closing_note(state, call, world)
-    assert "now know enough to be believed" in note and "Laura Chen" in note and "do NOT" not in note
+    assert "now know enough to be believed" in note and "Frank Foster" in note and "do NOT" not in note
 
 
 def test_the_closing_note_follows_the_exact_breach_rule(fake):
@@ -88,7 +88,7 @@ def test_hard_callbacks_often_do_not_get_through_but_always_the_same_way_for_a_c
     monkeypatch.setitem(config.DIFFICULTIES, "hard", replace(config.DIFFICULTIES["hard"], outsider_only=False))
     outcomes = set()
     for call_id in range(40):
-        state = begin(fake, "hard", plan(con(identity="E04", claims="Raj Patel, IT")))
+        state = begin(fake, "hard", plan(con(identity="E04", claims="Dave Davis, IT")))
         take_con(state)
         state.seed = call_id
         out = engine.callback(state, "E04")
@@ -101,7 +101,7 @@ def test_hard_callbacks_often_do_not_get_through_but_always_the_same_way_for_a_c
 def test_unreachable_person_does_not_expose_a_con(fake, monkeypatch):
     monkeypatch.setitem(config.DIFFICULTIES, "hard",
                         replace(config.DIFFICULTIES["hard"], callback_reach=0.0, outsider_only=False))
-    state = begin(fake, "hard", plan(con(identity="E04", claims="Raj Patel, IT")))
+    state = begin(fake, "hard", plan(con(identity="E04", claims="Dave Davis, IT")))
     call = take_con(state)
     out = engine.callback(state, "E04")
     assert not out["call_ended"] and state.exposures == 0 and "in a meeting" in out["callback_result"]
@@ -191,7 +191,7 @@ def test_hard_message_does_not_satisfy_a_genuine_caller():
 
 
 def test_hard_crew_is_asked_again_when_a_call_pretends_to_be_in_the_directory(fake):
-    bad = plan(con(identity="E04", claims="Raj Patel, IT"), con(claims="Dana from NetCore IT Services"))
+    bad = plan(con(identity="E04", claims="Dave Davis, IT"), con(claims="Dana from NetCore IT Services"))
     good = plan(con(claims="Dana from a courier company"))
     state = begin(fake, "hard", bad, good)
     assert len(fake.calls_for("planner")) == 2
@@ -200,14 +200,14 @@ def test_hard_crew_is_asked_again_when_a_call_pretends_to_be_in_the_directory(fa
 
 
 def test_normal_crew_is_never_second_guessed(fake):
-    begin(fake, "normal", plan(con(identity="E04", claims="Raj Patel, IT")))
+    begin(fake, "normal", plan(con(identity="E04", claims="Dave Davis, IT")))
     assert len(fake.calls_for("planner")) == 1
 
 
 def test_hard_keeps_the_plan_if_the_retry_fails_and_nothing_else_is_left(fake):
     from app import llm
 
-    bad = plan(con(identity="E04", claims="Raj Patel, IT"))
+    bad = plan(con(identity="E04", claims="Dave Davis, IT"))
     state = begin(fake, "hard", bad, llm.LLMError("down"))
     assert [c.claimed_identity for c in state.planned[1].calls] == ["E04"]
 

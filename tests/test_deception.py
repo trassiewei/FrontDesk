@@ -113,7 +113,7 @@ def test_world_endpoint_serves_the_playbook_without_outcome_texts(fake):
 
 
 def test_call_reveal_lists_every_call_with_its_truth(fake):
-    fake.script("planner", plan({**con(identity="E04", claims="Raj Patel, IT"), "tactic": "authority"}))
+    fake.script("planner", plan({**con(identity="E04", claims="Dave Davis, IT"), "tactic": "authority"}))
     state = start(fake, draft(incident=None))
     legit = take_legit(state)
     engine.hang_up(state)
@@ -125,9 +125,9 @@ def test_call_reveal_lists_every_call_with_its_truth(fake):
     assert [r["is_con"] for r in rows] == [False, True]
     real, fake_row = rows
     assert real["tactic"] is None and real["impersonating"] is None and not real["vouched"]
-    assert fake_row["tactic"]["name"] == "Borrow authority" and fake_row["impersonating"] == "Raj Patel"
+    assert fake_row["tactic"]["name"] == "Borrow authority" and fake_row["impersonating"] == "Dave Davis"
     assert fake_row["vouched"] and fake_row["outcome"].startswith("You called the person they claimed")
-    assert fake_row["player"] == ["Called back Raj Patel", "Dialled the number the caller gave"]
+    assert fake_row["player"] == ["Called back Dave Davis", "Dialled the number the caller gave"]
     assert legit.caller_name == real["caller"]
 
 

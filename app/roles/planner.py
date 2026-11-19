@@ -22,9 +22,9 @@ def fallback_plan() -> PlannerResult:
                 pretext="A new temp in Finance, first week, trying to find out who is around.",
                 tactic="helpless_newcomer",
                 target_facts=["cfo_on_leave", "cfo_backup_name"],
-                opening_line="Hi, I'm Alex, the new temp in Finance — sorry, first week! Is Diane in today?",
-                beats=["Ask who is covering Finance while Diane is out.", "Thank her and wrap up."],
-                if_refused="Say no problem and ask only whether Diane is back this week.",
+                opening_line="Hi, I'm Alex, the new temp in Finance — sorry, first week! Is Alice in today?",
+                beats=["Ask who is covering Finance while Alice is out.", "Thank her and wrap up."],
+                if_refused="Say no problem and ask only whether Alice is back this week.",
                 if_verified="Say sure, go ahead, you are new and expect to be checked.",
             )
         ],

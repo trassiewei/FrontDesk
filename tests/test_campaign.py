@@ -31,7 +31,7 @@ def draft(**overrides) -> dict:
 
 def plan_json(**extra) -> dict:
     call = {"persona_name": "Alex", "claims": "Alex, new temp in Finance", "pretext": "p", "tactic": "small_ask",
-            "target_facts": ["cfo_on_leave"], "opening_line": "Hi, is Diane in today?", "purpose": "Learn if she is out."}
+            "target_facts": ["cfo_on_leave"], "opening_line": "Hi, is Alice in today?", "purpose": "Learn if she is out."}
     return {"notebook": "nb", "assessment": "She is new to me.", "calls": [call], **extra}
 
 
