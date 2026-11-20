@@ -118,7 +118,7 @@ def test_default_request_parameters(fake_client):
 @pytest.mark.parametrize(
     "role, model, temperature, max_tokens",
     [("caller", "test-fast", 0.9, 400), ("extractor", "test-fast", 0.0, 600),
-     ("planner", "test-smart", 0.7, 1500), ("reporter", "test-smart", 0.6, 2500)],
+     ("planner", "test-smart", 0.7, 2500), ("reporter", "test-smart", 0.6, 2500)],
 )
 def test_per_role_parameters(fake_client, role, model, temperature, max_tokens):
     client = fake_client(GOOD)
@@ -138,7 +138,7 @@ def test_max_completion_tokens_parameter_name(fake_client, monkeypatch):
     monkeypatch.setenv("LLM_MAX_TOKENS_PARAM", "max_completion_tokens")
     client = fake_client(GOOD)
     run(role="planner")
-    assert client.calls[0]["max_completion_tokens"] == 1500
+    assert client.calls[0]["max_completion_tokens"] == 2500
     assert "max_tokens" not in client.calls[0]
 
 

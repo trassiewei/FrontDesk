@@ -33,18 +33,18 @@ def closing_note(state: GameState, call: CallRecord, world: World) -> str:
     if diff.closing == "early":
         return (
             f"Your plan: you are impatient. In your first two lines ask to be put straight through to {who}, "
-            "with a hurried excuse (a locked account, something urgent). If she hesitates, push."
+            "with a hurried excuse that fits your story (something urgent). If the receptionist hesitates, push."
         )
     ready = rules.breach_ready(call, state.intel, state.it_alert, diff.breach_threshold, world.facts, scenario)
     if ready:
         return (
             f"Your plan: you now know enough to be believed. Steer the call toward asking to be put through to {who}, "
-            "with a reason that fits your pretext (a locked account, a password reset, a remote session). "
-            "If she transfers you, thank her and finish (end_call = true, outcome = \"got_what_i_needed\"). "
-            "If she says no, do not push: ask for something smaller or wrap up."
+            "with a reason that fits your pretext and what your crew is after. "
+            "If the receptionist transfers you, say thanks and finish (end_call = true, outcome = \"got_what_i_needed\"). "
+            "If the receptionist says no, do not push: ask for something smaller or wrap up."
         )
     return (
-        "Your plan: you are still building trust, so do NOT ask to be transferred to IT or to anyone senior yet "
+        f"Your plan: you are still building trust, so do NOT ask to be transferred to {who} or to anyone senior yet "
         "(never say this out loud). Stay on your target questions."
     )
 
@@ -61,12 +61,12 @@ def script_text(state: GameState, call: CallRecord) -> str:
         lines.append("Beats, one per exchange (your opening line was beat 0):")
         lines += [f"  {i}. {beat}" for i, beat in enumerate(plan.beats, 1)]
         current = min(call.player_turns, len(plan.beats) - 1)
-        lines.append(f"RIGHT NOW: beat {current + 1}. Do it in your own words, adapting to what she just said; "
+        lines.append(f"RIGHT NOW: beat {current + 1}. Do it in your own words, adapting to what the receptionist just said; "
                      "do not skip ahead and do not invent new goals.")
     if plan.if_refused:
-        lines.append(f"If she refuses or hedges: {plan.if_refused}")
+        lines.append(f"If the receptionist refuses or hedges: {plan.if_refused}")
     if plan.if_verified:
-        lines.append(f"If she offers to verify you or calls someone back: {plan.if_verified} (the Verification rule below overrides this if they clash)")
+        lines.append(f"If the receptionist offers to verify you or calls someone back: {plan.if_verified} (the Verification rule below overrides this if they clash)")
     return "\n".join(lines) or "No written script: improvise from your pretext."
 
 

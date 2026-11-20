@@ -94,7 +94,7 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "system name), lean hard on urgency or on a boss's name, and say things that sound a little off. "
         "You cannot bluff when asked something you do not know.",
         "easy", True,
-        "If the receptionist says she will verify you, call someone back or check anything, you panic: stammer an "
+        "If the receptionist says they will verify you, call someone back or check anything, you panic: stammer an "
         "excuse (\"no need, I'm in a rush\") and end the call at once (end_call = true, outcome = \"gave_up\").",
         "Your crew is sloppy. Pick clumsy pretexts: a pushy boss, an urgent IT person, a vague 'new temp'. "
         "Impersonate someone from the directory. Ask for sensitive things early and clumsily.",
@@ -113,8 +113,8 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "you claim to be, and under direct questions you hesitate or fudge.",
         "normal", True,
         "If the receptionist wants to verify you, stay calm and friendly and offer an easy alternative (your "
-        "mobile, 'just ask Dave, he knows me') but do not argue. If she calls back anyway, let her: you cannot "
-        "control what the callback reveals. If she questions you instead, answer smoothly but you cannot answer "
+        "mobile, 'just ask Dave, he knows me') but do not argue. If they call back anyway, let them: you cannot "
+        "control what the callback reveals. If they question you instead, answer smoothly but you cannot answer "
         "what only the real person would know.",
         "Your crew is professional. Impersonate real people from the directory (an employee or one of the vendors): "
         "you are convincing, but you are not perfect: a careful receptionist who talks to you can catch you out. "
@@ -175,7 +175,7 @@ ROLES = ("caller", "extractor", "planner", "reporter", "director")
 ROLE_PARAMS: dict[str, dict] = {
     "caller": {"tier": "fast", "temperature": 0.9, "max_tokens": 400},
     "extractor": {"tier": "fast", "temperature": 0.0, "max_tokens": 600},
-    "planner": {"tier": "smart", "temperature": 0.7, "max_tokens": 1500},
+    "planner": {"tier": "smart", "temperature": 0.7, "max_tokens": 2500},
     "reporter": {"tier": "smart", "temperature": 0.6, "max_tokens": 2500},
     "director": {"tier": "smart", "temperature": 1.0, "max_tokens": 1800},
 }

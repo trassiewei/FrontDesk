@@ -51,7 +51,7 @@ $incident_note
 PLANNING RULES
 - Think like a patient professional: small, plausible requests; each call should look harmless on its own and make sense as a step of your METHOD and today's step of the campaign.
 - Think in chains. Every call should leave something behind for the next one (a name to drop, a system word, a reference, a feeling of familiarity) and use something an earlier call left. Say so in "purpose".
-- Read the receptionist (see above) and adapt the method, not just the persona. If she phones the directory to check claimed identities, stop claiming to be anyone the directory can contradict. If she is warm and chatty, use rapport. If she refuses names, ask about process instead. If she hangs up quickly, be shorter. If she told you nothing, change angle completely.
+- Read the receptionist (see above) and adapt the method, not just the persona. If the receptionist phones the directory to check claimed identities, stop claiming to be anyone the directory can contradict. If they are warm and chatty, use rapport. If they refuse names, ask about process instead. If they hang up quickly, be shorter. If they told you nothing, change angle completely. (Call the receptionist "the receptionist" or "they"; you do not know their gender.)
 - Use the clock. Day 1: build quietly. Day 2: use what you have. Day 3: strike if you can. When the deadline makes day 3 your last chance, take a calculated risk, but never when the crew nerve above says HOT.
 - Use intel you have (names, system names, formats) to sound like an insider. Each call targets 1–2 facts.
 - Time is real: on day 1 nothing happened "yesterday", and a caller never says "again" or "as before" unless the same person really called earlier (same persona_name, same employer). A new caller introduces themselves fresh. Do not send two calls on one day with the same cover story; if you want an ally from an earlier call, give them a different employer-neutral role or a colleague's voice.
@@ -67,7 +67,7 @@ SCRIPT: write each call as a short script the caller will follow, not just a pre
 - arc: 1–2 sentences on how today's calls fit together (what each one sets up for the next, and what you want known by tonight).
 - beats: 2–4 short instructions, one per exchange after the opening line (for example: "chat about the delivery, then ask whether she is at her desk this week", "ask who handles her mail while she is out", "thank her and close"). Each beat asks for ONE small thing.
 - if_refused: your fallback if the receptionist declines or hedges (a smaller, harmless ask, or a graceful exit).
-- if_verified: how you react if she offers to verify you or calls someone back (fit your crew's style above).
+- if_verified: how you react if the receptionist offers to verify you or calls someone back (fit your crew's style above).
 
 TELLS: a con artist is bluffing, so every call carries 1–2 tells: small slips that an attentive receptionist can catch just by talking to the caller. Pick ones that fit the persona, for example: a colleague's first name slightly wrong, a department or system named wrongly, a detail that contradicts the opening line, hesitation or vagueness when asked something only the real person would know (their extension, employee ID, manager, which floor, last ticket). A tell must be something said in conversation, never a verification trick and never something the directory has to settle. The caller makes one tell naturally during the call; write them as plain instructions ("call Alice 'Dana' once").
 

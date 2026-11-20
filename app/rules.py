@@ -804,28 +804,28 @@ def receptionist_profile(calls: Iterable[CallRecord]) -> str:
     """
     cons = [c for c in calls if c.is_con and c.status == "ended"]
     if not cons:
-        return "Nothing yet: this is the first day, you have never spoken to her."
+        return "Nothing yet: this is the first day, you have never spoken to the receptionist."
     n = len(cons)
     lines = []
     checked = [c for c in cons if c.callbacks]
     if checked:
         exposed = sum(1 for c in checked if c.result == "exposed")
-        lines.append(f"- She checked {len(checked)} of your {n} calls by phoning the directory"
+        lines.append(f"- The receptionist checked {len(checked)} of your {n} calls by phoning the directory"
                      + (f"; {exposed} fell apart" if exposed else "; none fell apart") + ".")
     else:
-        lines.append(f"- She never phoned anyone to check your {n} call(s).")
+        lines.append(f"- The receptionist never phoned anyone to check your {n} call(s).")
     if any(c.number_checked for c in cons):
-        lines.append("- She once dialled the number you offered, and your accomplice vouched for you.")
+        lines.append("- The receptionist once dialled the number you offered, and your accomplice vouched for you.")
     told = sum(1 for c in cons if c.gained_facts)
-    lines.append(f"- She told you something useful in {told} of {n} calls"
-                 + ("." if told else ": she is tight-lipped."))
+    lines.append(f"- The receptionist told you something useful in {told} of {n} calls"
+                 + ("." if told else ": they are tight-lipped."))
     questions = 0
     for c in cons:
         player = [m.text for m in c.messages if m.speaker == "player"]
         if player and sum(1 for t in player if "?" in t) * 2 >= len(player):
             questions += 1
     if questions:
-        lines.append(f"- In {questions} of {n} calls she mostly answered with questions of her own (who, which team, what number).")
+        lines.append(f"- In {questions} of {n} calls the receptionist mostly answered with questions of their own (who, which team, what number).")
     hung = sum(1 for c in cons if c.end_reason == "hung_up")
     taken = sum(1 for c in cons if c.end_reason == "message")
     sent = sum(1 for c in cons if c.end_reason == "transferred")
@@ -841,13 +841,13 @@ def receptionist_profile(calls: Iterable[CallRecord]) -> str:
             asked[f] = asked.get(f, 0) + 1
     dead = [f for f, n in asked.items() if n >= 2 and f not in got]
     if dead:
-        lines.append(f"- You have asked about {', '.join(dead)} on two or more calls and got nothing: she will not "
+        lines.append(f"- You have asked about {', '.join(dead)} on two or more calls and got nothing: the receptionist will not "
                      "answer that directly, and asking it again in any wording marks the caller as one of yours. Do not "
-                     "ask for it at all today: get it from somewhere else (another fact that implies it, someone she "
+                     "ask for it at all today: get it from somewhere else (another fact that implies it, someone they "
                      "transfers you to) or go after something else.")
     slipped = sum(1 for c in cons if c.slip_shown)
     if slipped:
-        lines.append(f"- You made a slip on {slipped} call(s) and cannot be sure she did not notice.")
+        lines.append(f"- You made a slip on {slipped} call(s) and cannot be sure the receptionist did not notice.")
     return "\n".join(lines)
 
 

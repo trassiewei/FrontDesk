@@ -65,7 +65,8 @@ def _offstage_rule(state: GameState, world: World) -> str:
         return "There is no way around the receptionist: you need a transfer."
     return (
         f"If you know {fact.id} ({fact.description}), you can also try the first person directly after hours "
-        "(set attempt_breach_offstage = true) — then the receptionist is not needed."
+        "(set attempt_breach_offstage = true) — then the receptionist is not needed. This only works if the "
+        "receptionist gave you that fact on a call: a number you dug up yourselves is not reliable enough to try."
     )
 
 
@@ -163,12 +164,13 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     try:
         retry = llm.complete_json(
             "planner", system, llm.USER_TURN, PlannerResult, state.game_id,
-            extra_messages=[{"role": "user", "content": (
+            extra_messages=[{"role": "assistant", "content": result.model_dump_json()}, {"role": "user", "content": (
                 f"Your plan breaks your crew's style: {named}. A single directory callback would expose those calls. "
                 "Replace them with outsiders the directory cannot confirm (no claimed_identity, no employee or "
                 "listed-vendor names as the caller's own identity or employer) and return the complete JSON again.")}],
         )
         cleaned = clean(retry)  # type: ignore[arg-type]
+        chosen = retry.method if retry.method in allowed else current  # type: ignore[union-attr]
     except llm.LLMError as exc:
         log.warning("Planner retry failed, keeping the first plan: %s", exc)
     return rules.drop_directory_claims(cleaned, world).model_copy(update={"method": chosen})

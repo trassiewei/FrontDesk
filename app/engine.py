@@ -7,6 +7,7 @@ the "debug" entry is for the CLI's --debug mode and must never reach the HTTP AP
 from __future__ import annotations
 
 import random
+import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
@@ -529,7 +530,10 @@ def end_day(state: GameState) -> dict:
 
     scenario = scenario_of(state)
     before = (state.settled_security, state.settled_service)
-    if plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(state.intel, scenario.offstage_fact):
+    # The way around the desk only counts if the desk itself gave it away: overnight research alone (hard) must
+    # never beat a receptionist who leaked nothing.
+    heard = [f for f, r in state.intel.items() if r.source != "recon"]
+    if plan and plan.attempt_breach_offstage and rules.can_attempt_offstage(heard, scenario.offstage_fact):
         if rules.check_breach(state.intel, diff.breach_threshold, state.it_alert, world.facts, scenario.gate_facts):
             _breach(state, "offstage", "after hours")
         else:
@@ -576,7 +580,7 @@ def _scenario_reveal(state: GameState) -> dict:
 
 
 def _method_switches(state: GameState) -> list[dict]:
-    """Each time the crew dropped its method after being spotted (day, name, summary, how to spot it)."""
+    """Each time the crew changed method, spotted or stalled (day, name, summary, how to spot it)."""
     out, last = [], scenario_of(state).gambit
     for day in sorted(state.methods):
         gid = state.methods[day]
@@ -595,6 +599,8 @@ def get_report(state: GameState) -> dict:
         result = reporter.write_report(state, world)
         # Neutralise raw HTML from the model before converting; the page injects this string as HTML.
         html = markdown_lib.markdown(result.markdown.replace("<", "&lt;"))
+        # The report quotes the player's own words, so a markdown link could carry a javascript: URL.
+        html = re.sub(r'href="(?!https?://)[^"]*"', 'href="#"', html)
         s = summary.scores(state)
         state.report = {
             "title": result.title,

@@ -491,6 +491,27 @@ def test_offstage_needs_the_helpdesk_extension(fake):
     assert not state.game_over and state.it_alert is False
 
 
+def test_offstage_needs_the_extension_from_the_desk_not_from_research(fake):
+    from app.models import IntelRecord
+
+    state = new(fake, plan(con(), offstage=True), plan())
+    take_con(state)
+    say(fake, state, "Starboard, Dave, Bob.", leak("cfo_on_leave"))
+    state.intel["helpdesk_ext"] = IntelRecord(fact_id="helpdesk_ext", day=1, time="night", call_id="recon",
+                                              quote="(found out on their own)", source="recon")
+    engine.hang_up(state)
+    finish_day(state)
+    assert not state.game_over and state.it_alert is False
+
+
+def test_report_links_cannot_carry_scripts(fake):
+    state = new(fake, plan(con()))
+    state.game_over, state.outcome, state.phase = True, "survived", "GAME_OVER"
+    fake.script("reporter", {"title": "t", "markdown": "[x](javascript:alert(1)) and [ok](https://example.com)"})
+    html = engine.get_report(state)["html"]
+    assert "javascript:" not in html and 'href="https://example.com"' in html
+
+
 def test_exposures_never_end_the_game_the_crew_plays_all_three_days(fake):
     state = new(fake, plan(con(identity="E04", claims="Dave Davis, IT")),
                 plan(con(identity="E04", claims="Dave Davis again", targets=("cfo_on_leave", "it_lead_name", "nope"),
