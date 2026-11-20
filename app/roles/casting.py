@@ -49,11 +49,25 @@ def _incident_text(state: GameState, day: int) -> str:
     return ""
 
 
-def cast_day(state: GameState, world: World, day: int) -> list[LegitCall]:
-    """The three genuine calls for `day`. Never raises: any LLM or validation problem falls back to the fixed calls."""
+def _fallbacks(state: GameState, day: int, cast: list[LegitCall]) -> list[LegitCall]:
+    """Fixed calls for the day; a slot filled after the main cast may borrow an unused call from another day."""
+    fixed = load_legit_calls()
+    if not cast:
+        return [c for c in fixed if c.day == day]
+    used = {c.caller_name for c in cast} | {c.caller_name for c in state.calls}
+    spare = sorted((c for c in fixed if c.caller_name not in used), key=lambda c: c.day != day)
+    return [c.model_copy(update={"day": day, "id": f"{c.id}x"}) for c in spare]
+
+
+def cast_day(state: GameState, world: World, day: int, slots: list[int] | None = None,
+             cast: list[LegitCall] = ()) -> list[LegitCall]:
+    """The genuine calls for `day` (by default the three legit slots). `cast` holds calls already cast for the day,
+    when a con slot left empty is filled afterwards. Never raises: any LLM or validation problem falls back to the
+    fixed calls."""
     diff = config.get_difficulty(state.difficulty)
-    slots = rules.legit_slots(state.con_slots.get(day, config.CON_SLOTS))
-    rng = random.Random(f"{state.seed}:cast:{day}") if state.seed is not None else random.Random()
+    extra = slots is not None
+    slots = slots if extra else rules.legit_slots(state.con_slots.get(day, config.CON_SLOTS))
+    rng = random.Random(f"{state.seed}:cast:{day}:{extra}") if state.seed is not None else random.Random()
     system = llm.render_prompt(
         "legit_cast",
         kinds=_kinds_text(rng),
@@ -64,8 +78,9 @@ def cast_day(state: GameState, world: World, day: int) -> list[LegitCall]:
         day_name=config.DAY_NAMES[day - 1],
         day_note=DAY_NOTES.get(day, ""),
         incident=_incident_text(state, day),
-        history=_history_text(state),
+        history=_history_text(state) + "".join(f"\nDay {day} | {c.caller_name} | {c.claims} (already calling today)" for c in cast),
         slot_times=", ".join(config.SLOT_TIMES[s] for s in slots),
+        count=len(slots),
         style=diff.cast_note,
     )
     try:
@@ -75,8 +90,8 @@ def cast_day(state: GameState, world: World, day: int) -> list[LegitCall]:
         draft = LegitCastResult()
     calls = rules.clean_legit_calls(
         draft,  # type: ignore[arg-type]
-        day=day, world=world, fallbacks=[c for c in load_legit_calls() if c.day == day],
-        taken=[c.caller_name for c in state.calls], rng=rng,
-        avoid=[c.caller_id for c in state.calls], slots=slots,
+        day=day, world=world, fallbacks=_fallbacks(state, day, cast),
+        taken=[c.caller_name for c in state.calls] + [c.caller_name for c in cast], rng=rng,
+        avoid=[c.caller_id for c in state.calls] + [c.caller_id for c in cast], slots=slots,
     )
     return calls

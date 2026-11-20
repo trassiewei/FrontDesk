@@ -23,6 +23,7 @@ DAY_NAMES = ["Monday, Nov 16", "Tuesday, Nov 17", "Wednesday, Nov 18"]
 SLOT_TIMES = ["09:10", "10:20", "11:40", "14:05", "15:50"]
 LEGIT_SLOTS = [0, 2, 4]
 CON_SLOTS = [1, 3]
+FILL_CON_SLOTS = True  # a short plan is re-asked once, then its empty slots go to genuine callers
 MAX_PLAYER_TURNS_PER_CALL = 5
 DAILY_REPLY_BUDGET = 15
 CALLBACK_PATIENCE_COST = 3

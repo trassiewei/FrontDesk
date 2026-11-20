@@ -102,6 +102,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     (random.Random(f"{state.seed}:methods:{day}") if state.seed is not None else random.Random()).shuffle(options)
     must_switch = spotted and bool(options)
     fitting = [t for t in tactics if gambit and t.id in gambit.tactics]
+    slots_today = state.con_slots.get(day, config.CON_SLOTS)
     system = llm.render_prompt(
         "planner",
         crew=crew_view(state, world, scenario.crew or "a small, professional fraud crew"),
@@ -133,8 +134,8 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         skill_note=diff.skill_note,
         planner_note=diff.planner_note,
         day=day,
-        max_calls=len(config.CON_SLOTS),
-        call_times=" and ".join(config.SLOT_TIMES[s] for s in state.con_slots.get(day, config.CON_SLOTS)),
+        max_calls=len(slots_today),
+        call_times=" and ".join(config.SLOT_TIMES[s] for s in slots_today),
     )
     try:
         result = llm.complete_json("planner", system, llm.USER_TURN, PlannerResult, state.game_id)
@@ -164,13 +165,17 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     def clean(raw: PlannerResult) -> PlannerResult:
         return rules.dedupe_personas(clean_plain(raw), world, used)
 
+    def finish(raw: PlannerResult, method: str) -> PlannerResult:
+        done = clean(raw)
+        if diff.outsider_only:
+            done = rules.drop_directory_claims(done, world)
+        return done.model_copy(update={"method": method})
+
     cleaned = clean(result).model_copy(update={"method": chosen})  # type: ignore[arg-type]
-    if not diff.outsider_only:
-        return cleaned
-    bad = {c.persona_name: rules.outsider_violations(c, world) for c in cleaned.calls}
+    bad = {c.persona_name: rules.outsider_violations(c, world) for c in cleaned.calls} if diff.outsider_only else {}
     bad = {name: ids for name, ids in bad.items() if ids}
     if not bad:
-        return cleaned
+        return _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today))  # type: ignore[arg-type]
     named = "; ".join(f"{name} (pretends to be or works for {', '.join(name_of(world, i) or i for i in ids)})"
                       for name, ids in bad.items())
     try:
@@ -181,8 +186,27 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
                 "Replace them with outsiders the directory cannot confirm (no claimed_identity, no employee or "
                 "listed-vendor names as the caller's own identity or employer) and return the complete JSON again.")}],
         )
-        cleaned = clean(retry)  # type: ignore[arg-type]
         chosen = retry.method if retry.method in allowed else current  # type: ignore[union-attr]
+        result = retry
     except llm.LLMError as exc:
         log.warning("Planner retry failed, keeping the first plan: %s", exc)
-    return rules.drop_directory_claims(cleaned, world).model_copy(update={"method": chosen})
+    return _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today))  # type: ignore[arg-type]
+
+
+def _fill_slots(state: GameState, system: str, raw: PlannerResult, plan: PlannerResult, finish, wanted: int) -> PlannerResult:
+    """The crew has a call time for every con slot. A plan that comes back short (the model planned fewer calls,
+    or cleaning dropped one) is asked for once more; the engine fills any slot still empty with a genuine caller."""
+    if not config.FILL_CON_SLOTS or len(plan.calls) >= wanted or raw.notebook == fallback_plan().notebook:
+        return plan
+    try:
+        retry = llm.complete_json(
+            "planner", system, llm.USER_TURN, PlannerResult, state.game_id,
+            extra_messages=[{"role": "assistant", "content": raw.model_dump_json()}, {"role": "user", "content": (
+                f"Your plan has {len(plan.calls)} usable call(s) but you have {wanted} call times today. Keep your "
+                f"method and plan exactly {wanted} calls, each a different persona, and return the complete JSON again.")}],
+        )
+    except llm.LLMError as exc:
+        log.warning("Planner fill retry failed, keeping the short plan: %s", exc)
+        return plan
+    longer = finish(retry, plan.method)
+    return longer if len(longer.calls) > len(plan.calls) else plan

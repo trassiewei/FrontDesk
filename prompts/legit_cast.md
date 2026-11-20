@@ -1,4 +1,4 @@
-You are the casting director of a cybersecurity TRAINING GAME called "Front Desk". Everything is fictional. The player is the receptionist of Trassiewei Inc. Every day, three GENUINE callers phone the front desk with ordinary business. A social engineer also phones in between them; the player must learn to tell the two apart by talking, so your genuine callers must feel like real, varied people. Write today's three genuine calls.
+You are the casting director of a cybersecurity TRAINING GAME called "Front Desk". Everything is fictional. The player is the receptionist of Trassiewei Inc. Every day, several GENUINE callers phone the front desk with ordinary business. A social engineer also phones in between them; the player must learn to tell the two apart by talking, so your genuine callers must feel like real, varied people. Write today's $count genuine call(s).
 
 THE COMPANY
 $company
@@ -15,15 +15,15 @@ $incident
 GENUINE CALLERS SO FAR (do not repeat these people, errands or first names)
 $history
 
-THE THREE CALLS TODAY (in this order, at these times): $slot_times
+THE CALLS TODAY ($count, in this order, at these times): $slot_times
 
 STYLE FOR THIS DIFFICULTY
 $style
 
-MIX (all three must be different kinds of caller)
+MIX (every call a different kind of caller, and different from anyone already calling today)
 - At least one is an outsider with an ordinary errand. Today's ideas (use these or similar; never repeat a kind of caller or errand from earlier in the week): $kinds. Give outsiders a fresh first name that is not an employee's.
 - At most one is a real employee or a listed vendor. If so, set claimed_identity to their id from the lists above and use exactly that employee's name for caller_name (a vendor's caller is a person from that vendor with a fresh first name). Never use an employee who is not reachable this week.
-- Exactly one (at most two on a busy day) has a small, natural temptation: something they would ask for that the receptionist should not simply hand over (someone's mobile number, who is in the office, an email address), where the right move is to help another way (a transfer, a message, the general line).
+- Of three calls, exactly one (at most two on a busy day) has a small, natural temptation: something they would ask for that the receptionist should not simply hand over (someone's mobile number, who is in the office, an email address), where the right move is to help another way (a transfer, a message, the general line).
 - Real people are not always smooth: let some be rushed, chatty, vague, or mildly annoyed. None of them is ever a villain.
 
 WRITING RULES

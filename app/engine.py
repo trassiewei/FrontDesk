@@ -165,6 +165,12 @@ def _enter_day(state: GameState, day: int) -> None:
         planning = pool.submit(planner.plan_day, state, world, day)
         casting_job = pool.submit(casting.cast_day, state, world, day)
         plan, legit_calls = planning.result(), casting_job.result()
+    # Five calls every day: a con slot the plan leaves empty goes to one more genuine caller, so a short day
+    # never tells the player how many con calls are left.
+    con_slots = state.con_slots[day]
+    if config.FILL_CON_SLOTS and len(plan.calls) < len(con_slots):
+        state.con_slots[day] = con_slots[:len(plan.calls)]
+        legit_calls += casting.cast_day(state, world, day, slots=con_slots[len(plan.calls):], cast=legit_calls)
     # The planner already avoids its own earlier personas; this also keeps clear of every genuine caller.
     earlier = [c.caller_name for c in state.calls]
     plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls] + earlier)

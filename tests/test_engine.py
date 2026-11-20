@@ -720,3 +720,21 @@ def test_the_day_fills_every_slot_with_shuffled_cons(fake):
     kinds = [(c.slot, c.is_con) for c in state.queue]
     assert [s for s, _ in kinds] == [0, 1, 2, 3, 4]
     assert [s for s, is_con in kinds if is_con] == state.con_slots[1]
+
+
+@pytest.mark.full_days
+def test_a_short_plan_is_asked_once_more_for_the_missing_call(fake):
+    state = new(fake, plan(con()), plan(con(), con(name="Robin", claims="Robin Hale, courier")))
+    assert [c.is_con for c in state.queue].count(True) == 2 and len(state.queue) == 5
+    retry = fake.calls_for("planner")[-1]["messages"][-1]["content"]
+    assert "exactly 2 calls" in retry
+
+
+@pytest.mark.full_days
+def test_a_con_slot_still_empty_goes_to_one_more_genuine_caller(fake):
+    state = new(fake, plan(con()), plan(con()))
+    assert len(state.queue) == 5 and [c.slot for c in state.queue] == [0, 1, 2, 3, 4]
+    assert [c.is_con for c in state.queue].count(True) == 1
+    assert state.con_slots[1] == [1]
+    names = [c.caller_name for c in state.queue]
+    assert len(set(names)) == 5
