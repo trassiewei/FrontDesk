@@ -690,3 +690,18 @@ def test_storage_round_trip_and_id_validation(fake):
     assert storage.get(state.game_id).game_id == state.game_id
     assert storage.get("../etc/passwd") is None and storage.get("nope") is None
     assert not storage.valid_id("../x")
+
+
+def test_telling_a_real_colleague_an_internal_detail_is_not_oversharing(fake):
+    state = new(fake, plan(con()))
+    call = engine.next_call(state)
+    if call.is_con:
+        engine.hang_up(state)
+        call = engine.next_call(state)
+    assert not call.is_con
+    call.claimed_identity = "E02"
+    say(fake, state, "Dave is the IT lead.", leak("it_lead_name"))
+    assert not state.overshares
+    call.claimed_identity = None
+    say(fake, state, "Dave is the IT lead.", leak("it_lead_name"))
+    assert state.overshares

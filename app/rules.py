@@ -43,7 +43,7 @@ CALLBACK_SELF = "{speaker}: 'Yes, that was me calling. Put me back through.'"
 CALLBACK_LEGIT = "{speaker}: 'Yes, that's legit.'"
 CALLBACK_UNKNOWN = "{speaker}: 'Sorry, I don't know anything about that call.'"
 CALLBACK_NUMBER = "You dialled {number}. A voice answers: 'Yes, that's right — {name} is here with us.'"
-CALLBACK_BUSY = "{speaker}: 'I can't talk — the outage has the whole floor on fire. Is it urgent? Call me later.'"
+CALLBACK_BUSY = "{speaker}: 'I can't talk — {trouble} has the whole floor on fire. Is it urgent? Call me later.'"
 CALLBACK_MEETING = "{speaker}'s line rings out, then a colleague picks up: 'They're in a meeting — I can take a message.'"
 CALLBACK_NO_SUCH_STAFF = "{speaker}: 'We don't have anyone like that joining us. Who is this?'"
 
@@ -208,7 +208,8 @@ def _invented_colleague_of(call: CallRecord, emp) -> bool:
 
 
 def callback(
-    call: CallRecord, target_id: str, world: World, *, it_busy: bool = False, reachable: bool = True
+    call: CallRecord, target_id: str, world: World, *, it_busy: bool = False, reachable: bool = True,
+    trouble: str = "the outage",
 ) -> CallbackResult:
     """`it_busy`: an outage is under way, so nobody in the IT department can confirm or deny anything.
     `reachable`: False when the person simply cannot be reached (hard difficulty makes this common)."""
@@ -217,7 +218,7 @@ def callback(
     if emp is not None and not emp.available:
         return CallbackResult(VOICEMAIL_TEMPLATE.format(name=emp.name), "voicemail")
     if it_busy and emp is not None and emp.dept == "IT":
-        return CallbackResult(CALLBACK_BUSY.format(speaker=speaker), "busy")
+        return CallbackResult(CALLBACK_BUSY.format(speaker=speaker, trouble=trouble), "busy")
     if not reachable:
         return CallbackResult(CALLBACK_MEETING.format(speaker=speaker), "busy")
 

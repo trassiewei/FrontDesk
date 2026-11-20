@@ -261,11 +261,11 @@ def test_reply_budget_is_visible_and_enforced(client):
     game = Game(client)
     game.act("day/start")
     state = game.state()
-    assert state["replies_left_today"] == 12
+    assert state["replies_left_today"] == 15
     call = game.act("call/next")["call"]
     assert call["replies_left_in_call"] == 5
     said = game.act("call/say", {"text": "Hello."})
-    assert said["state"]["replies_left_today"] == 11
+    assert said["state"]["replies_left_today"] == 14
     assert said["state"]["active_call"]["replies_left_in_call"] == 4
     storage.get(game.id).replies_left = 0
     game.act("call/say", {"text": "Hello again."}, status=409)

@@ -70,6 +70,21 @@ def script_text(state: GameState, call: CallRecord) -> str:
     return "\n".join(lines) or "No written script: improvise from your pretext."
 
 
+def earlier_today_text(state: GameState, call: CallRecord) -> str:
+    """What the crew knows about its own earlier calls today, so a follow-up call never builds on a failure."""
+    rows = []
+    for c in state.calls:
+        if not c.is_con or c.day != call.day or c.id == call.id or c.status != "ended":
+            continue
+        how = {"hung_up": "the receptionist hung up", "message": "the receptionist only took a message",
+               "transferred": "the receptionist transferred the call elsewhere", "exposed": "the caller was exposed",
+               }.get(c.end_reason or "", "the call ended")
+        got = ", ".join(c.gained_facts) or "nothing"
+        refused = " The receptionist turned the caller down." if not c.gained_facts else ""
+        rows.append(f"- {c.time}, {c.caller_name}: {how}; learned {got}.{refused}")
+    return "\n".join(rows) or "- None: this is your crew's first call today."
+
+
 def slip_text(state: GameState, call: CallRecord) -> str:
     """When the con makes its scripted slip. The code decides the moment; the model only phrases the slip."""
     plan = call.plan
@@ -126,6 +141,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         persona_name=plan.persona_name,
         pretext=plan.pretext,
         script_text=script_text(state, call),
+        earlier_today=earlier_today_text(state, call),
         slip_text=slip_text(state, call),
         tactic_name=tactic.name if tactic else plan.tactic,
         tactic_description=tactic.description if tactic else "",

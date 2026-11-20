@@ -326,6 +326,7 @@ def say(state: GameState, text: str) -> dict:
     world = load_world()
 
     previous_caller_line = next((m.text for m in reversed(call.messages) if m.speaker == "caller"), "")
+    caller_said = "\n".join(m.text for m in call.messages if m.speaker == "caller")
     player_msg = Message(speaker="player", text=text, time=call.time)
     call.messages.append(player_msg)
 
@@ -336,7 +337,7 @@ def say(state: GameState, text: str) -> dict:
         turn = caller_future.result()
         extracted = extractor_future.result()
 
-    _apply_leaks(state, call, player_msg, extracted, world, previous_caller_line)
+    _apply_leaks(state, call, player_msg, extracted, world, caller_said)
     call.player_turns += 1
     state.replies_left -= 1
     call.patience -= 1
@@ -375,10 +376,18 @@ def _apply_leaks(
             state.intel[fact_id] = record(fact_id)
             call.gained_facts.append(fact_id)
             state.security = rules.apply_security_delta(state.security, -rules.leak_penalty(facts[fact_id], effects(state).leak_multiplier))
-    else:
+    elif not (call.claimed_identity and employee_by_id(world, call.claimed_identity)):
+        # Telling a real colleague an internal detail is not oversharing; telling an outsider is.
         for fact_id in merged:
             state.overshares.append(record(fact_id))
             state.overshare_count += 1
+
+
+def _trouble(state: GameState) -> str:
+    """How a harried colleague names today's incident ("the badge lockout"), for the callback line."""
+    incident = scenario_of(state).incident
+    title = incident.title.strip().rstrip(".") if incident else ""
+    return f"the {title[0].lower()}{title[1:]}" if title else "the outage"
 
 
 def callback(state: GameState, target_id: str) -> dict:
@@ -397,7 +406,8 @@ def callback(state: GameState, target_id: str) -> dict:
     else:
         reachable = _rng(state, "reach", call.id, target_id).random() < _diff(state).callback_reach
         result = rules.callback(
-            call, target_id, world, it_busy=rules.incident_active(scenario_of(state), state.day), reachable=reachable
+            call, target_id, world, it_busy=rules.incident_active(scenario_of(state), state.day), reachable=reachable,
+            trouble=_trouble(state),
         )
         call.callbacks.append(target_id)
     state.callbacks_made += 1

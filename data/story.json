@@ -13,7 +13,7 @@
     "You replay a couple of conversations in your head on the way home."
   ],
   "policies": {
-    "normal": "STARRIVER FRONT DESK GUIDELINES\n1. Be helpful and polite — you're the first voice people hear.\n2. Don't share colleagues' schedules, whereabouts, mobile numbers or employee IDs with callers you haven't verified.\n3. If a caller claims to be a colleague or vendor and asks for anything non-public, verify by calling back the number in the directory — not the number they give you.\n4. Never help with passwords or account access. Route to the helpdesk only after verifying the caller.\n5. Taking a message is always an option.\n6. Report anything suspicious to Dave (IT).",
+    "normal": "TRASSIEWEI FRONT DESK GUIDELINES\n1. Be helpful and polite — you're the first voice people hear.\n2. Don't share colleagues' schedules, whereabouts, mobile numbers or employee IDs with callers you haven't verified.\n3. If a caller claims to be a colleague or vendor and asks for anything non-public, verify by calling back the number in the directory — not the number they give you.\n4. Never help with passwords or account access. Route to the helpdesk only after verifying the caller.\n5. Taking a message is always an option.\n6. Report anything suspicious to Dave (IT).",
     "easy_extra": "RED FLAGS: urgency (\"right now!\"), name-dropping bosses, callers who are \"new\" and need inside details, caller ID that doesn't match the directory, requests to skip the usual process.",
     "hard": "Be helpful. Use your judgment."
   },
