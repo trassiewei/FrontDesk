@@ -345,3 +345,18 @@ def test_a_con_using_an_employees_full_name_is_impersonating_them():
                            tactic_ids=["small_ask"])
     out = rules.dedupe_personas(out, world, [])
     assert out.calls[0].claimed_identity == "E01" and out.calls[0].persona_name == "Alice Adams"
+
+
+def test_a_vendor_denies_a_con_posing_as_its_staff_in_its_own_words():
+    from app.models import CallRecord
+    world = load_world()
+    call = CallRecord(id="x", day=1, slot=1, time="10:20", is_con=True, caller_name="Ellis Anand",
+                      claims="Ellis Anand, NetCore IT Services", caller_id="555-0740", patience=5, claimed_identity="V03")
+    result = rules.callback(call, "V03", world)
+    assert result.exposed and "no Ellis on the team" in result.text
+
+
+def test_a_vendor_is_recognised_by_its_brand_alone():
+    world = load_world()
+    assert "V03" in rules.scan_references("Ryan Patel, NetCore Support", world)
+    assert "V01" in rules.scan_references("Sam from SwiftParcel", world)

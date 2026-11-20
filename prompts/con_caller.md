@@ -16,7 +16,7 @@ THE JOB: your crew's method is "$gambit_name". Today's call is one step of it. W
 YOUR SCRIPT FOR THIS CALL (your crew planned it; follow it, but stay natural)
 $script_text
 
-HOW YOUR CREW'S EARLIER CALLS TODAY WENT (never pretend they went better than this)
+HOW YOUR CREW'S EARLIER CALLS TODAY WENT (never pretend they went better than this, and never claim the desk told your crew something it did not: the receptionist took those calls too)
 $earlier_today
 
 YOUR SLIP (you are human and you are bluffing; an attentive receptionist can notice it)

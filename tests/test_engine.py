@@ -758,4 +758,5 @@ def test_a_con_told_to_stop_calling_leaves_even_if_the_model_keeps_asking(fake):
 
 def test_dismissal_wording():
     assert rules.is_dismissal("Goodbye.") and rules.is_dismissal("This sounds like a scam")
+    assert rules.is_dismissal("The caller this morning turned out to be fake. Who are you really?")
     assert not rules.is_dismissal("Can I take a message?") and not rules.is_dismissal("I'll call Bob back")

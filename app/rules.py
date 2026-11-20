@@ -40,6 +40,7 @@ VOICEMAIL_TEMPLATE = (
 )
 CALLBACK_EXPOSED = "{speaker}: 'No, I didn't call — and I didn't send anyone. Who is this?'"
 CALLBACK_SELF = "{speaker}: 'Yes, that was me calling. Put me back through.'"
+CALLBACK_VENDOR_EXPOSED = "{speaker}: 'Nobody here called you, and we have no {caller} on the team. Who is this?'"
 CALLBACK_VENDOR_SELF = "{speaker}: 'Yes, {caller} is one of ours and did call you. Go ahead.'"
 CALLBACK_LEGIT = "{speaker}: 'Yes, that's legit.'"
 CALLBACK_UNKNOWN = "{speaker}: 'Sorry, I don't know anything about that call.'"
@@ -114,7 +115,8 @@ def scan_references(text: str, world: World) -> list[str]:
         if any(_term_regex(t).search(text) for t in terms):
             found.append(emp.id)
     for vendor in world.vendors:
-        if _term_regex(vendor.name).search(text):
+        # Callers shorten a vendor to its brand: "NetCore support" is NetCore IT Services.
+        if any(_term_regex(t).search(text) for t in {vendor.name, vendor.name.split()[0]}):
             found.append(vendor.id)
     return found
 
@@ -261,7 +263,9 @@ def callback(
 
     if call.is_con:
         if target_id in references:
-            return CallbackResult(CALLBACK_EXPOSED.format(speaker=speaker), "exposed", exposed=True, it_alert=True)
+            text = (CALLBACK_EXPOSED.format(speaker=speaker) if emp is not None else
+                    CALLBACK_VENDOR_EXPOSED.format(speaker=speaker, caller=call.caller_name.split()[0]))
+            return CallbackResult(text, "exposed", exposed=True, it_alert=True)
         if _invented_colleague_of(call, emp, world.company.name):
             return CallbackResult(
                 CALLBACK_NO_SUCH_STAFF.format(speaker=speaker), "exposed", exposed=True, it_alert=True
@@ -808,7 +812,7 @@ def legit_caller_id(world: World, claimed_identity: str | None, claims: str, rng
 
 _DISMISSAL = re.compile(
     r"\bstop (calling|ringing)\b|\b(don'?t|do not) (call|ring) (us |here )?(again|back)\b|\bgood-?bye\b|"
-    r"\bhanging up\b|\bi'?m going to hang up\b|\b(scam|scammer|con artist|phishing)\b|"
+    r"\bhanging up\b|\bi'?m going to hang up\b|\b(scam|scammer|con artist|phishing|fake|impostor|imposter|liar|lying)\b|"
     r"\b(already|just) (said|told you) no\b|\breporting (this|you)\b",
     re.IGNORECASE,
 )

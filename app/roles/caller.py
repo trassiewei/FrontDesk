@@ -64,9 +64,12 @@ def script_text(state: GameState, call: CallRecord) -> str:
         lines.append("Beats, one per exchange (your opening line was beat 0):")
         lines += [f"  {i}. {beat}" for i, beat in enumerate(plan.beats, 1)]
         current = min(call.player_turns, len(plan.beats) - 1)
+        last = next((m.text for m in reversed(call.messages) if m.speaker == "player"), "")
+        heard = (f" The receptionist just said: \"{last}\". If that already answers beat {current + 1} (even in "
+                 "passing), do not ask it: acknowledge it naturally and go on to the next beat.") if last else ""
         lines.append(f"RIGHT NOW: beat {current + 1}. Do it in your own words, adapting to what the receptionist just said; "
                      "do not skip ahead and do not invent new goals. If the receptionist has already told you what a "
-                     "beat asks for, never ask it again (that sounds odd): move on to the next beat or wrap up.")
+                     "beat asks for, never ask it again (that sounds odd): move on to the next beat or wrap up." + heard)
     if plan.if_refused:
         lines.append(f"If the receptionist refuses or hedges: {plan.if_refused}")
     if call.player_turns:
@@ -89,6 +92,8 @@ def earlier_today_text(state: GameState, call: CallRecord) -> str:
                }.get(c.end_reason or "", "the call ended")
         got = ", ".join(c.gained_facts) or "nothing"
         refused = " The receptionist turned the caller down." if not c.gained_facts else ""
+        if c.end_reason == "exposed":
+            refused += " That cover is blown: never mention this caller, their company or their story, even if your script does."
         rows.append(f"- {c.time}, {c.caller_name}: {how}; learned {got}.{refused}")
     return "\n".join(rows) or "- None: this is your crew's first call today."
 
@@ -193,9 +198,14 @@ def adapt_opening(state: GameState, call: CallRecord, world: World) -> str:
     pretend otherwise ("my colleague took your survey answers"), so the caller says it fresh."""
     plan = call.plan
     assert plan is not None
+    burned = [c for c in state.calls if c.is_con and c.day == call.day and c.end_reason == "exposed"]
+    caught = (" The desk caught and exposed your crew's call(s) at " + ", ".join(c.time for c in burned) +
+              " (" + ", ".join(c.claims for c in burned) + "): never mention, refer to or build on those callers, "
+              "their company or their story; this call must stand on its own.") if burned else ""
     note = (f"The call is just starting; you have not spoken yet. Your planned opening line was: \"{plan.opening_line}\" "
             "Say your opening line now. Keep it if it fits, but if it assumes one of your crew's earlier calls today "
-            "went better than it really did (see above), change it so it does not.")
+            "went better than it really did (see above), change it so it does not. Never add a mention of your "
+            "crew's other calls: the receptionist took those calls and knows what was really said." + caught)
     turn = take_turn(state, call, world, note)
     if turn.say == FALLBACK_LINE or turn.end_call or not turn.say.strip():
         return plan.opening_line

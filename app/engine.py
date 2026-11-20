@@ -183,6 +183,8 @@ def _enter_day(state: GameState, day: int) -> None:
         state.notices.append(Notice(day=day, kind="incident", id="recon_hint", title=hint["title"], text=hint["text"]))
     state.queue = _build_queue(state, plan, legit_calls, world)
     state.last_call_id = None
+    state.replies_left = config.DAILY_REPLY_BUDGET  # the briefing already shows the new day's budgets
+    state.callbacks_today = 0
     state.phase = "DAY_BRIEFING"
 
 
