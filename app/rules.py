@@ -198,14 +198,20 @@ def callback_caller_number(call: CallRecord) -> CallbackResult:
 _NEWCOMER_WORDS = re.compile(r"\b(new|temp|intern|hire|joined|started)\b", re.IGNORECASE)
 
 
-def _invented_colleague_of(call: CallRecord, emp) -> bool:
-    """A con posing as a newcomer to a department is exposed by anyone in that department."""
-    return (
-        emp is not None
-        and call.claimed_identity is None
-        and emp.dept.lower() in call.claims.lower()
-        and bool(_NEWCOMER_WORDS.search(call.claims))
-    )
+def _invented_colleague_of(call: CallRecord, emp, company: str = "") -> bool:
+    """A con posing as a member of a department (often "new this week") is exposed by anyone in that department.
+
+    A caller who names that department but also an outside organisation ("Tessa, Northgate Systems, IT contractor")
+    is not claiming to be staff."""
+    if emp is None or call.claimed_identity is not None or emp.dept.lower() not in call.claims.lower():
+        return False
+    said = " ".join(m.text for m in call.messages if m.speaker == "caller")
+    if _NEWCOMER_WORDS.search(call.claims) or re.search(r"\bI(?:'m| am| just)? (?:new|started|joined)\b", said, re.I):
+        return True
+    rest = call.claims
+    for word in [*call.caller_name.split(), emp.dept, *company.split()]:
+        rest = re.sub(rf"\b{re.escape(word)}\b", "", rest, flags=re.I)
+    return not re.search(r"\b[A-Z][a-zA-Z]+", rest)  # no other organisation named: they claim to work here
 
 
 def callback(
@@ -230,7 +236,7 @@ def callback(
     if call.is_con:
         if target_id in references:
             return CallbackResult(CALLBACK_EXPOSED.format(speaker=speaker), "exposed", exposed=True, it_alert=True)
-        if _invented_colleague_of(call, emp):
+        if _invented_colleague_of(call, emp, world.company.name):
             return CallbackResult(
                 CALLBACK_NO_SUCH_STAFF.format(speaker=speaker), "exposed", exposed=True, it_alert=True
             )
@@ -510,6 +516,8 @@ def clean_plan(
         "calls": cleaned, "assessment": scrub_placeholders(result.assessment).strip()[: config.MAX_SCRIPT_TEXT * 2]})
 
 
+_SURNAME_POOL = ["Hollis", "Prescott", "Varga", "Lindqvist", "Achebe", "Moreau", "Kowalski", "Tanaka", "Brennan",
+                 "Castillo", "Dunmore", "Iyer", "Fairley", "Oyelaran", "Petrov", "Quaid"]
 _PERSONA_POOL = ["Dana", "Ellis", "Morgan", "Tessa", "Brent", "Nora", "Wendy", "Claire", "Victor", "Zane", "Hugo", "Jade"]
 
 
@@ -517,9 +525,14 @@ def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) ->
     """Give each con a fresh first name: not a directory employee's (a 'Henry' next to Henry Hill reads as the
     same person), and not one an earlier caller or an earlier call today already used. The old name is replaced
     everywhere in the day's plan, so a call that refers to another of today's callers still names them right."""
-    taken = {n.split()[0].lower() for n in used if n.strip()}
+    used = [n for n in used if n.strip()]
+    taken = {n.split()[0].lower() for n in used}
     directory = {e.name.split()[0].lower() for e in world.employees}
     pool = [n for n in _PERSONA_POOL if n.lower() not in taken | directory]
+    # Two callers sharing a surname ("Gideon Marsh" right before "Owen Marsh") read as one family or one trick.
+    surnames = {n.split()[-1].lower() for n in used if len(n.split()) > 1}
+    surnames |= {e.name.split()[-1].lower() for e in world.employees}
+    surname_pool = [n for n in _SURNAME_POOL if n.lower() not in surnames]
     renames: list[tuple[re.Pattern, str]] = []
     personas: list[str] = []
     for call in result.calls:
@@ -532,7 +545,13 @@ def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) ->
             renames.append((re.compile(rf"\b{re.escape(first)}\b"), new))
             parts = [new, *parts[1:]]
             first = new
+        if len(parts) > 1 and parts[-1].lower() in surnames and surname_pool and not impersonating:
+            new = surname_pool.pop(0)
+            renames.append((re.compile(rf"\b{re.escape(parts[-1])}\b"), new))
+            parts = [*parts[:-1], new]
         taken.add(first.lower())
+        if len(parts) > 1:
+            surnames.add(parts[-1].lower())
         personas.append(" ".join(parts))
     if not renames:
         return result

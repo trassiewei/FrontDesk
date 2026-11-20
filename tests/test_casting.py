@@ -239,3 +239,28 @@ def test_a_vendor_desk_vouches_for_its_colleague():
                       claims="Derek Voss, NetCore", caller_id="555-0740", claimed_identity="V03", patience=7)
     result = rules.callback(call, "V03", world)
     assert result.kind == "confirmed" and "Derek is one of ours" in result.text
+
+
+def test_a_con_never_shares_a_surname_with_another_caller():
+    from app.models import PlannedCall, PlannerResult
+    world = load_world()
+    plan = PlannerResult(notebook="Gideon Marsh calls at two.", calls=[PlannedCall(
+        persona_name="Gideon Marsh", claims="Gideon Marsh, Marsh Logistics", pretext="p", tactic="small_ask",
+        target_facts=[], opening_line="Hi, Gideon Marsh here.")])
+    out = rules.dedupe_personas(plan, world, ["Owen Marsh"])
+    call = out.calls[0]
+    assert call.persona_name.split()[-1] != "Marsh" and "Marsh" not in call.opening_line + out.notebook
+
+
+def test_a_con_claiming_to_be_department_staff_is_denied_by_that_department():
+    from app.models import CallRecord, Message
+    world = load_world()
+    def con(claims, said=""):
+        c = CallRecord(id="x", day=1, slot=1, time="10:20", is_con=True, caller_name=claims.split(",")[0],
+                       claims=claims, caller_id="555-0302", patience=5)
+        if said:
+            c.messages.append(Message(speaker="caller", text=said, time="10:20"))
+        return c
+    assert rules.callback(con("Morgan Raman, Finance — working from home"), "E02", world).exposed
+    assert rules.callback(con("Sam Lee, Finance", "Oh, I'm new, I only started this week"), "E02", world).exposed
+    assert not rules.callback(con("Tessa Feld, Northgate Systems — IT contractor"), "E04", world).exposed
