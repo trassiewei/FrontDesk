@@ -123,7 +123,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         ),
         doors=_doors_text(state, world),
         offstage_rule=_offstage_rule(state, world),
-        incident_note=incident_plan_text(state, day),
+        incident_note=crew_view(state, world, incident_plan_text(state, day)),
         credibility=rules.credibility(state.intel, world.facts),
         it_alert="yes" if state.it_alert else "no",
         public_info=public_info_text(world),

@@ -151,7 +151,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         claims=call.claims,
         own_number=rules.callback_number(call, world),
         con_goal=rules.mask_unknown(scenario_of(state).con_goal, world.facts, state.intel),
-        situation=situation_text(state, insider=True),
+        situation=rules.mask_unknown(situation_text(state, insider=True), world.facts, state.intel),
         persona_name=plan.persona_name,
         pretext=plan.pretext,
         script_text=script_text(state, call),

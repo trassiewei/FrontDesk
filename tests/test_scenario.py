@@ -262,13 +262,15 @@ def test_incident_context_reaches_the_prompts_for_both_kinds_of_caller(fake):
     engine.say(state, "Hello?")
     con_prompt = fake.calls_for("caller")[-1]["messages"][0]["content"]
     assert "Starboard (the ERP) went down" in legit_prompt and "secretly caused" not in legit_prompt
-    assert "Starboard (the ERP) went down" in con_prompt and "secretly caused" in con_prompt
+    # The crew has not learned the ERP's name, so its view of the incident leaves the name out.
+    assert "(the ERP) went down" in con_prompt and "secretly caused" in con_prompt and "Starboard" not in con_prompt
 
 
 def test_planner_is_told_about_its_own_incident_from_day_one(fake):
     start(fake, scenario_id="fake_vendor")
     prompt = fake.calls_for("planner")[0]["messages"][0]["content"]
-    assert "SECRET INCIDENT" in prompt and "on day 2" in prompt and "flooded the Starboard login" in prompt
+    assert "SECRET INCIDENT" in prompt and "on day 2" in prompt and "flooded the" in prompt
+    assert "Starboard" not in prompt
 
 
 def test_no_incident_text_in_a_game_without_one(fake):
