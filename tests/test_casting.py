@@ -252,6 +252,33 @@ def test_a_con_never_shares_a_surname_with_another_caller():
     assert call.persona_name.split()[-1] != "Marsh" and "Marsh" not in call.opening_line + out.notebook
 
 
+def test_renaming_one_con_never_bleeds_into_another_call_of_the_same_plan():
+    from app.models import PlannedCall, PlannerResult
+    world = load_world()
+    def pc(name, org):
+        return PlannedCall(persona_name=name, claims=f"{name}, {org}", pretext="p", tactic="small_ask",
+                           target_facts=[], opening_line=f"Hi, {name} from {org}.")
+    plan = PlannerResult(notebook="Dana Whitfield opens, Ellis Navarro follows.",
+                         calls=[pc("Dana Whitfield", "Polk Insurance"), pc("Ellis Navarro", "Northgate Records")])
+    out = rules.dedupe_personas(plan, world, ["Dana Whitfield"])
+    first, second = out.calls
+    assert second.persona_name == "Ellis Navarro" and second.claims.startswith("Ellis Navarro")
+    assert first.persona_name.split()[0] not in {"Dana", "Ellis"}
+    assert first.claims.startswith(first.persona_name) and first.opening_line.startswith(f"Hi, {first.persona_name}")
+    assert first.persona_name in out.notebook and "Ellis Navarro" in out.notebook
+
+
+def test_two_cons_with_one_first_name_keep_their_own_surnames():
+    from app.models import PlannedCall, PlannerResult
+    world = load_world()
+    calls = [PlannedCall(persona_name=n, claims=f"{n}, Acme", pretext="p", tactic="small_ask", target_facts=[],
+                         opening_line=f"Hi, {n} here.") for n in ("Morgan Price", "Morgan Quill")]
+    first, second = rules.dedupe_personas(PlannerResult(notebook="n", calls=calls), world, []).calls
+    assert first.persona_name == "Morgan Price" and first.claims == "Morgan Price, Acme"
+    assert second.persona_name.endswith("Quill") and not second.persona_name.startswith("Morgan")
+    assert second.claims.startswith(second.persona_name)
+
+
 def test_a_con_claiming_to_be_department_staff_is_denied_by_that_department():
     from app.models import CallRecord, Message
     world = load_world()
@@ -264,3 +291,57 @@ def test_a_con_claiming_to_be_department_staff_is_denied_by_that_department():
     assert rules.callback(con("Morgan Raman, Finance — working from home"), "E02", world).exposed
     assert rules.callback(con("Sam Lee, Finance", "Oh, I'm new, I only started this week"), "E02", world).exposed
     assert not rules.callback(con("Tessa Feld, Northgate Systems — IT contractor"), "E04", world).exposed
+    # Callers say "Accounts" or "helpdesk", not the directory's department name.
+    assert rules.callback(con("Nora Lindqvist, new accounts clerk"), "E02", world).exposed
+    assert rules.callback(con("Nora Lindqvist", "I'm with Trassiewei, Accounts. Sorry, I'm brand new."), "E02",
+                          world).exposed
+    assert not rules.callback(con("Nora Lindqvist", "Could you check it for me? I'm new to this."), "E04", world).exposed
+
+
+def test_callers_give_a_callback_number_that_belongs_to_nobody_else():
+    from app.models import CallRecord
+    world = load_world()
+    mobiles = {e.mobile for e in world.employees} | {v.official_number for v in world.vendors}
+    def rec(**kw):
+        return CallRecord(id="D1S1", day=1, slot=1, time="10:20", caller_name="X", claims="X", patience=5, **kw)
+    assert rules.callback_number(rec(is_con=False, caller_id="555-0612"), world) == "555-0612"
+    assert rules.callback_number(rec(is_con=True, caller_id="555-0612"), world) == "555-0612"
+    spoofed = rules.callback_number(rec(is_con=True, caller_id=f"{world.vendors[0].official_number} (x)"), world)
+    assert spoofed not in mobiles and spoofed.startswith("555-")
+    staff = rules.callback_number(rec(is_con=False, caller_id="Ext 4102 (Bob Baker)", claimed_identity="E02"), world)
+    assert "555-0142" in staff
+
+
+def test_one_persona_calling_twice_in_a_day_keeps_one_name():
+    from app.models import PlannedCall, PlannerResult
+    world = load_world()
+    calls = [PlannedCall(persona_name="Deborah Kestrel", claims="Deborah Kestrel, Kestrel Compliance", pretext="p",
+                         tactic="small_ask", target_facts=[], opening_line=line)
+             for line in ("Hi, Deborah Kestrel here.", "Deborah Kestrel again, we spoke this morning.")]
+    out = rules.dedupe_personas(PlannerResult(notebook="n", calls=calls), world, [])
+    assert [c.persona_name for c in out.calls] == ["Deborah Kestrel"] * 2
+    out = rules.dedupe_personas(PlannerResult(notebook="Deborah opens.", calls=calls), world, ["Deborah Ng"])
+    first, second = out.calls
+    assert first.persona_name == second.persona_name != "Deborah Kestrel"
+    assert first.claims.startswith(first.persona_name) and second.opening_line.startswith(second.persona_name)
+
+
+def test_invented_companies_never_look_like_the_street_or_a_vendor():
+    world = load_world()
+    con = rules.lookalike_renames("Morgan Hollis, Harborline Freight Insurance", world)
+    legit = rules.lookalike_renames("Mia Fenn from Harborline Credit Union's business banking team", world)
+    assert con["Harborline"].endswith("line") and not con["Harborline"].startswith("Harbor")
+    assert con["Harborline"] != legit["Harborline"]
+    assert rules.lookalike_renames("Sam, SwiftParcel driver", world) == {}
+    assert rules.apply_renames("Harborline, 880 Harbor Way", {"Harbor": "Calder", "Harborline": "X"}) == "X, 880 Harbor Way"
+
+
+def test_a_con_using_an_employees_full_name_is_impersonating_them():
+    from app.models import PlannedCall, PlannerResult
+    world = load_world()
+    call = PlannedCall(persona_name="Alice Adams", claims="Alice Adams, CFO", pretext="p", tactic="small_ask",
+                       target_facts=[], opening_line="Hi, it's Alice Adams.")
+    out = rules.clean_plan(PlannerResult(notebook="n", calls=[call]), world=world, burned=[], known_facts=[],
+                           tactic_ids=["small_ask"])
+    out = rules.dedupe_personas(out, world, [])
+    assert out.calls[0].claimed_identity == "E01" and out.calls[0].persona_name == "Alice Adams"

@@ -196,6 +196,26 @@ def callback_caller_number(call: CallRecord) -> CallbackResult:
 
 
 _NEWCOMER_WORDS = re.compile(r"\b(new|temp|intern|hire|joined|started)\b", re.IGNORECASE)
+_SAID_NEW = re.compile(r"\b(?:I'm|I am|I've|I just|only|just) (?:brand |pretty |very )?(?:new|started|joined)\b", re.I)
+# Words callers use for a department instead of its directory name.
+_DEPT_ALIASES = {
+    "finance": ["finance", "accounts", "accounting", "payables", "receivables", "payroll", "billing"],
+    "it": ["it", "helpdesk", "help desk", "tech support", "it support"],
+    "hr": ["hr", "human resources", "people team"],
+    "sales": ["sales"],
+    "customer service": ["customer service", "customer care", "support team"],
+    "operations": ["operations", "ops", "warehouse", "logistics", "facilities"],
+    "executive": ["executive", "ceo's office"],
+}
+
+
+def _names_dept(text: str, dept: str) -> str | None:
+    """The word in `text` that names `dept` (its directory name or a common alias), if any."""
+    for alias in _DEPT_ALIASES.get(dept.lower(), [dept.lower()]):
+        found = re.search(rf"\b{re.escape(alias)}\b", text, re.I)
+        if found and not (alias == "it" and found.group() == "it"):  # the pronoun "it" is not the IT department
+            return found.group()
+    return None
 
 
 def _invented_colleague_of(call: CallRecord, emp, company: str = "") -> bool:
@@ -203,13 +223,19 @@ def _invented_colleague_of(call: CallRecord, emp, company: str = "") -> bool:
 
     A caller who names that department but also an outside organisation ("Tessa, Northgate Systems, IT contractor")
     is not claiming to be staff."""
-    if emp is None or call.claimed_identity is not None or emp.dept.lower() not in call.claims.lower():
+    if emp is None or call.claimed_identity is not None:
         return False
     said = " ".join(m.text for m in call.messages if m.speaker == "caller")
-    if _NEWCOMER_WORDS.search(call.claims) or re.search(r"\bI(?:'m| am| just)? (?:new|started|joined)\b", said, re.I):
+    dept_word = _names_dept(call.claims, emp.dept)
+    if dept_word is None:
+        # Not on the card, but said aloud: "I'm with <company>, Accounts. Sorry, I'm brand new."
+        first = company.split()[0] if company else ""
+        return bool(first and re.search(rf"\b{re.escape(first)}\b", said, re.I) and _names_dept(said, emp.dept)
+                    and _SAID_NEW.search(said))
+    if _NEWCOMER_WORDS.search(call.claims) or _SAID_NEW.search(said):
         return True
     rest = call.claims
-    for word in [*call.caller_name.split(), emp.dept, *company.split()]:
+    for word in [*call.caller_name.split(), dept_word, *company.split()]:
         rest = re.sub(rf"\b{re.escape(word)}\b", "", rest, flags=re.I)
     return not re.search(r"\b[A-Z][a-zA-Z]+", rest)  # no other organisation named: they claim to work here
 
@@ -488,6 +514,31 @@ def scrub_placeholders(text: str) -> str:
     return re.sub(r"\s{2,}", " ", re.sub(r"\s+([,.!?;:])", r"\1", cleaned)).strip()
 
 
+_LOOKALIKE = re.compile(r"\b(Harbor|Meridian|Bright|Swift)([a-z]*)\b(?! Way)")
+_FRESH_PREFIXES = ["Calder", "Linden", "Ashford", "Corran", "Wexley", "Halden", "Elbridge", "Tamar", "Rowan", "Fenwick"]
+
+
+def lookalike_renames(claims: str, world: World) -> dict[str, str]:
+    """Company names a caller invents that start like the street or a vendor ("Harborline", "Swiftway") look
+    linked to them, and the models keep reusing them however the prompt asks. Such a name on the call card gets a
+    fresh prefix, picked per caller so two callers never end up sharing the replacement either."""
+    vendor_words = {w for v in world.vendors for w in v.name.split()}
+    renames = {}
+    for m in _LOOKALIKE.finditer(claims):
+        word = m.group(0)
+        if word in vendor_words or word in renames:
+            continue
+        prefix = _FRESH_PREFIXES[sum(map(ord, claims + word)) % len(_FRESH_PREFIXES)]
+        renames[word] = prefix + m.group(2)
+    return renames
+
+
+def apply_renames(text: str, renames: dict[str, str]) -> str:
+    for old, new in renames.items():
+        text = re.sub(rf"\b{re.escape(old)}\b(?! Way)", new, text)
+    return text
+
+
 def clean_plan(
     result: PlannerResult,
     *,
@@ -502,10 +553,21 @@ def clean_plan(
     cleaned: list[PlannedCall] = []
     for call in result.calls[:max_calls]:
         identity = call.claimed_identity
+        if identity is None:
+            # Posing as a directory employee by full name is impersonation, whether or not the id was filled in.
+            identity = next((e.id for e in world.employees if e.name.lower() == call.persona_name.strip().lower()), None)
         if identity is None or identity in burned_set or name_of(world, identity) is None:
             identity = None
         beats = [scrub_placeholders(b).strip()[: config.MAX_SCRIPT_TEXT] for b in call.beats if b and b.strip()]
         tells = [scrub_placeholders(t).strip()[: config.MAX_TELL_TEXT] for t in call.tells if t and t.strip()]
+        renames = lookalike_renames(call.claims, world)
+        if renames:
+            fix = lambda text: apply_renames(text, renames)  # noqa: E731
+            call = call.model_copy(update={
+                "claims": fix(call.claims), "pretext": fix(call.pretext), "opening_line": fix(call.opening_line),
+                "if_refused": fix(call.if_refused), "if_verified": fix(call.if_verified), "purpose": fix(call.purpose),
+            })
+            beats, tells = [fix(b) for b in beats], [fix(t) for t in tells]
         cleaned.append(
             call.model_copy(
                 update={
@@ -539,48 +601,68 @@ def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) ->
     used = [n for n in used if n.strip()]
     taken = {n.split()[0].lower() for n in used}
     directory = {e.name.split()[0].lower() for e in world.employees}
-    pool = [n for n in _PERSONA_POOL if n.lower() not in taken | directory]
+    own = [c.persona_name.split() for c in result.calls]
+    # A fresh name must not be one another call in this plan already uses, or the plan ends up with two of it.
+    planned = {p[0].lower() for p in own if p}
+    pool = [n for n in _PERSONA_POOL if n.lower() not in taken | directory | planned]
     # Two callers sharing a surname ("Gideon Marsh" right before "Owen Marsh") read as one family or one trick.
     surnames = {n.split()[-1].lower() for n in used if len(n.split()) > 1}
     surnames |= {e.name.split()[-1].lower() for e in world.employees}
-    surname_pool = [n for n in _SURNAME_POOL if n.lower() not in surnames]
-    renames: list[tuple[re.Pattern, str]] = []
+    planned_surnames = {p[-1].lower() for p in own if len(p) > 1}
+    surname_pool = [n for n in _SURNAME_POOL if n.lower() not in surnames | planned_surnames]
+    own_renames: list[dict[str, str]] = []
     personas: list[str] = []
-    for call in result.calls:
-        parts = call.persona_name.split()
+    seen: dict[str, tuple[str, dict[str, str]]] = {}
+    for call, parts in zip(result.calls, own):
+        if call.persona_name in seen:
+            # The same persona calling twice in one day is a deliberate follow-up ("me again"): it keeps one name.
+            persona, mine = seen[call.persona_name]
+            own_renames.append(mine)
+            personas.append(persona)
+            continue
+        parts = list(parts)
+        mine = {}
         first = parts[0] if parts else ""
         impersonating = bool(call.claimed_identity and employee_by_id(world, call.claimed_identity))
         clash = first.lower() in taken or (first.lower() in directory and not impersonating)
         if first and clash and pool:
-            new = pool.pop(0)
-            renames.append((re.compile(rf"\b{re.escape(first)}\b"), new))
-            parts = [new, *parts[1:]]
-            first = new
+            mine[first] = pool.pop(0)
+            parts = [mine[first], *parts[1:]]
+            first = parts[0]
         if len(parts) > 1 and parts[-1].lower() in surnames and surname_pool and not impersonating:
-            new = surname_pool.pop(0)
-            renames.append((re.compile(rf"\b{re.escape(parts[-1])}\b"), new))
-            parts = [*parts[:-1], new]
+            mine[parts[-1]] = surname_pool.pop(0)
+            parts = [*parts[:-1], mine[parts[-1]]]
         taken.add(first.lower())
         if len(parts) > 1:
             surnames.add(parts[-1].lower())
+        own_renames.append(mine)
         personas.append(" ".join(parts))
-    if not renames:
+        seen[call.persona_name] = (personas[-1], mine)
+    if not any(own_renames):
         return result
+    # Full names are swapped everywhere; a bare first name or surname only in the call that owns it (another call
+    # may keep the same first name) and in the shared notes when no other call still uses it.
+    full = {c.persona_name: p for c, p in zip(result.calls, personas) if c.persona_name != p and c.persona_name}
+    kept = {w for p in personas for w in p.split()}
+    shared = {old: new for mine in own_renames for old, new in mine.items() if old not in kept}
 
-    def swap(text: str) -> str:
-        for pattern, new in renames:
-            text = pattern.sub(new, text)
-        return text
+    def swapper(mapping: dict[str, str]):
+        mapping = {**mapping, **full}
+        if not mapping:
+            return lambda text: text
+        pattern = re.compile(r"\b(" + "|".join(re.escape(k) for k in sorted(mapping, key=len, reverse=True)) + r")\b")
+        return lambda text: pattern.sub(lambda m: mapping[m.group(1)], text)
 
-    calls = [
-        call.model_copy(update={
+    calls = []
+    for call, persona, mine in zip(result.calls, personas, own_renames):
+        swap = swapper({**shared, **mine})
+        calls.append(call.model_copy(update={
             "persona_name": persona,
             "claims": swap(call.claims), "pretext": swap(call.pretext), "opening_line": swap(call.opening_line),
             "beats": [swap(b) for b in call.beats], "tells": [swap(t) for t in call.tells],
             "if_refused": swap(call.if_refused), "if_verified": swap(call.if_verified), "purpose": swap(call.purpose),
-        })
-        for call, persona in zip(result.calls, personas)
-    ]
+        }))
+    swap = swapper(shared)
     return result.model_copy(update={"calls": calls, "arc": swap(result.arc), "notebook": swap(result.notebook)})
 
 
@@ -724,11 +806,40 @@ def legit_caller_id(world: World, claimed_identity: str | None, claims: str, rng
     return _fresh_number(_known_numbers(world) | set(avoid), rng)
 
 
+_DISMISSAL = re.compile(
+    r"\bstop (calling|ringing)\b|\b(don'?t|do not) (call|ring) (us |here )?(again|back)\b|\bgood-?bye\b|"
+    r"\bhanging up\b|\bi'?m going to hang up\b|\b(scam|scammer|con artist|phishing)\b|"
+    r"\b(already|just) (said|told you) no\b|\breporting (this|you)\b",
+    re.IGNORECASE,
+)
+
+
+def is_dismissal(text: str) -> bool:
+    """The receptionist has shut the call down: said goodbye, accused the caller, or told them to stop calling."""
+    return bool(_DISMISSAL.search(text))
+
+
+def callback_number(call, world: World) -> str:
+    """The number a caller gives when asked how to reach them. Left to the model, callers invent 555-01xx numbers
+    that turn out to be a colleague's mobile or another caller's line, which reads as a clue that is not one."""
+    emp = employee_by_id(world, call.claimed_identity) if call.claimed_identity else None
+    if emp and not call.is_con:
+        return f"{emp.mobile} (your mobile) or extension {emp.ext}"
+    number = re.search(r"555-\d{4}", call.caller_id)
+    official = {v.official_number for v in world.vendors} | {e.mobile for e in world.employees}
+    if number and not (call.is_con and number.group() in official):
+        return number.group()
+    # A con showing a spoofed or internal number cannot be reached there; it gives a mobile of its own.
+    return _fresh_number(_known_numbers(world), random.Random(f"callback:{call.id}:{call.caller_id}"))
+
+
 def _legit_from_draft(
     d: LegitDraft, *, day: int, slot: int, world: World, taken: set[str], pool: list[str],
     rng: random.Random, avoid: set[str],
 ) -> LegitCall | None:
     fields = {f: getattr(d, f).strip() for f in _LEGIT_TEXT_FIELDS}
+    renames = lookalike_renames(fields["claims"], world)
+    fields = {f: apply_renames(v, renames) for f, v in fields.items()}
     required = ("caller_name", "claims", "personality", "goal", "knows", "success", "opening_line")
     if not all(fields[f] and len(fields[f]) <= _MAX_TEXT and not has_placeholder(fields[f]) for f in required):
         return None

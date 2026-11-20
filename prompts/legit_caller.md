@@ -7,6 +7,7 @@ YOUR CHARACTER
 - Your goal: $goal
 - What you know: $knows
 - Details about yourself: $identity
+- Your callback number: $own_number (if asked how to reach you, give exactly this; never make up another number)
 - Something you naturally ask about (it is fine if the receptionist declines): $temptation
 - You are satisfied when: $success
 

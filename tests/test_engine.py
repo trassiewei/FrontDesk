@@ -738,3 +738,24 @@ def test_a_con_slot_still_empty_goes_to_one_more_genuine_caller(fake):
     assert state.con_slots[1] == [1]
     names = [c.caller_name for c in state.queue]
     assert len(set(names)) == 5
+
+
+def test_one_persona_calling_twice_rings_from_the_same_number(fake):
+    state = new(fake, plan(con(), con()))
+    first, second = [c for c in state.queue if c.is_con]
+    assert first.caller_name == second.caller_name and first.caller_id == second.caller_id
+
+
+def test_a_con_told_to_stop_calling_leaves_even_if_the_model_keeps_asking(fake):
+    state = new(fake, plan(con()))
+    skip_legit(state)
+    engine.next_call(state)
+    out = say(fake, state, "I already said no. Please stop calling.",
+              caller={"say": "Sure. What's the best extension for the certificate?", "private_thought": "x"})
+    assert out["call_ended"] and out["caller_reply"] == config.DISMISSED_LINE
+    assert "shut this call down" in fake.calls_for("caller")[-1]["messages"][0]["content"]
+
+
+def test_dismissal_wording():
+    assert rules.is_dismissal("Goodbye.") and rules.is_dismissal("This sounds like a scam")
+    assert not rules.is_dismissal("Can I take a message?") and not rules.is_dismissal("I'll call Bob back")

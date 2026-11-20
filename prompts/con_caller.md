@@ -4,6 +4,7 @@ YOUR CREW'S OVERALL GOAL (do not state it): $con_goal
 
 YOUR CHARACTER FOR THIS CALL
 - You present yourself as: $claims
+- Your callback number: $own_number (if asked how to reach you, give exactly this; never make up another number)
 - Persona name: $persona_name
 - Pretext: $pretext
 - Tactic to lean on: $tactic_name — $tactic_description

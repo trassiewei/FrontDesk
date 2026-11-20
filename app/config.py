@@ -57,6 +57,7 @@ COLD_SERVICE_BELOW = 50  # a 'survived' ending below this Service score gets the
 LLM_LEAK_MIN_CONFIDENCE = 0.5
 IMPATIENT_PATIENCE = 3
 PATIENCE_EXHAUSTED_LINE = "Forget it, I'll try another way."
+DISMISSED_LINE = "Right, understood. Sorry to have bothered you."
 
 
 @dataclass(frozen=True)

@@ -216,12 +216,15 @@ def _build_queue(state: GameState, plan: PlannerResult, legit_calls: list[LegitC
         else:
             p = item.plan
             assert p is not None
+            same = next((c for c in calls if c.is_con and c.caller_name == p.persona_name), None)
             calls.append(
                 CallRecord(
                     id=call_id, day=state.day, slot=item.slot, time=item.time, is_con=True, plan=p,
                     caller_name=p.persona_name, claims=p.claims,
-                    caller_id=rules.generate_caller_id(world, p.claimed_identity, _rng(state, "caller_id", call_id),
-                                                   p.claims, diff.spoof_chance, legit_numbers),
+                    # The same persona calling back later today rings from the same phone.
+                    caller_id=same.caller_id if same else rules.generate_caller_id(
+                        world, p.claimed_identity, _rng(state, "caller_id", call_id), p.claims, diff.spoof_chance,
+                        legit_numbers),
                     claimed_identity=p.claimed_identity, patience=diff.con_patience,
                 )
             )
@@ -341,10 +344,17 @@ def say(state: GameState, text: str) -> dict:
 
     # The caller does not depend on the extractor, so run them side by side.
     with ThreadPoolExecutor(max_workers=2) as pool:
-        caller_future = pool.submit(caller.take_turn, state, call, world)
+        dismissed = call.is_con and rules.is_dismissal(text)
+        note = ("The receptionist has just shut this call down. Ask for nothing more: say one short, polite closing "
+                "line and end the call (end_call = true, outcome = \"gave_up\").") if dismissed else ""
+        caller_future = pool.submit(caller.take_turn, state, call, world, note)
         extractor_future = pool.submit(extractor.extract, state.game_id, world, previous_caller_line, text)
         turn = caller_future.result()
         extracted = extractor_future.result()
+    if dismissed and not turn.end_call:
+        # A con told to stop calling that keeps asking reads as a broken bot, not a careful crew: it leaves here.
+        line = turn.say if "?" not in turn.say else config.DISMISSED_LINE
+        turn = turn.model_copy(update={"say": line, "end_call": True, "outcome": "gave_up"})
 
     _apply_leaks(state, call, player_msg, extracted, world, caller_said)
     call.player_turns += 1
