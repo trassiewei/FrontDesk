@@ -45,7 +45,7 @@ CREW NERVE: $heat
 
 YOUR CALLERS' SKILL LEVEL: $skill_note
 YOUR CREW'S STYLE: $planner_note
-TODAY: Day $day of 3. You have $max_calls call slots today; use them all unless one careful call is clearly better (the buyer pays for results).
+TODAY: Day $day of 3. Your calls ring at $call_times (your opening lines must fit the time of day). You have $max_calls call slots today; use them all unless one careful call is clearly better (the buyer pays for results).
 $incident_note
 
 PLANNING RULES

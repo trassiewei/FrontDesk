@@ -230,7 +230,7 @@ EXPECTED_VARS = {
     "planner": {"premise", "con_goal", "gate_facts", "doors", "offstage_rule", "incident_note", "credibility",
                 "it_alert", "public_info", "unknown_facts", "intel", "tactics", "history", "burned", "last_notebook",
                 "skill_note", "planner_note", "day", "max_calls", "crew", "motive", "gambit_name", "gambit_summary",
-                "gambit_tactics", "campaign", "profile", "heat", "method_rule"},
+                "gambit_tactics", "campaign", "profile", "heat", "method_rule", "call_times"},
     "director": {"company", "employees", "facts", "threshold", "angle", "incident_rule", "example", "gambit_name",
                  "gambit_summary"},
     "legit_cast": {"kinds", "company", "employees", "vendors", "day", "day_name", "day_note", "incident", "history",

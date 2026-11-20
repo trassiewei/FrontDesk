@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from app import config, engine, llm, summary
+from app import config, engine, llm, rules, summary
 from app.engine import EngineError
 
 SECRET_THOUGHT = "PRIVATE-THOUGHT-XYZ"
@@ -705,3 +705,18 @@ def test_telling_a_real_colleague_an_internal_detail_is_not_oversharing(fake):
     call.claimed_identity = None
     say(fake, state, "Dave is the IT lead.", leak("it_lead_name"))
     assert state.overshares
+
+
+@pytest.mark.shuffled_slots
+def test_con_calls_move_to_different_times_each_day():
+    import random as _random
+    seen = {tuple(rules.pick_con_slots(_random.Random(i))) for i in range(40)}
+    assert len(seen) > 5 and all(len(s) == 2 and s[0] < s[1] for s in seen)
+
+
+@pytest.mark.shuffled_slots
+def test_the_day_fills_every_slot_with_shuffled_cons(fake):
+    state = new(fake, plan(con(), con()))
+    kinds = [(c.slot, c.is_con) for c in state.queue]
+    assert [s for s, _ in kinds] == [0, 1, 2, 3, 4]
+    assert [s for s, is_con in kinds if is_con] == state.con_slots[1]

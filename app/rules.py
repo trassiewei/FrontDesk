@@ -427,14 +427,25 @@ class QueueItem:
     plan: PlannedCall | None = None
 
 
-def build_queue(day: int, legit_calls: Iterable[LegitCall], plans: Iterable[PlannedCall]) -> list[QueueItem]:
-    """Legit calls fill slots 0/2/4 from data; planned con calls fill slots 1/3 in order (extras are dropped)."""
+def pick_con_slots(rng: random.Random) -> list[int]:
+    """Which of the day's call times the con takes. Changes every day, so the clock never gives a caller away."""
+    return sorted(rng.sample(range(len(config.SLOT_TIMES)), len(config.CON_SLOTS)))
+
+
+def legit_slots(con_slots: Iterable[int]) -> list[int]:
+    taken = set(con_slots)
+    return [s for s in range(len(config.SLOT_TIMES)) if s not in taken]
+
+
+def build_queue(day: int, legit_calls: Iterable[LegitCall], plans: Iterable[PlannedCall],
+                con_slots: Iterable[int] = config.CON_SLOTS) -> list[QueueItem]:
+    """Legit calls keep their slots; planned con calls fill the con slots in order (extras are dropped)."""
     items = [
         QueueItem(c.slot, config.SLOT_TIMES[c.slot], "legit", legit=c)
         for c in legit_calls
         if c.day == day
     ]
-    for slot, plan in zip(config.CON_SLOTS, plans):
+    for slot, plan in zip(con_slots, plans):
         items.append(QueueItem(slot, config.SLOT_TIMES[slot], "con", plan=plan))
     return sorted(items, key=lambda i: i.slot)
 
@@ -756,7 +767,7 @@ def _legit_from_draft(
 
 def clean_legit_calls(
     result: LegitCastResult, *, day: int, world: World, fallbacks: Iterable[LegitCall], taken: Iterable[str],
-    rng: random.Random, avoid: Iterable[str] = (),
+    rng: random.Random, avoid: Iterable[str] = (), slots: Iterable[int] = config.LEGIT_SLOTS,
 ) -> list[LegitCall]:
     """The day's genuine calls, one per legit slot. A draft that fails validation is replaced by the fixed call
     for that slot, so a bad model answer can never leave a hole in the day or break the rules."""
@@ -767,13 +778,14 @@ def clean_legit_calls(
     pool = [n for n in _CALLER_POOL if n.lower() not in used | directory | persona]
     avoid_set = set(avoid)
     calls: list[LegitCall] = []
-    for i, slot in enumerate(config.LEGIT_SLOTS):
+    fallbacks.sort(key=lambda c: c.slot)
+    for i, slot in enumerate(slots):
         call = None
         if i < len(result.calls):
             call = _legit_from_draft(result.calls[i], day=day, slot=slot, world=world, taken=used, pool=pool,
                                      rng=rng, avoid=avoid_set)
-        if call is None:
-            call = next((c for c in fallbacks if c.slot == slot), None)
+        if call is None and i < len(fallbacks):
+            call = fallbacks[i].model_copy(update={"slot": slot})
         if call is not None:
             avoid_set.update(re.findall(r"555-\d{4}", call.caller_id))
             calls.append(call)
@@ -926,6 +938,9 @@ def method_rule(spotted: bool, stalled: bool, current: Gambit | None, options: l
     if stalled and options:
         return (f"Yesterday got you nothing. Keep {keep} only if you can see why it will work today; otherwise switch to "
                 f"one of these (set \"method\" to its id):\n{menu}")
+    if options:
+        return (f"Keep {keep} unless what you know about the receptionist gives you a clear reason to change. If you "
+                f"change how you work, say so honestly: set \"method\" to one of these ids:\n{menu}")
     return f'Keep your method today: set "method" to {keep}.'
 
 

@@ -52,6 +52,7 @@ def _incident_text(state: GameState, day: int) -> str:
 def cast_day(state: GameState, world: World, day: int) -> list[LegitCall]:
     """The three genuine calls for `day`. Never raises: any LLM or validation problem falls back to the fixed calls."""
     diff = config.get_difficulty(state.difficulty)
+    slots = rules.legit_slots(state.con_slots.get(day, config.CON_SLOTS))
     rng = random.Random(f"{state.seed}:cast:{day}") if state.seed is not None else random.Random()
     system = llm.render_prompt(
         "legit_cast",
@@ -64,7 +65,7 @@ def cast_day(state: GameState, world: World, day: int) -> list[LegitCall]:
         day_note=DAY_NOTES.get(day, ""),
         incident=_incident_text(state, day),
         history=_history_text(state),
-        slot_times=", ".join(config.SLOT_TIMES[s] for s in config.LEGIT_SLOTS),
+        slot_times=", ".join(config.SLOT_TIMES[s] for s in slots),
         style=diff.cast_note,
     )
     try:
@@ -76,6 +77,6 @@ def cast_day(state: GameState, world: World, day: int) -> list[LegitCall]:
         draft,  # type: ignore[arg-type]
         day=day, world=world, fallbacks=[c for c in load_legit_calls() if c.day == day],
         taken=[c.caller_name for c in state.calls], rng=rng,
-        avoid=[c.caller_id for c in state.calls],
+        avoid=[c.caller_id for c in state.calls], slots=slots,
     )
     return calls

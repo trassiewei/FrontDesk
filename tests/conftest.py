@@ -44,6 +44,14 @@ class _NoNetworkClient:
 
 
 @pytest.fixture(autouse=True)
+def _classic_slots(request, monkeypatch):
+    """Most tests script the day as legit, con, legit, con, legit; the slot shuffle has its own tests."""
+    if not request.node.get_closest_marker("shuffled_slots"):
+        from app import rules as _rules
+        monkeypatch.setattr(_rules, "pick_con_slots", lambda rng: list(config.CON_SLOTS))
+
+
+@pytest.fixture(autouse=True)
 def _isolated(request, monkeypatch, tmp_path):
     if request.node.get_closest_marker("llm"):
         # Real-LLM tests use the settings from .env and a real client.

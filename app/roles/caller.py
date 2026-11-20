@@ -70,8 +70,8 @@ def script_text(state: GameState, call: CallRecord) -> str:
     if plan.if_refused:
         lines.append(f"If the receptionist refuses or hedges: {plan.if_refused}")
     if call.player_turns:
-        lines.append("If the receptionist has just pointed out something in your story that does not add up, or "
-                     "contradicted something you claimed, the script is over: do not ask for anything else, smooth it "
+        lines.append("If the receptionist has just pointed out something in your story that does not add up, "
+                     "contradicted something you claimed, accused you, or told you to stop calling, the script is over: do not ask for anything else, smooth it "
                      "over in a few words and end the call (end_call = true, outcome = \"gave_up\").")
     if plan.if_verified:
         lines.append(f"If the receptionist offers to verify you or calls someone back: {plan.if_verified} (the Verification rule below overrides this if they clash)")

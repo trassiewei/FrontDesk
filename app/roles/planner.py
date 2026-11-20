@@ -134,6 +134,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         planner_note=diff.planner_note,
         day=day,
         max_calls=len(config.CON_SLOTS),
+        call_times=" and ".join(config.SLOT_TIMES[s] for s in state.con_slots.get(day, config.CON_SLOTS)),
     )
     try:
         result = llm.complete_json("planner", system, llm.USER_TURN, PlannerResult, state.game_id)

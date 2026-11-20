@@ -158,6 +158,7 @@ def _enter_day(state: GameState, day: int) -> None:
     learned = _recon(state, world, day)
     state.day = day
     state.heat_log[day] = state.exposures
+    state.con_slots[day] = rules.pick_con_slots(_rng(state, "slots", day))
     _add_notices(state, day)
     # The crew's plan and the day's genuine callers are independent, so they are written at the same time.
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -195,7 +196,7 @@ def _build_queue(state: GameState, plan: PlannerResult, legit_calls: list[LegitC
     diff = _diff(state)
     calls: list[CallRecord] = []
     legit_numbers = [c.caller_id for c in legit_calls] + [c.caller_id for c in state.calls if not c.is_con]
-    for item in rules.build_queue(state.day, legit_calls, plan.calls):
+    for item in rules.build_queue(state.day, legit_calls, plan.calls, state.con_slots.get(state.day, config.CON_SLOTS)):
         call_id = f"D{state.day}S{item.slot}"
         if item.legit is not None:
             data = item.legit
