@@ -21,6 +21,7 @@ THIS GAME
 - The kind of job it suits: $angle
 - $incident_rule
 - Make the plot fit the company: use real names and facts from the lists above, never invent new employees or systems.
+- The crew starts the week knowing only public facts. In premise, con_goal, crew, motive and phases, never write the value of an internal or confidential fact (who covers for the CFO, the IT lead's name, the ERP's name, extensions, dates): describe it by role instead ("whoever is covering for the CFO", "the company's finance system"). The cutscenes and the incident may use real names.
 - Make the crew a character, not a faceless villain: give them a codename and a personality (crew), and a reason they are doing this NOW (motive: who pays them, what for, and a deadline that falls within the week). The deadline explains why they keep trying even after being brushed off.
 - phases: exactly three short strings, one per day, in order. Each says what the crew wants to have achieved by the end of that day, so that the three days add up to the method above (day 1 gentle and harmless, day 2 builds on it, day 3 strikes). Never list a goal on day 1 that needs facts they could not have yet.
 

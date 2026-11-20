@@ -233,7 +233,7 @@ EXPECTED_VARS = {
                 "gambit_tactics", "campaign", "profile", "heat", "method_rule"},
     "director": {"company", "employees", "facts", "threshold", "angle", "incident_rule", "example", "gambit_name",
                  "gambit_summary"},
-    "legit_cast": {"company", "employees", "vendors", "day", "day_name", "day_note", "incident", "history",
+    "legit_cast": {"kinds", "company", "employees", "vendors", "day", "day_name", "day_note", "incident", "history",
                    "slot_times", "style"},
     "reporter": {"player_name", "outcome", "security", "security_label", "service", "service_label",
                  "title_badge", "stats", "call_log", "intel_timeline", "overshares", "notebooks", "scenario",

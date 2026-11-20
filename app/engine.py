@@ -238,6 +238,8 @@ def next_call(state: GameState) -> CallRecord:
     world = load_world()
     call = state.queue.pop(0)
     opening = call.plan.opening_line if call.is_con and call.plan else call.legit.opening_line  # type: ignore[union-attr]
+    if call.is_con and any(c.is_con and c.day == call.day and not c.gained_facts for c in state.calls):
+        opening = caller.adapt_opening(state, call, world)
     call.status = "active"
     call.messages.append(Message(speaker="caller", text=opening, time=call.time))
     if call.claimed_identity:

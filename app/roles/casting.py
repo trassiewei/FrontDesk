@@ -19,6 +19,20 @@ DAY_NOTES = {
 }
 
 
+OUTSIDER_KINDS = [
+    "a customer chasing a late order", "a supplier with a billing question", "a delivery driver who cannot find the dock",
+    "a job applicant", "a local journalist", "a neighbour from the next building", "a building maintenance contractor",
+    "a former employee who needs a reference letter", "a recruiter", "someone who dialled the wrong company",
+    "an insurance broker with a routine renewal", "a local charity asking about a sponsorship",
+    "a student asking about a site visit", "a customer with a damaged shipment", "a landlord's property manager",
+    "a trade-show organiser", "a parking enforcement officer about a van", "a bank's business team with a routine query",
+]
+
+
+def _kinds_text(rng: random.Random) -> str:
+    return "; ".join(rng.sample(OUTSIDER_KINDS, 5))
+
+
 def _vendors_text(world: World) -> str:
     return "\n".join(f"{v.id} | {v.name} | {v.role} | {v.official_number}" for v in world.vendors)
 
@@ -38,8 +52,10 @@ def _incident_text(state: GameState, day: int) -> str:
 def cast_day(state: GameState, world: World, day: int) -> list[LegitCall]:
     """The three genuine calls for `day`. Never raises: any LLM or validation problem falls back to the fixed calls."""
     diff = config.get_difficulty(state.difficulty)
+    rng = random.Random(f"{state.seed}:cast:{day}") if state.seed is not None else random.Random()
     system = llm.render_prompt(
         "legit_cast",
+        kinds=_kinds_text(rng),
         company=public_info_text(world),
         employees=_employees_text(world),
         vendors=_vendors_text(world),
@@ -56,7 +72,6 @@ def cast_day(state: GameState, world: World, day: int) -> list[LegitCall]:
     except llm.LLMError as exc:
         log.warning("Casting LLM failed, using the fixed genuine calls: %s", exc)
         draft = LegitCastResult()
-    rng = random.Random(f"{state.seed}:cast:{day}") if state.seed is not None else random.Random()
     calls = rules.clean_legit_calls(
         draft,  # type: ignore[arg-type]
         day=day, world=world, fallbacks=[c for c in load_legit_calls() if c.day == day],

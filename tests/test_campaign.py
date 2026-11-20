@@ -278,3 +278,18 @@ def test_the_crew_notices_a_question_she_keeps_refusing(make_call):
                     opening_line="hi")
     calls = [make_call(id=f"c{i}", is_con=True, plan=p, status="ended", end_reason="hung_up") for i in range(2)]
     assert "cfo_backup_name on two or more calls" in rules.receptionist_profile(calls)
+
+
+def test_the_crew_never_sees_facts_it_has_not_learned():
+    from app import rules
+    from app.world import load_world
+
+    world = load_world()
+    text = "Get relayed to Bob Baker, the acting CFO, about a Starboard vendor issue."
+    hidden = rules.mask_unknown(text, world.facts, [])
+    assert "Bob" not in hidden and "Baker" not in hidden and "Starboard" not in hidden
+    assert "who is covering for the CFO" in hidden
+    shown = rules.mask_unknown(text, world.facts, ["cfo_backup_name", "erp_name"])
+    assert shown == text
+    assert rules.name_is_secret("Bob Baker", world.facts, []).id == "cfo_backup_name"
+    assert rules.name_is_secret("Bob Baker", world.facts, ["cfo_backup_name"]) is None

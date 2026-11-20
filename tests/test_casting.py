@@ -222,3 +222,20 @@ def test_a_renamed_persona_is_renamed_in_the_other_calls_of_the_day_too():
 def test_genuine_call_cards_also_read_name_then_role():
     call = clean([draft(claims="Office manager at Brightline Office Supply")])[0]
     assert call.claims == "Mia Park, office manager at Brightline Office Supply"
+
+
+def test_an_unlisted_colleague_is_not_cast():
+    world = load_world()
+    result = LegitCastResult.model_validate(cast(draft(caller_name="Linda Okafor", claims="Linda Okafor, HR at Trassiewei")))
+    calls = rules.clean_legit_calls(result, day=1, world=world, fallbacks=[c for c in load_legit_calls() if c.day == 1],
+                                    taken=[], rng=random.Random(1))
+    assert calls[0].caller_name != "Linda Okafor"
+
+
+def test_a_vendor_desk_vouches_for_its_colleague():
+    from app.models import CallRecord
+    world = load_world()
+    call = CallRecord(id="x", day=1, slot=0, time="09:10", is_con=False, caller_name="Derek Voss",
+                      claims="Derek Voss, NetCore", caller_id="555-0740", claimed_identity="V03", patience=7)
+    result = rules.callback(call, "V03", world)
+    assert result.kind == "confirmed" and "Derek is one of ours" in result.text

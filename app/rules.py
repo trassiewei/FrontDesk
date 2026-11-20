@@ -40,6 +40,7 @@ VOICEMAIL_TEMPLATE = (
 )
 CALLBACK_EXPOSED = "{speaker}: 'No, I didn't call — and I didn't send anyone. Who is this?'"
 CALLBACK_SELF = "{speaker}: 'Yes, that was me calling. Put me back through.'"
+CALLBACK_VENDOR_SELF = "{speaker}: 'Yes, {caller} is one of ours and did call you. Go ahead.'"
 CALLBACK_LEGIT = "{speaker}: 'Yes, that's legit.'"
 CALLBACK_UNKNOWN = "{speaker}: 'Sorry, I don't know anything about that call.'"
 CALLBACK_NUMBER = "You dialled {number}. A voice answers: 'Yes, that's right — {name} is here with us.'"
@@ -236,6 +237,9 @@ def callback(
         return CallbackResult(CALLBACK_UNKNOWN.format(speaker=speaker), "unknown")
 
     if target_id == call.claimed_identity:
+        if emp is None:  # a vendor's service desk vouches for its colleague
+            return CallbackResult(CALLBACK_VENDOR_SELF.format(speaker=speaker, caller=call.caller_name.split()[0]),
+                                  "confirmed")
         return CallbackResult(CALLBACK_SELF.format(speaker=speaker), "confirmed")
     if target_id in references:
         return CallbackResult(CALLBACK_LEGIT.format(speaker=speaker), "confirmed")
@@ -706,6 +710,8 @@ def _legit_from_draft(
     if ident is None:
         # Naming a listed vendor in the introduction means that vendor, so a directory check works as it should.
         ident = next((i for i in scan_references(fields["claims"], world) if vendor_by_id(world, i)), None)
+    if not emp and re.search(re.escape(world.company.name.split()[0]), fields["claims"] + " " + fields["caller_name"], re.I):
+        return None  # an outsider "from HR at Trassiewei" is a colleague the directory has never heard of
     if emp:
         # A staff caller must really be that colleague, and someone who can plausibly phone in.
         if not emp.available or emp.name.split()[0].lower() not in (fields["caller_name"] + " " + fields["claims"]).lower():
@@ -793,6 +799,35 @@ def generate_caller_id(
     if vendor:
         return f"{number} ({vendor.name})"
     return number
+
+
+# ------------------------------------------------------------------ what the crew may know
+
+
+def _unknown_secret(fact: Fact, known: set[str]) -> bool:
+    return fact.tier != "public" and fact.id not in known and bool(fact.patterns)
+
+
+def mask_unknown(text: str, facts: Iterable[Fact], known: Iterable[str]) -> str:
+    """Hide the values of facts the crew has not learned yet. The director writes the scenario knowing everything,
+    so its premise can name "Bob Baker" or "Starboard"; the crew must not see what nobody has told it."""
+    known_set = set(known)
+    for fact in facts:
+        if not _unknown_secret(fact, known_set):
+            continue
+        mask = f"({fact.description[0].lower()}{fact.description[1:]}, not known to you yet)"
+        text = _term_regex(fact.value).sub(mask, text) if fact.value and fact.value[0].isalnum() else text
+        for term in fact.patterns:
+            text = _term_regex(term).sub(mask, text)
+        text = text.replace(f"{mask} {mask}", mask)
+    return text
+
+
+def name_is_secret(name: str, facts: Iterable[Fact], known: Iterable[str]) -> Fact | None:
+    """The unlearned fact whose value is this person's name (e.g. who covers for the CFO), if any."""
+    known_set = set(known)
+    return next((f for f in facts if _unknown_secret(f, known_set) and any(
+        _term_regex(t).search(name) for t in f.patterns)), None)
 
 
 # ------------------------------------------------------------------ what the crew knows about the receptionist

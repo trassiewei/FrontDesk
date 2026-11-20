@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import random
 
 from .. import config, llm, rules
 from ..models import GameState, PlannedCall, PlannerResult, World
@@ -55,7 +56,10 @@ def _doors_text(state: GameState, world: World) -> str:
     for door in scenario_of(state).doors:
         emp = employee_by_id(world, door.employee_id)
         if emp:
-            lines.append(f"  - {emp.name} ({door.employee_id}, {emp.title}): credibility >= {threshold + door.bonus}")
+            secret = rules.name_is_secret(emp.name, world.facts, state.intel)
+            who = (f"{secret.description.lower()} ({door.employee_id}; you do not know the name yet)" if secret
+                   else f"{emp.name} ({door.employee_id}, {emp.title})")
+            lines.append(f"  - {who}: credibility >= {threshold + door.bonus}")
     return "\n".join(lines)
 
 
@@ -77,6 +81,11 @@ def campaign_text(state: GameState, day: int) -> str:
     return "\n".join(f"  Day {i}{' (TODAY)' if i == day else ''}: {text}" for i, text in enumerate(phases, 1))
 
 
+def crew_view(state: GameState, world: World, text: str) -> str:
+    """Scenario text as the crew may see it: values it has not learned yet are hidden."""
+    return rules.mask_unknown(text, world.facts, state.intel)
+
+
 def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     """Cleaned plan for `day`, based on everything learned so far. Falls back to a fixed call on failure."""
     diff = config.get_difficulty(state.difficulty)
@@ -89,21 +98,23 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     spotted = day > 1 and state.exposures > state.heat_log.get(day - 1, 0)
     stalled = bool(yesterday) and not any(c.gained_facts for c in yesterday)
     options = rules.method_options(load_gambits(), current, state.methods.values(), scenario, day)
+    # The model tends to take the first option listed, so the order changes from game to game.
+    (random.Random(f"{state.seed}:methods:{day}") if state.seed is not None else random.Random()).shuffle(options)
     must_switch = spotted and bool(options)
     fitting = [t for t in tactics if gambit and t.id in gambit.tactics]
     system = llm.render_prompt(
         "planner",
-        crew=scenario.crew or "a small, professional fraud crew",
-        motive=scenario.motive or "a client is paying them for a result by the end of the week",
+        crew=crew_view(state, world, scenario.crew or "a small, professional fraud crew"),
+        motive=crew_view(state, world, scenario.motive or "a client is paying them for a result by the end of the week"),
         gambit_name=gambit.name if gambit else "Your own method",
         gambit_summary=gambit.summary if gambit else "Choose the approach that fits the job.",
         gambit_tactics=", ".join(f"{t.id} ({t.name})" for t in fitting) or "any",
-        campaign=campaign_text(state, day),
+        campaign=crew_view(state, world, campaign_text(state, day)),
         profile=rules.receptionist_profile(state.calls),
         heat=rules.crew_heat(state.exposures, diff.rattled_after),
         method_rule=rules.method_rule(spotted, stalled, gambit, options),
-        premise=scenario.premise,
-        con_goal=scenario.con_goal,
+        premise=crew_view(state, world, scenario.premise),
+        con_goal=crew_view(state, world, scenario.con_goal),
         gate_facts=", ".join(
             f"{g} ({fact.description})" for g in scenario.gate_facts if (fact := fact_by_id(world, g))
         ),

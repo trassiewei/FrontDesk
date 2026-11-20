@@ -29,7 +29,9 @@ def closing_note(state: GameState, call: CallRecord, world: World) -> str:
     door = employee_by_id(world, scenario.doors[0].employee_id) if scenario.doors else None
     if door is None:
         return "Do not ask to be transferred anywhere."
-    who = f"{door.name} ({door.title})"
+    secret = rules.name_is_secret(door.name, world.facts, state.intel)
+    who = secret.description.lower() if secret else f"{door.name} ({door.title})"
+    door_name = "that person" if secret else door.name
     if diff.closing == "early":
         return (
             f"Your plan: you are impatient. In your first two lines ask to be put straight through to {who}, "
@@ -40,6 +42,7 @@ def closing_note(state: GameState, call: CallRecord, world: World) -> str:
         return (
             f"Your plan: you now know enough to be believed. Steer the call toward asking to be put through to {who}, "
             "with a reason that fits your pretext and what your crew is after. "
+            f"If the receptionist offers to put you through to {door_name}, accept at once. "
             "If the receptionist transfers you, say thanks and finish (end_call = true, outcome = \"got_what_i_needed\"). "
             "If the receptionist says no, do not push: ask for something smaller or wrap up."
         )
@@ -62,9 +65,14 @@ def script_text(state: GameState, call: CallRecord) -> str:
         lines += [f"  {i}. {beat}" for i, beat in enumerate(plan.beats, 1)]
         current = min(call.player_turns, len(plan.beats) - 1)
         lines.append(f"RIGHT NOW: beat {current + 1}. Do it in your own words, adapting to what the receptionist just said; "
-                     "do not skip ahead and do not invent new goals.")
+                     "do not skip ahead and do not invent new goals. If the receptionist has already told you what a "
+                     "beat asks for, never ask it again (that sounds odd): move on to the next beat or wrap up.")
     if plan.if_refused:
         lines.append(f"If the receptionist refuses or hedges: {plan.if_refused}")
+    if call.player_turns:
+        lines.append("If the receptionist has just pointed out something in your story that does not add up, or "
+                     "contradicted something you claimed, the script is over: do not ask for anything else, smooth it "
+                     "over in a few words and end the call (end_call = true, outcome = \"gave_up\").")
     if plan.if_verified:
         lines.append(f"If the receptionist offers to verify you or calls someone back: {plan.if_verified} (the Verification rule below overrides this if they clash)")
     return "\n".join(lines) or "No written script: improvise from your pretext."
@@ -136,7 +144,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         gambit_name=gambit.name if gambit else "a patient pretext",
         purpose=plan.purpose or "get the facts listed below without raising suspicion",
         claims=call.claims,
-        con_goal=scenario_of(state).con_goal,
+        con_goal=rules.mask_unknown(scenario_of(state).con_goal, world.facts, state.intel),
         situation=situation_text(state, insider=True),
         persona_name=plan.persona_name,
         pretext=plan.pretext,
@@ -176,6 +184,20 @@ def _legit_prompt(state: GameState, call: CallRecord, world: World, system_note:
         system_note=system_note,
         transcript=transcript_text(call),
     )
+
+
+def adapt_opening(state: GameState, call: CallRecord, world: World) -> str:
+    """The planned opening line was written last night. If an earlier call today got nothing, the line must not
+    pretend otherwise ("my colleague took your survey answers"), so the caller says it fresh."""
+    plan = call.plan
+    assert plan is not None
+    note = (f"The call is just starting; you have not spoken yet. Your planned opening line was: \"{plan.opening_line}\" "
+            "Say your opening line now. Keep it if it fits, but if it assumes one of your crew's earlier calls today "
+            "went better than it really did (see above), change it so it does not.")
+    turn = take_turn(state, call, world, note)
+    if turn.say == FALLBACK_LINE or turn.end_call or not turn.say.strip():
+        return plan.opening_line
+    return turn.say
 
 
 def take_turn(state: GameState, call: CallRecord, world: World, system_note: str = "") -> CallerTurn:
