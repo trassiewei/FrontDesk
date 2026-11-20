@@ -301,6 +301,7 @@ class CallRecord(BaseModel):
     number_checked: bool = False  # the player dialled the number the caller gave (a con's accomplice vouches)
     gained_facts: list[str] = Field(default_factory=list)
     slip_shown: bool = False  # a con made its scripted slip during the call
+    challenged: bool = False  # the receptionist caught the con out earlier in this call
     goal_met: bool = False  # a genuine caller already had what it needed (hanging up then is not a failure)
 
 
@@ -331,6 +332,7 @@ class GameState(BaseModel):
 
     security: int = 100
     service_penalty: int = 0
+    service_hits: dict[int, dict[str, int]] = Field(default_factory=dict)  # day -> reason -> points lost
     handled_legit: int = 0
     satisfied_legit: int = 0
     exposures: int = 0

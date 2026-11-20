@@ -276,7 +276,7 @@ def _finish(
         if satisfied:
             state.satisfied_legit += 1
         if angry:
-            state.service_penalty += config.SERVICE_ANGRY_HANGUP_PENALTY
+            _service_hit(state, "angry", config.SERVICE_ANGRY_HANGUP_PENALTY)
     state.active_call_id = None
     state.last_call_id = call.id
     state.phase = "BETWEEN_CALLS"
@@ -349,6 +349,14 @@ def say(state: GameState, text: str) -> dict:
         dismissed = call.is_con and rules.is_dismissal(text)
         note = ("The receptionist has just shut this call down. Ask for nothing more: say one short, polite closing "
                 "line and end the call (end_call = true, outcome = \"gave_up\").") if dismissed else ""
+        if call.is_con and not dismissed and rules.is_challenge(text):
+            call.challenged = True
+            note = ("The receptionist has just caught something in your story that does not fit. Do not ask your "
+                    "target question again on this call: answer the point briefly and plausibly, then steer toward "
+                    "a polite close.")
+        elif call.is_con and not dismissed and call.challenged:
+            note = ("Earlier in this call the receptionist caught you out. Do not ask for any of your targets again, "
+                    "not even reworded: close politely now (end_call = true, outcome = \"gave_up\").")
         caller_future = pool.submit(caller.take_turn, state, call, world, note)
         extractor_future = pool.submit(extractor.extract, state.game_id, world, previous_caller_line, text)
         turn = caller_future.result()
@@ -438,7 +446,7 @@ def callback(state: GameState, target_id: str) -> dict:
     call.messages.append(Message(speaker="system", text=result.text, time=call.time))
     call.patience -= effects(state).callback_cost
     if not call.is_con:
-        state.service_penalty += config.CALLBACK_ANNOY_SERVICE  # being put on hold and checked annoys a real caller
+        _service_hit(state, "hold", config.CALLBACK_ANNOY_SERVICE)  # being put on hold and checked annoys a real caller
 
     out = {"callback_result": result.text, "caller_reply": None, "call_ended": False, "end_reason": None,
            "game_over": False, "cutscene": None, "debug": {}}
@@ -542,11 +550,34 @@ def flag_last_call(state: GameState) -> dict:
                 state.burned_identities.append(call.claimed_identity)
     else:
         state.false_flags += 1
-        state.service_penalty += -result.service_delta
+        _service_hit(state, "false_flag", -result.service_delta)
     return {"result_text": result.text, "game_over": state.game_over, "cutscene": cutscene(state)}
 
 
 # ------------------------------------------------------------------ end of day
+
+
+_SERVICE_REASONS = {
+    "hold": "genuine callers put on hold to be checked",
+    "angry": "genuine callers who hung up angry",
+    "false_flag": "genuine callers flagged as suspicious",
+}
+
+
+def _service_hit(state: GameState, reason: str, points: int) -> None:
+    state.service_penalty += points
+    day = state.service_hits.setdefault(state.day, {})
+    day[reason] = day.get(reason, 0) + points
+
+
+def service_reasons(state: GameState, day: int) -> list[str]:
+    """What cost Service on `day`, by kind only: naming the call would tell the player who was genuine."""
+    hits = state.service_hits.get(day, {})
+    unhappy = sum(1 for c in state.calls if c.day == day and not c.is_con and c.status == "ended" and not c.satisfied)
+    rows = [f"{_SERVICE_REASONS[k]}: -{v}" for k, v in hits.items() if v]
+    if unhappy:
+        rows.insert(0, f"{unhappy} caller(s) left without what they needed")
+    return rows
 
 
 def end_day(state: GameState) -> dict:
@@ -575,7 +606,8 @@ def end_day(state: GameState) -> dict:
     state.settled_exposures = state.exposures
     day_scores = {"security": settled["security"], "service": settled["service"],
                   "security_delta": settled["security"] - before[0], "service_delta": settled["service"] - before[1],
-                  "unhappy_callers": sum(1 for c in state.calls if c.day == day and not c.is_con and not c.satisfied)}
+                  "unhappy_callers": sum(1 for c in state.calls if c.day == day and not c.is_con and not c.satisfied),
+                  "service_reasons": service_reasons(state, day)}
 
     day_summary = briefing_text = None
     if not state.game_over:

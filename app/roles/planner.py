@@ -42,10 +42,12 @@ def history_text(state: GameState) -> str:
             continue
         gained = ", ".join(call.gained_facts) or "nothing"
         method = state.methods.get(call.day, "")
+        burned = (" | COVER BLOWN: the desk exposed this caller" if call.end_reason == "exposed" else
+                  " | COVER SHAKY: the receptionist caught this caller out" if call.challenged else "")
         lines.append(
             f"Day {call.day} | method: {method or '-'} | {call.plan.persona_name} | claimed: {call.claims} "
             f"| tactic: {call.plan.tactic} "
-            f"| purpose: {call.plan.purpose or '-'} | result: {call.result} | gained: {gained}"
+            f"| purpose: {call.plan.purpose or '-'} | result: {call.result} | gained: {gained}{burned}"
         )
     return "\n".join(lines) if lines else "none yet"
 

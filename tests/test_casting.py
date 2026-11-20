@@ -360,3 +360,17 @@ def test_a_vendor_is_recognised_by_its_brand_alone():
     world = load_world()
     assert "V03" in rules.scan_references("Ryan Patel, NetCore Support", world)
     assert "V01" in rules.scan_references("Sam from SwiftParcel", world)
+
+
+def test_a_genuine_callers_transfer_list_carries_no_internal_titles():
+    from app.roles.caller import _transfer_text
+    from types import SimpleNamespace
+    text = _transfer_text(SimpleNamespace(accept_transfer_to=["E02"], message_ok=True), load_world())
+    assert "Bob Baker (Finance)" in text and "acting" not in text
+
+
+def test_naming_the_cfos_cover_by_role_references_that_person():
+    world = load_world()
+    assert "E02" in rules.scan_references("whoever's minding Alice's desk this week pointed me your way", world)
+    assert "E02" in rules.scan_references("the person covering for the CFO told me", world)
+    assert "E02" not in rules.scan_references("Is Alice in today?", world)

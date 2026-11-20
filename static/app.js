@@ -193,7 +193,9 @@ function summaryView() {
     G.summary.scores ? el("div", { class: "body" },
       `Tonight's tally: Security ${G.summary.scores.security} (${fmtDelta(G.summary.scores.security_delta)}), ` +
       `Service ${G.summary.scores.service} (${fmtDelta(G.summary.scores.service_delta)})` +
-      (G.summary.scores.unhappy_callers ? `. ${G.summary.scores.unhappy_callers} caller(s) left unhappy today.` : "")) : null,
+      ((G.summary.scores.service_reasons || []).length
+        ? `. Service lost to: ${G.summary.scores.service_reasons.join("; ")}.`
+        : (G.summary.scores.unhappy_callers ? `. ${G.summary.scores.unhappy_callers} caller(s) left unhappy today.` : ""))) : null,
     el("div", { class: "row" },
       el("button", { class: "primary big", onclick: () => { G.summary = null; render(); } }, "Next day")));
 }

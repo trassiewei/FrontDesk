@@ -40,7 +40,7 @@
     },
     "it_verify": {
       "title": "New rule from Dave (IT)",
-      "text": "Effective immediately: do not transfer any caller to IT or the helpdesk before verifying them with a callback. An unverified transfer to IT is logged as a violation (-4 Security)."
+      "text": "Effective immediately: do not transfer any outside caller to IT or the helpdesk before verifying them with a callback (a call from an internal extension is already verified). An unverified transfer to IT is logged as a violation (-4 Security)."
     },
     "callback_fast": {
       "title": "Phone system upgrade",

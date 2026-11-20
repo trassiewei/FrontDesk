@@ -173,7 +173,8 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
 
 def _transfer_text(data, world: World) -> str:
     """Who a genuine caller is glad to be put through to; the transfer result is scored against the same list."""
-    names = [f"{e.name} ({e.title})" for e in (employee_by_id(world, i) for i in data.accept_transfer_to) if e]
+    # Department only: a title like "Finance Manager (acting for Alice)" would hand the caller internal facts.
+    names = [f"{e.name} ({e.dept})" for e in (employee_by_id(world, i) for i in data.accept_transfer_to) if e]
     names += [v.name for v in (vendor_by_id(world, i) for i in data.accept_transfer_to) if v]
     rest = "Taking a message is also fine." if data.message_ok else "A message alone will not do."
     if not names:

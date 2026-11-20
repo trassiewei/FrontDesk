@@ -757,6 +757,34 @@ def test_a_con_told_to_stop_calling_leaves_even_if_the_model_keeps_asking(fake):
 
 
 def test_dismissal_wording():
-    assert rules.is_dismissal("Goodbye.") and rules.is_dismissal("This sounds like a scam")
-    assert rules.is_dismissal("The caller this morning turned out to be fake. Who are you really?")
+    assert rules.is_dismissal("Goodbye.") and rules.is_challenge("This sounds like a scam")
+    assert rules.is_challenge("The caller this morning turned out to be fake. Who are you really?")
+    assert rules.is_challenge("You said executive suite a second ago, now finance?")
+    assert rules.is_challenge("Who told you she's away?") and rules.is_challenge("That doesn't add up.")
+    assert not rules.is_dismissal("You said executive suite a second ago, now finance?")
+    assert rules.is_challenge("Your dispatcher called Monday with a story that didn't add up.")
     assert not rules.is_dismissal("Can I take a message?") and not rules.is_dismissal("I'll call Bob back")
+
+
+def test_a_con_caught_out_is_told_to_stop_asking_for_the_rest_of_the_call(fake):
+    state = new(fake, plan(con()))
+    skip_legit(state)
+    engine.next_call(state)
+    say(fake, state, "You said Finance a second ago, now IT?")
+    assert "caught something in your story" in fake.calls_for("caller")[-1]["messages"][0]["content"]
+    say(fake, state, "Okay, anything else?")
+    assert "Earlier in this call the receptionist caught you out" in fake.calls_for("caller")[-1]["messages"][0]["content"]
+
+
+def test_the_day_tally_says_what_cost_service_without_naming_a_call(fake):
+    state = new(fake, plan(con()), plan(con()))
+    engine.next_call(state)
+    engine.hang_up(state)  # legit
+    engine.flag_last_call(state)
+    while state.queue:
+        engine.next_call(state)
+        engine.hang_up(state)
+    out = engine.end_day(state)
+    reasons = out["day_scores"]["service_reasons"]
+    assert any(r.startswith("genuine callers flagged as suspicious: -5") for r in reasons)
+    assert not any(c.caller_name in " ".join(reasons) for c in state.calls)
