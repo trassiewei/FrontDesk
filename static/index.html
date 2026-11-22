@@ -16,12 +16,17 @@
     <h1 id="start-title">FRONT DESK</h1>
     <div id="start-lines" class="start-lines"></div>
     <form id="start-form">
-      <label>Your name <input id="name-input" maxlength="30" value="Jordan" autocomplete="off"></label>
+      <fieldset class="difficulty language">
+        <legend>Language · 语言</legend>
+        <label><input type="radio" name="lang" value="en"> English</label>
+        <label><input type="radio" name="lang" value="zh"> 中文</label>
+      </fieldset>
+      <label><span data-i18n="your_name">Your name</span> <input id="name-input" maxlength="30" value="Jordan" autocomplete="off"></label>
       <fieldset class="difficulty">
-        <legend id="difficulty-label">Difficulty</legend>
-        <label><input type="radio" name="difficulty" value="easy"> Easy</label>
-        <label><input type="radio" name="difficulty" value="normal" checked> Normal</label>
-        <label><input type="radio" name="difficulty" value="hard"> Hard</label>
+        <legend id="difficulty-label" data-i18n="difficulty">Difficulty</legend>
+        <label><input type="radio" name="difficulty" value="easy"> <span data-i18n="easy">Easy</span></label>
+        <label><input type="radio" name="difficulty" value="normal" checked> <span data-i18n="normal">Normal</span></label>
+        <label><input type="radio" name="difficulty" value="hard"> <span data-i18n="hard">Hard</span></label>
       </fieldset>
       <button id="start-button" class="primary" type="submit">Start your shift</button>
     </form>
@@ -32,29 +37,29 @@
 <!-- Game -->
 <div id="game-screen" hidden>
   <header class="topbar">
-    <span class="logo">FRONT DESK</span>
+    <span class="logo" data-i18n="logo">FRONT DESK</span>
     <span id="top-clock" class="clock"></span>
     <span class="spacer"></span>
-    <span id="top-replies" title="Replies you can still send today">💬 Replies left <b></b></span>
-    <span id="top-security" title="Security">🛡 Security <b></b></span>
-    <span id="top-service" title="Service">🙂 Service <b></b></span>
+    <span id="top-replies" data-i18n-title="replies_title" title="Replies you can still send today">💬 <span data-i18n="replies_left">Replies left</span> <b></b></span>
+    <span id="top-security" data-i18n-title="security" title="Security">🛡 <span data-i18n="security">Security</span> <b></b></span>
+    <span id="top-service" data-i18n-title="service" title="Service">🙂 <span data-i18n="service">Service</span> <b></b></span>
     <span id="top-player" class="player"></span>
   </header>
   <div class="layout">
     <section id="left" class="panel main-panel" aria-live="polite"></section>
     <aside class="panel side-panel">
       <div class="tabs" role="tablist">
-        <button class="tab active" data-tab="directory" role="tab">Directory</button>
-        <button class="tab" data-tab="desk" role="tab">Desk</button>
-        <button class="tab" data-tab="policy" role="tab">Policy</button>
-        <button class="tab" data-tab="notes" role="tab">My notes</button>
+        <button class="tab active" data-tab="directory" role="tab" data-i18n="tab_directory">Directory</button>
+        <button class="tab" data-tab="desk" role="tab" data-i18n="tab_desk">Desk</button>
+        <button class="tab" data-tab="policy" role="tab" data-i18n="tab_policy">Policy</button>
+        <button class="tab" data-tab="notes" role="tab" data-i18n="tab_notes">My notes</button>
       </div>
       <div id="tab-directory" class="tab-body"></div>
       <div id="tab-desk" class="tab-body" hidden></div>
       <div id="tab-policy" class="tab-body" hidden></div>
       <div id="tab-notes" class="tab-body" hidden>
-        <textarea id="my-notes" placeholder="Write your own notes here…"></textarea>
-        <p class="fine-print">Kept only in this page's memory — refreshing the page clears it.</p>
+        <textarea id="my-notes" data-i18n-placeholder="notes_placeholder" placeholder="Write your own notes here…"></textarea>
+        <p class="fine-print" data-i18n="notes_hint">Kept only in this page's memory — refreshing the page clears it.</p>
       </div>
     </aside>
   </div>

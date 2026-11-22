@@ -125,6 +125,7 @@
     "hung_up": "You ended the call.",
     "breached": "They got through to the person they were after. This is how the attack succeeded.",
     "satisfied": "You helped them.",
-    "unsatisfied": "They left without the help they needed."
+    "unsatisfied": "They left without the help they needed.",
+    "refused_by_it": "IT turned the request down and is now on alert."
   }
 }

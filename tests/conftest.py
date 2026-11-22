@@ -59,6 +59,15 @@ def _short_plans_stay_short(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _english_by_default():
+    """A test that starts a Chinese game must not leave the language set for the next test."""
+    from app import i18n
+    i18n.use("en")
+    yield
+    i18n.use("en")
+
+
+@pytest.fixture(autouse=True)
 def _isolated(request, monkeypatch, tmp_path):
     if request.node.get_closest_marker("llm"):
         # Real-LLM tests use the settings from .env and a real client.

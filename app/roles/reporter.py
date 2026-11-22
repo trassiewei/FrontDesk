@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from .. import config, llm, summary
+from .. import config, i18n, llm, summary
 from ..models import CallRecord, GameState, ReportResult, World
 from ..world import gambit_by_id, name_of, scenario_of
 
@@ -158,6 +158,7 @@ def write_report(state: GameState, world: World) -> ReportResult:
         scenario=scenario_text(state),
         notices=notices_text(state),
     )
+    system += i18n.llm_note(state.lang, "reporter")
     try:
         return llm.complete_json("reporter", system, llm.USER_TURN, ReportResult, state.game_id)  # type: ignore[return-value]
     except llm.LLMError as exc:

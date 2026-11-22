@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import random
 
-from .. import config, llm, rules
+from .. import config, i18n, llm, rules
 from ..models import GameState, PlannedCall, PlannerResult, World
 from ..world import (
     employee_by_id, fact_by_id, gambit_by_id, load_gambits, load_tactics, method_for, name_of, non_public_facts,
@@ -15,7 +15,21 @@ from .common import fact_lines, incident_plan_text, intel_text, public_info_text
 log = logging.getLogger("frontdesk.planner")
 
 
-def fallback_plan() -> PlannerResult:
+def fallback_plan(lang: str = "en") -> PlannerResult:
+    plan = _fallback_plan_en()
+    if lang != "zh":
+        return plan
+    call = plan.calls[0].model_copy(update={
+        "claims": "Alex，财务部新来的临时工",
+        "opening_line": "你好，我是 Alex，财务部新来的临时工，不好意思，第一周上班！Alice 今天在吗？",
+        "beats": ["问 Alice 不在的时候谁在代管财务。", "道谢，收尾。"],
+        "if_refused": "说没关系，只问 Alice 这周会不会回来。",
+        "if_verified": "说好的你查吧，自己是新人，被核实很正常。",
+    })
+    return plan.model_copy(update={"calls": [call]})
+
+
+def _fallback_plan_en() -> PlannerResult:
     return PlannerResult(
         notebook="(The notebook page is blank today.)",
         calls=[
@@ -141,11 +155,12 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         max_calls=len(slots_today),
         call_times=" and ".join(config.SLOT_TIMES[s] for s in slots_today),
     )
+    system += i18n.llm_note(state.lang, "planner")
     try:
         result = llm.complete_json("planner", system, llm.USER_TURN, PlannerResult, state.game_id)
     except llm.LLMError as exc:
         log.warning("Planner LLM failed, using the fixed fallback call: %s", exc)
-        result = fallback_plan()
+        result = fallback_plan(state.lang)
     allowed = {g.id for g in options}
     if must_switch and result.method not in allowed and result.calls:  # type: ignore[union-attr]
         try:

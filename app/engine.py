@@ -6,6 +6,7 @@ the "debug" entry is for the CLI's --debug mode and must never reach the HTTP AP
 """
 from __future__ import annotations
 
+import contextvars
 import random
 import re
 import uuid
@@ -13,7 +14,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import markdown as markdown_lib
 
-from . import config, rules, summary
+from . import config, i18n, rules, summary
+from .i18n import tr
 from .models import (
     CallerTurn,
     CallRecord,
@@ -26,7 +28,7 @@ from .models import (
     PlannerResult,
     World,
 )
-from .roles import caller, casting, director, extractor, planner, reporter
+from .roles import caller, casting, director, extractor, planner, reporter, translator
 from .world import (
     employee_by_id,
     gambit_by_id,
@@ -61,7 +63,7 @@ def _diff(state: GameState) -> config.Difficulty:
 
 def _require(state: GameState, *phases: str) -> None:
     if state.phase not in phases:
-        raise EngineError(f"You can't do that right now (the game is in phase {state.phase}).", 409)
+        raise EngineError(tr("You can't do that right now (the game is in phase {phase}).").format(phase=state.phase), 409)
 
 
 def _active(state: GameState) -> CallRecord:
@@ -137,15 +139,19 @@ def _add_notices(state: GameState, day: int) -> None:
 # ------------------------------------------------------------------ game and day setup
 
 
-def new_game(player_name: str, difficulty: str, seed: int | None = None, scenario_id: str | None = None) -> GameState:
+def new_game(player_name: str, difficulty: str, seed: int | None = None, scenario_id: str | None = None,
+             lang: str = "en") -> GameState:
     try:
         diff = config.get_difficulty((difficulty or "normal").lower())
     except ValueError as exc:
         raise EngineError(str(exc), 422) from exc
     name = (player_name or "").strip()[:30] or "Jordan"
-    state = GameState(game_id=uuid.uuid4().hex[:12], player_name=name, difficulty=diff.name, seed=seed)
+    lang = lang if lang in i18n.LANGS else "en"
+    i18n.use(lang)
+    state = GameState(game_id=uuid.uuid4().hex[:12], player_name=name, difficulty=diff.name, seed=seed, lang=lang)
     try:
-        state.scenario = director.design(state.game_id, load_world(), diff.name, _rng(state, "scenario"), scenario_id)
+        state.scenario = director.design(state.game_id, load_world(), diff.name, _rng(state, "scenario"), scenario_id,
+                                         lang=lang)
     except ValueError as exc:
         raise EngineError(str(exc), 422) from exc
     _enter_day(state, 1)
@@ -174,6 +180,8 @@ def _enter_day(state: GameState, day: int) -> None:
     # The planner already avoids its own earlier personas; this also keeps clear of every genuine caller.
     earlier = [c.caller_name for c in state.calls]
     plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls] + earlier)
+    if state.lang == "zh":
+        plan, legit_calls = translator.localize_day(state, plan, legit_calls)
     state.planned[day] = plan
     state.notebooks[day] = plan.notebook
     if plan.method:
@@ -294,7 +302,7 @@ def _game_over(state: GameState, outcome: str) -> None:
 def _breach(state: GameState, method: str, time_text: str) -> None:
     state.security = rules.apply_security_delta(state.security, -config.PENALTY_BREACH)
     state.breach_method = method  # type: ignore[assignment]
-    state.breach_time = f"{config.DAY_NAMES[state.day - 1]}, {time_text}"
+    state.breach_time = f"{i18n.day_name(state.day)}, {tr(time_text)}"
     _game_over(state, "breached")
 
 
@@ -308,7 +316,7 @@ def _conclude_caller_turn(state: GameState, call: CallRecord, turn: CallerTurn) 
     if turn.end_call:
         reason = "caller_ended"
     elif call.patience <= 0:
-        reason, say = "patience", config.PATIENCE_EXHAUSTED_LINE
+        reason, say = "patience", tr(config.PATIENCE_EXHAUSTED_LINE)
     elif call.player_turns >= config.MAX_PLAYER_TURNS_PER_CALL:
         reason = "max_turns"
     call.messages.append(Message(speaker="caller", text=say, time=call.time, private_thought=turn.private_thought))
@@ -359,17 +367,19 @@ def say(state: GameState, text: str) -> dict:
         elif call.is_con and not dismissed and call.challenged:
             note = ("Earlier in this call the receptionist caught you out. Do not ask for any of your targets again, "
                     "not even reworded: close politely now (end_call = true, outcome = \"gave_up\").")
-        caller_future = pool.submit(caller.take_turn, state, call, world, note)
-        extractor_future = pool.submit(extractor.extract, state.game_id, world, previous_caller_line, text)
+        # Worker threads do not inherit the request's language unless the context is carried over.
+        caller_future = pool.submit(contextvars.copy_context().run, caller.take_turn, state, call, world, note)
+        extractor_future = pool.submit(contextvars.copy_context().run, extractor.extract, state.game_id, world,
+                                       previous_caller_line, text, state.lang)
         turn = caller_future.result()
         extracted = extractor_future.result()
-    if call.is_con and call.challenged and not dismissed and not turn.end_call and "?" in turn.say:
+    if call.is_con and call.challenged and not dismissed and not turn.end_call and _asks(turn.say):
         # Caught out, the model often apologises and then asks for the same thing reworded: one sharper retry.
         turn = caller.take_turn(state, call, world, note + " Your line must not contain a question or any request: "
                                 "answer the point in a few words and close.")
     if dismissed and not turn.end_call:
         # A con told to stop calling that keeps asking reads as a broken bot, not a careful crew: it leaves here.
-        line = turn.say if "?" not in turn.say else config.DISMISSED_LINE
+        line = turn.say if not _asks(turn.say) else tr(config.DISMISSED_LINE)
         turn = turn.model_copy(update={"say": line, "end_call": True, "outcome": "gave_up"})
 
     _apply_leaks(state, call, player_msg, extracted, world, caller_said)
@@ -422,6 +432,8 @@ def _trouble(state: GameState) -> str:
     """How a harried colleague names today's incident ("the badge lockout"), for the callback line."""
     incident = scenario_of(state).incident
     title = incident.title.strip().rstrip(".") if incident else ""
+    if i18n.current() == "zh":
+        return title or tr("the outage")
     return f"the {title[0].lower()}{title[1:]}" if title else "the outage"
 
 
@@ -468,8 +480,8 @@ def callback(state: GameState, target_id: str) -> dict:
         return out
 
     if call.patience <= 0:
-        call.messages.append(Message(speaker="caller", text=config.PATIENCE_EXHAUSTED_LINE, time=call.time))
-        reply, reason = config.PATIENCE_EXHAUSTED_LINE, "patience"
+        call.messages.append(Message(speaker="caller", text=tr(config.PATIENCE_EXHAUSTED_LINE), time=call.time))
+        reply, reason = tr(config.PATIENCE_EXHAUSTED_LINE), "patience"
         if call.is_con:
             _finish(state, call, reason, "patience")
         else:
@@ -511,7 +523,7 @@ def transfer(state: GameState, target_id: str) -> dict:
     internal = call.caller_id.startswith("Ext ")
     if penalty and employee_by_id(world, target_id).dept == "IT" and not call.callbacks and not internal:  # type: ignore[union-attr]
         state.security = rules.apply_security_delta(state.security, -penalty)
-        text += f" (Policy: an unverified transfer to IT was logged. −{penalty} Security.)"
+        text += tr(" (Policy: an unverified transfer to IT was logged. −{penalty} Security.)").format(penalty=penalty)
     call.messages.append(Message(speaker="system", text=text, time=call.time))
     state.it_alert = state.it_alert or result.it_alert
     _finish(state, call, "transferred", result.result, satisfied=result.satisfied)
@@ -532,7 +544,7 @@ def take_message(state: GameState, note: str = "") -> dict:
 
 def hang_up(state: GameState) -> dict:
     call = _active(state)
-    call.messages.append(Message(speaker="system", text="You hung up.", time=call.time))
+    call.messages.append(Message(speaker="system", text=tr("You hung up."), time=call.time))
     _finish(state, call, "hung_up", "hung_up", satisfied=call.goal_met)
     return {"call_ended": True, "end_reason": "hung_up"}
 
@@ -570,6 +582,10 @@ _SERVICE_REASONS = {
 }
 
 
+def _asks(line: str) -> bool:
+    return "?" in line or "？" in line
+
+
 def _service_hit(state: GameState, reason: str, points: int) -> None:
     state.service_penalty += points
     day = state.service_hits.setdefault(state.day, {})
@@ -580,9 +596,10 @@ def service_reasons(state: GameState, day: int) -> list[str]:
     """What cost Service on `day`, by kind only: naming the call would tell the player who was genuine."""
     hits = state.service_hits.get(day, {})
     unhappy = sum(1 for c in state.calls if c.day == day and not c.is_con and c.status == "ended" and not c.satisfied)
-    rows = [f"{_SERVICE_REASONS[k]}: -{v}" for k, v in hits.items() if v]
+    colon = "：" if i18n.current() == "zh" else ": "
+    rows = [f"{tr(_SERVICE_REASONS[k])}{colon}-{v}" for k, v in hits.items() if v]
     if unhappy:
-        rows.insert(0, f"{unhappy} caller(s) left without what they needed")
+        rows.insert(0, tr("{n} caller(s) left without what they needed").format(n=unhappy))
     return rows
 
 
@@ -623,7 +640,8 @@ def end_day(state: GameState) -> dict:
             story = load_story()
             handled = sum(1 for c in state.calls if c.day == day)
             flavor = _rng(state, "flavor", day).choice(story["day_summary_flavor"])
-            day_summary = story["day_summary"].format(day_name=config.DAY_NAMES[day - 1], n=handled) + " " + flavor
+            sep = "" if state.lang == "zh" else " "
+            day_summary = story["day_summary"].format(day_name=i18n.day_name(day), n=handled) + sep + flavor
             _enter_day(state, day + 1)
             briefing_text = briefing(state)
     return {"day_summary": day_summary, "briefing": briefing_text, "day_scores": day_scores,
@@ -638,14 +656,17 @@ def _scenario_reveal(state: GameState) -> dict:
     sc = scenario_of(state)
     incident = None
     if sc.incident:
-        incident = {"day": sc.incident.day, "day_name": config.DAY_NAMES[sc.incident.day - 1],
+        incident = {"day": sc.incident.day, "day_name": i18n.day_name(sc.incident.day),
                     "title": sc.incident.title, "method": sc.incident.method}
     gambit = gambit_by_id(sc.gambit)
     return {"title": sc.title, "premise": sc.premise, "con_goal": sc.con_goal, "incident": incident,
             "crew": sc.crew, "motive": sc.motive, "phases": sc.phases,
-            "gambit": {"name": gambit.name, "summary": gambit.summary, "sign": gambit.sign,
-                       "counter": gambit.counter} if gambit else None,
+            "gambit": _gambit_view(gambit) if gambit else None,
             "switches": _method_switches(state)}
+
+
+def _gambit_view(g) -> dict:
+    return {f: i18n.localized("gambits", g.id, f, getattr(g, f)) for f in ("name", "summary", "sign", "counter")}
 
 
 def _method_switches(state: GameState) -> list[dict]:
@@ -654,8 +675,7 @@ def _method_switches(state: GameState) -> list[dict]:
     for day in sorted(state.methods):
         gid = state.methods[day]
         if gid != last and (g := gambit_by_id(gid)):
-            out.append({"day": day, "day_name": config.DAY_NAMES[day - 1], "name": g.name, "summary": g.summary,
-                        "sign": g.sign, "counter": g.counter})
+            out.append({"day": day, "day_name": i18n.day_name(day), **_gambit_view(g)})
         last = gid
     return out
 

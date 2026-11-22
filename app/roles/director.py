@@ -5,9 +5,9 @@ import json
 import logging
 import random
 
-from .. import config, llm, rules
+from .. import config, i18n, llm, rules
 from ..models import Scenario, ScenarioResult, World
-from ..world import load_gambits, load_scenarios
+from ..world import load_gambits, load_scenarios, localize_scenario
 
 log = logging.getLogger("frontdesk.director")
 
@@ -33,9 +33,10 @@ def _incident_rule(day: int | None) -> str:
     )
 
 
-def design(game_id: str, world: World, difficulty: str, rng: random.Random, preset_id: str | None = None) -> Scenario:
+def design(game_id: str, world: World, difficulty: str, rng: random.Random, preset_id: str | None = None,
+           lang: str = "en") -> Scenario:
     """The scenario for a new game. `preset_id` forces one of the data/scenarios.json presets (no LLM call)."""
-    presets = load_scenarios()
+    presets = [localize_scenario(p, lang) for p in load_scenarios()]
     if preset_id is not None:
         found = next((p for p in presets if p.id == preset_id), None)
         if found is None:
@@ -67,6 +68,7 @@ def design(game_id: str, world: World, difficulty: str, rng: random.Random, pres
             ensure_ascii=False,
         ),
     )
+    system += i18n.llm_note(lang, "director")
     try:
         draft = llm.complete_json("director", system, llm.USER_TURN, ScenarioResult, game_id)
     except llm.LLMError as exc:

@@ -5,7 +5,7 @@ import logging
 import random
 import re
 
-from .. import config, llm, rules
+from .. import config, i18n, llm, rules
 from ..models import GameState, LegitCall, LegitCastResult, World
 from ..world import load_legit_calls, scenario_of
 from .common import public_info_text
@@ -33,15 +33,15 @@ OUTSIDER_KINDS = [
 # Words in a call card that show which kind of caller it was, so the week never repeats one ("a third driver lost
 # on Harbor Way"). The model is told not to repeat kinds, but it does unless they leave the idea list.
 _KIND_SIGNS = {
-    "a delivery driver who cannot find the dock": r"driver|courier|freight|carrier|haulage|deliver",
-    "a job applicant": r"applicant|applying|candidate",
-    "a local journalist": r"reporter|journalist|gazette|newspaper|editor",
-    "a recruiter": r"recruit|talent|staffing",
-    "an insurance broker with a routine renewal": r"insur|broker|underwrit",
-    "a student asking about a site visit": r"student|college|school|university",
-    "a parking enforcement officer about a van": r"parking|enforcement",
-    "a building maintenance contractor": r"maintenance|mechanical|hvac|facilities|contractor",
-    "a former employee who needs a reference letter": r"former employee|reference",
+    "a delivery driver who cannot find the dock": r"driver|courier|freight|carrier|haulage|deliver|司机|快递|货运|物流|送货|配送",
+    "a job applicant": r"applicant|applying|candidate|求职|应聘|申请.{0,6}职位",
+    "a local journalist": r"reporter|journalist|gazette|newspaper|editor|记者|报社|编辑|媒体",
+    "a recruiter": r"recruit|talent|staffing|招聘|猎头|人才",
+    "an insurance broker with a routine renewal": r"insur|broker|underwrit|保险|经纪",
+    "a student asking about a site visit": r"student|college|school|university|学生|学院|学校|大学",
+    "a parking enforcement officer about a van": r"parking|enforcement|停车|违停|交警",
+    "a building maintenance contractor": r"maintenance|mechanical|hvac|facilities|contractor|维修|维护|保养|空调|物业|承包",
+    "a former employee who needs a reference letter": r"former employee|reference|前员工|老员工|推荐信|证明信",
 }
 
 
@@ -75,9 +75,17 @@ def _incident_text(state: GameState, day: int) -> str:
     return ""
 
 
+def _localized(call: LegitCall, lang: str) -> LegitCall:
+    """A fixed genuine call with its card and opening line in the game's language."""
+    if lang != "zh":
+        return call
+    text = i18n._overlay("legit_calls").get(call.id) or {}
+    return call.model_copy(update={k: v for k, v in text.items() if k in ("claims", "opening_line") and v})
+
+
 def _fallbacks(state: GameState, day: int, cast: list[LegitCall]) -> list[LegitCall]:
     """Fixed calls for the day; a slot filled after the main cast may borrow an unused call from another day."""
-    fixed = load_legit_calls()
+    fixed = [_localized(c, state.lang) for c in load_legit_calls()]
     if not cast:
         return [c for c in fixed if c.day == day]
     used = {c.caller_name for c in cast} | {c.caller_name for c in state.calls}
@@ -110,6 +118,7 @@ def cast_day(state: GameState, world: World, day: int, slots: list[int] | None =
         count=len(slots),
         style=diff.cast_note,
     )
+    system += i18n.llm_note(state.lang, "casting")
     try:
         draft = llm.complete_json("director", system, llm.USER_TURN, LegitCastResult, state.game_id)
     except llm.LLMError as exc:

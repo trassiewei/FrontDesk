@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from . import rules
+from .i18n import overlay, tr
 from .models import GameState, World
 from .world import load_playbook, name_of
 
@@ -12,12 +13,17 @@ def scores(state: GameState) -> dict:
     service = rules.service_score(state.satisfied_legit, state.handled_legit, state.service_penalty)
     security_label = rules.security_label(security, breached)
     service_label = rules.service_label(service)
+    return _labelled(security, service, security_label, service_label)
+
+
+def _labelled(security: int, service: int, security_label: str, service_label: str) -> dict:
+    """Labels are decided in English (the title depends on them) and only then translated for display."""
     return {
         "security": security,
         "service": service,
-        "security_label": security_label,
-        "service_label": service_label,
-        "title_badge": rules.title_badge(security_label, service_label),
+        "security_label": tr(security_label),
+        "service_label": tr(service_label),
+        "title_badge": tr(rules.title_badge(security_label, service_label)),
     }
 
 
@@ -29,8 +35,7 @@ def shown_scores(state: GameState) -> dict:
     service = state.settled_service
     security_label = rules.security_label(security, False)
     service_label = rules.service_label(service)
-    return {"security": security, "service": service, "security_label": security_label,
-            "service_label": service_label, "title_badge": rules.title_badge(security_label, service_label)}
+    return _labelled(security, service, security_label, service_label)
 
 
 def stats(state: GameState) -> dict:
@@ -58,7 +63,7 @@ def intel_timeline(state: GameState, world: World) -> list[dict]:
     return [
         {
             "fact_id": r.fact_id,
-            "description": facts[r.fact_id].description,
+            "description": _fact_text(facts[r.fact_id]),
             "tier": facts[r.fact_id].tier,
             "value": facts[r.fact_id].value,
             "day": r.day,
@@ -71,19 +76,23 @@ def intel_timeline(state: GameState, world: World) -> list[dict]:
     ]
 
 
+def _fact_text(fact) -> str:
+    return (overlay("world").get("facts") or {}).get(fact.id) or fact.description
+
+
 def call_reveal(state: GameState, world: World) -> list[dict]:
     """Every call with its hidden truth, for the end page. Only ever built after the game is over."""
     playbook = load_playbook()
     tactics = {t["id"]: t for t in playbook["tactics"]}
-    facts = {f.id: f.description for f in world.facts}
+    facts = {f.id: _fact_text(f) for f in world.facts}
     rows = []
     for call in state.calls:
         tactic = tactics.get(call.plan.tactic) if call.is_con and call.plan else None
-        player = [f"Called back {name_of(world, t) or t}" for t in call.callbacks]
+        player = [tr("Called back {name}").format(name=name_of(world, t) or t) for t in call.callbacks]
         if call.number_checked:
-            player.append("Dialled the number the caller gave")
+            player.append(tr("Dialled the number the caller gave"))
         if call.flagged:
-            player.append("Flagged as suspicious")
+            player.append(tr("Flagged as suspicious"))
         rows.append({
             "call_id": call.id,
             "day": call.day,

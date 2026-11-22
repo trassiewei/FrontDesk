@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config, engine, rules, storage, summary
+from . import config, engine, i18n, rules, storage, summary
 from .engine import EngineError
 from .models import GameState
 from .world import load_playbook, load_story, load_world
@@ -71,9 +71,10 @@ def public_state(state: GameState) -> dict:
         "game_id": state.game_id,
         "player_name": state.player_name,
         "difficulty": state.difficulty,
+        "lang": state.lang,
         "phase": state.phase,
         "day": state.day,
-        "day_name": config.DAY_NAMES[state.day - 1],
+        "day_name": i18n.day_name(state.day),
         "clock": _clock(state),
         "security": scores["security"],
         "service": scores["service"],
@@ -101,6 +102,7 @@ def _load(game_id: str) -> GameState:
     state = storage.get(game_id)
     if state is None:
         raise HTTPException(404, "Game not found.")
+    i18n.use(state.lang)
     return state
 
 
@@ -113,6 +115,9 @@ def _turn(game_id: str):
         raise HTTPException(409, "Another request for this game is still in progress.")
     try:
         yield state
+    except EngineError as exc:
+        # The handler runs outside this request's context, so the message is translated here.
+        raise EngineError(i18n.tr(str(exc)), exc.status) from exc
     finally:
         storage.save(state)
         lock.release()
@@ -121,6 +126,7 @@ def _turn(game_id: str):
 class NewGame(BaseModel):
     player_name: str = ""
     difficulty: str = "normal"
+    lang: str = "en"
 
 
 class Say(BaseModel):
@@ -158,7 +164,7 @@ def _check_new_game_limit(request: Request) -> None:
 @app.post("/api/game")
 def create_game(body: NewGame, request: Request) -> dict:
     _check_new_game_limit(request)
-    state = engine.new_game(body.player_name, body.difficulty)
+    state = engine.new_game(body.player_name, body.difficulty, lang=body.lang)
     storage.save(state)
     return {"game_id": state.game_id, "state": public_state(state), "briefing": engine.briefing(state)}
 
@@ -279,21 +285,25 @@ def export(game_id: str) -> JSONResponse:
 
 
 @app.get("/api/world")
-def world() -> dict:
+def world(lang: str = "en") -> dict:
     """Only what a receptionist could see on the desk. Employee persona/availability stay server-side."""
+    i18n.use(lang)
     w = load_world()
+    zh = i18n.overlay("world")
+    people, firms = zh.get("employees", {}), zh.get("vendors", {})
     return {
-        "company": {"name": w.company.name, "tagline": w.company.tagline, "main_number": w.company.main_number,
+        "company": {"name": w.company.name, "tagline": zh.get("company", {}).get("tagline", w.company.tagline),
+                    "main_number": w.company.main_number,
                     "address": w.company.address, "website": w.company.website,
                     "general_emails": w.company.general_emails},
         "employees": [
-            {k: getattr(e, k) for k in ("id", "name", "title", "dept", "ext", "mobile", "employee_id", "status",
-                                        "directory_note")}
+            {**{k: getattr(e, k) for k in ("id", "name", "title", "dept", "ext", "mobile", "employee_id", "status",
+                                           "directory_note")}, **people.get(e.id, {})}
             for e in w.employees
         ],
-        "vendors": [v.model_dump() for v in w.vendors],
-        "sticky_notes": w.desk.sticky_notes,
-        "internal_notes": w.desk.internal_notes,
+        "vendors": [{**v.model_dump(), **firms.get(v.id, {})} for v in w.vendors],
+        "sticky_notes": zh.get("sticky_notes", w.desk.sticky_notes),
+        "internal_notes": zh.get("internal_notes", w.desk.internal_notes),
         "playbook": {k: v for k, v in load_playbook().items() if k != "outcomes"},
         "policies": {level: engine.policy_text(level) for level in ("easy", "normal", "hard")},
         "ui": {"start_page": load_story()["start_page"], "llm_banner": load_story()["llm_not_configured_banner"]},

@@ -310,6 +310,7 @@ class GameState(BaseModel):
     game_id: str
     player_name: str
     difficulty: str
+    lang: Literal["en", "zh"] = "en"  # what the player reads and the callers speak
     seed: int | None = None
     phase: Phase = "SETUP"
     day: int = 1

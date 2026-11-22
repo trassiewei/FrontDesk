@@ -33,6 +33,18 @@ def load_scenarios() -> list[Scenario]:
     return presets
 
 
+def localize_scenario(scenario: Scenario, lang: str) -> Scenario:
+    """A preset with its story fields (title, premise, incident text, cutscenes…) in the game's language."""
+    zh = _player_text("scenarios.json", "zh").get(scenario.id) if lang == "zh" else None
+    if not zh:
+        return scenario
+    update = {k: zh[k] for k in ("title", "premise", "con_goal", "crew", "motive", "phases") if zh.get(k)}
+    update["cutscenes"] = {**scenario.cutscenes, **zh.get("cutscenes", {})}
+    if scenario.incident and zh.get("incident"):
+        update["incident"] = scenario.incident.model_copy(update=zh["incident"])
+    return scenario.model_copy(update=update)
+
+
 def scenario_of(state: GameState) -> Scenario:
     return state.scenario or load_scenarios()[0]
 
@@ -51,14 +63,21 @@ def gambit_by_id(gambit_id: str) -> Gambit | None:
     return next((g for g in load_gambits() if g.id == gambit_id), None)
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=None)
+def _player_text(name: str, lang: str) -> dict:
+    return _read_json(f"zh/{name}" if lang == "zh" else name)
+
+
 def load_playbook() -> dict:
-    return _read_json("playbook.json")
+    """Shown to the player only, so it follows the game's language."""
+    from .i18n import current
+    return _player_text("playbook.json", current())
 
 
-@lru_cache(maxsize=1)
 def load_story() -> dict:
-    return _read_json("story.json")
+    """Shown to the player only, so it follows the game's language."""
+    from .i18n import current
+    return _player_text("story.json", current())
 
 
 @lru_cache(maxsize=None)

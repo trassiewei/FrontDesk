@@ -37,6 +37,7 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 
 ## How to play
 
+- Pick **English** or **中文** on the start page. In a Chinese game everything you read is in Chinese and the callers speak Chinese; people, companies and systems keep their Latin names (Alice Adams, NetCore, Starboard), so you type those names as they appear in the directory.
 - Each day starts with a briefing, then up to five calls arrive. Which of them are genuine changes every day: the time of a call tells you nothing. Click **Answer next call**, read the call card (who they claim to be and the caller ID), and type your replies.
 - During a call you can **Hold & call back** a person or vendor from the directory, **Transfer** to an employee, **Take a message**, or **Hang up**. Calling back is a last resort, not the main tool: you only get a couple of holds a day (fewer on harder levels), each costs one of your replies and some of the caller's patience, a real caller who is put on hold and checked is annoyed and costs you Service, and on Normal and Hard the person you phone is not always at their desk (a hold that reaches nobody does not use up your allowance, and proves nothing).
 - The main way to catch a con is to talk to them. They are bluffing: ask something only the real person would know (extension, employee ID, who their manager is), and listen for slips, such as a wrong name, a vague answer, or a detail that does not fit. If you suspect a call, you can **Flag last call**: a flag on a call where the caller slipped burns their crew's identity; a flag on a real caller costs Service, and each wrong flag costs more than the last. You are never told whether a flag was right until the game ends.
@@ -55,7 +56,7 @@ pytest -m llm -s             # real-LLM extractor check, needs a configured .env
 
 ## What the LLM does, and what it does not
 
-Five LLM roles, all language work (the director has two jobs):
+Five LLM roles, all language work (the director has two jobs), plus a translator used only in Chinese games:
 
 1. **Caller** plays every caller. The con artist improvises against your questions and pushes back on your challenges.
 2. **Extractor** reads each of your free-text replies and decides which non-public facts you disclosed, with the quote.
@@ -109,6 +110,7 @@ Results: _to be added_.
 - LLMs are random. Two games with the same choices can play out differently, and a caller can occasionally slip out of character.
 - The extractor can misjudge a reply, in both directions. The pattern matcher reduces misses but can also add false hits.
 - There is only one company; scenarios vary the con artist's method, crew and motive, not the company.
+- In a Chinese game the rules, the data and the prompts stay in English: the code translates what the player reads (`app/i18n.py`, `data/zh/`), the LLM roles are told to write player-facing text in Chinese, and a sixth role, **translator**, puts any call card, script or notebook page that still came back in English into Chinese each morning (cons and genuine callers alike, so the language of a card never gives a call away). The keyword layer of the leak check knows only a few Chinese words, so it relies more on the extractor. The plain fallback report (used only when the reporter call fails) is in English.
 - Different models can behave very differently as the caller and as the extractor, so check a new provider with `check_llm.py` and the evaluation script before relying on it.
 
 ## Next steps
@@ -118,4 +120,3 @@ Ideas deliberately left out of this version:
 - Role reversal: the player is the con artist
 - AI player mode: an LLM plays the receptionist to run many games automatically
 - Voice
-- A Chinese version

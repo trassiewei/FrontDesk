@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import logging
 
-from .. import config, llm, rules
+from .. import config, i18n, llm, rules
+from ..i18n import tr
 from ..models import CallerTurn, CallRecord, GameState, World
 from ..world import employee_by_id, fact_by_id, load_tactics, method_for, scenario_of, vendor_by_id
 from .common import intel_text, public_info_text, situation_text, transcript_text
@@ -14,7 +15,7 @@ FALLBACK_LINE = "Sorry, you're breaking up — I'll call back later."
 
 
 def fallback_turn() -> CallerTurn:
-    return CallerTurn(say=FALLBACK_LINE, end_call=True)
+    return CallerTurn(say=tr(FALLBACK_LINE), end_call=True)
 
 
 def _effective_patience(call: CallRecord) -> int:
@@ -190,8 +191,10 @@ def _transfer_text(data, world: World) -> str:
     rest = "Taking a message is also fine." if data.message_ok else "A message alone will not do."
     if not names:
         return f"Nobody in particular: you would rather not be transferred. {rest}"
-    return (f"{', '.join(names)}. If the receptionist offers to put you through to someone else, say politely that "
-            f"you are not sure they are the right person and ask for one of these instead. {rest}")
+    return (f"{', '.join(names)}. If the receptionist offers a department or a role (\"our customer service lead\") "
+            "in the same department as one of these people, that is them: accept. Only if they offer someone clearly "
+            f"in another department, say politely that you are not sure they are the right person and ask for one of "
+            f"these instead. {rest}")
 
 
 def _legit_prompt(state: GameState, call: CallRecord, world: World, system_note: str) -> str:
@@ -247,7 +250,7 @@ def adapt_opening(state: GameState, call: CallRecord, world: World) -> str:
             "went better than it really did (see above), change it so it does not. Never add a mention of your "
             "crew's other calls: the receptionist took those calls and knows what was really said." + caught)
     turn = take_turn(state, call, world, note)
-    if turn.say == FALLBACK_LINE or turn.end_call or not turn.say.strip():
+    if turn.say == tr(FALLBACK_LINE) or turn.end_call or not turn.say.strip():
         return plan.opening_line
     return turn.say
 
@@ -256,7 +259,7 @@ def take_turn(state: GameState, call: CallRecord, world: World, system_note: str
     """The caller's next line. Never raises for LLM failures; returns the spec's fallback instead."""
     system = (
         _con_prompt(state, call, world, system_note) if call.is_con else _legit_prompt(state, call, world, system_note)
-    )
+    ) + i18n.llm_note(state.lang, "caller")
     try:
         turn: CallerTurn = llm.complete_json("caller", system, llm.USER_TURN, CallerTurn, state.game_id)  # type: ignore[assignment]
         if call.is_con and rules.has_placeholder(turn.say):
@@ -270,7 +273,9 @@ def take_turn(state: GameState, call: CallRecord, world: World, system_note: str
                 )  # type: ignore[assignment]
             except llm.LLMError:
                 pass
-            turn = turn.model_copy(update={"say": rules.scrub_placeholders(turn.say) or FALLBACK_LINE})
+            turn = turn.model_copy(update={"say": rules.scrub_placeholders(turn.say) or tr(FALLBACK_LINE)})
+        if state.lang == "zh":
+            turn = turn.model_copy(update={"say": rules.zh_punctuation(turn.say)})
         return turn
     except llm.LLMError as exc:
         log.warning("Caller LLM failed, using fallback: %s", exc)

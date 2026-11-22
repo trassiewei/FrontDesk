@@ -12,6 +12,7 @@ from functools import lru_cache
 from typing import Iterable
 
 from . import config
+from .i18n import tr
 from .models import (
     CallRecord,
     Door,
@@ -52,11 +53,16 @@ CALLBACK_NO_SUCH_STAFF = "{speaker}: 'We don't have anyone like that joining us.
 # ------------------------------------------------------------------ pattern matching (spec §5.2)
 
 
+# Word edges for Latin names that also work in Chinese text, where "找Bob谈" has no \b around "Bob".
+_L = r"(?<![A-Za-z0-9])"
+_R = r"(?![A-Za-z0-9])"
+
+
 @lru_cache(maxsize=None)
 def _term_regex(term: str) -> re.Pattern[str]:
     """Case-insensitive; a word boundary is only added on a side that starts/ends with a letter."""
-    left = r"(?<!\w)" if term[0].isalpha() else ""
-    right = r"(?!\w)" if term[-1].isalpha() else ""
+    left = _L if term[0].isalpha() else ""
+    right = _R if term[-1].isalpha() else ""
     return re.compile(left + re.escape(term) + right, re.IGNORECASE)
 
 
@@ -121,7 +127,9 @@ def scan_references(text: str, world: World) -> list[str]:
             boss = next((e for e in world.employees if e.name.split()[0] == acting.group(1)), None)
             who = rf"(?:{re.escape(acting.group(1))}|the CFO|{re.escape(boss.title) if boss else 'x^'})"
             role = (rf"\b(?:cover(?:ing|s)?|minding|acting|standing in|filling in|holding)\b[^.?!]{{0,30}}\b{who}\b|"
-                    rf"\b{who}'s (?:desk|cover|stand-in|backup)")
+                    rf"\b{who}'s (?:desk|cover|stand-in|backup)|"
+                    rf"(?:代|替|顶)\s*(?:理|管)?\s*(?:{who}|CFO|首席财务官)|"
+                    rf"(?:{who}|CFO|首席财务官)\s*的\s*(?:班|位置|工作|职务|代理|代班|后备)")
             if re.search(role, text, re.I):
                 found.append(emp.id)
     for vendor in world.vendors:
@@ -197,37 +205,48 @@ def _speaker(world: World, target_id: str) -> str:
         return emp.name
     vendor = vendor_by_id(world, target_id)
     if vendor:
-        return f"{vendor.name} service desk"
+        return tr("{name} service desk").format(name=vendor.name)
     raise ValueError(f"Unknown callback target: {target_id!r}")
 
 
 def callback_caller_number(call: CallRecord) -> CallbackResult:
     """Dialling the caller's own number proves nothing: whoever answers vouches, for a con and a real caller alike."""
     number = call.caller_id.split(" (")[0]
-    return CallbackResult(CALLBACK_NUMBER.format(number=number, name=call.caller_name), "number")
+    return CallbackResult(tr(CALLBACK_NUMBER).format(number=number, name=call.caller_name), "number")
 
 
-_NEWCOMER_WORDS = re.compile(r"\b(new|temp|intern|hire|joined|started)\b", re.IGNORECASE)
-_SAID_NEW = re.compile(r"\b(?:I'm|I am|I've|I just|only|just) (?:brand |pretty |very )?(?:new|started|joined)\b", re.I)
+_NEWCOMER_WORDS = re.compile(r"\b(new|temp|intern|hire|joined|started)\b|新来|新人|新员工|临时|实习|刚入职", re.IGNORECASE)
+_SAID_NEW = re.compile(r"\b(?:I'm|I am|I've|I just|only|just) (?:brand |pretty |very )?(?:new|started|joined)\b|"
+                       r"我(?:是)?(?:这周)?(?:刚|才)(?:来|入职|到岗|上班|进|调)|我是新来的|刚入职|第一周上班|新来的|这周刚(?:进|来|到)", re.I)
 # Words callers use for a department instead of its directory name.
 _DEPT_ALIASES = {
-    "finance": ["finance", "accounts", "accounting", "payables", "receivables", "payroll", "billing"],
-    "it": ["it", "helpdesk", "help desk", "tech support", "it support"],
-    "hr": ["hr", "human resources", "people team"],
-    "sales": ["sales"],
-    "customer service": ["customer service", "customer care", "support team"],
-    "operations": ["operations", "ops", "warehouse", "logistics", "facilities"],
-    "executive": ["executive", "ceo's office"],
+    "finance": ["finance", "accounts", "accounting", "payables", "receivables", "payroll", "billing",
+                "财务", "会计", "应付", "应收", "薪资", "工资", "账务"],
+    "it": ["it", "helpdesk", "help desk", "tech support", "it support", "帮助台", "技术支持", "信息部"],
+    "hr": ["hr", "human resources", "people team", "人事", "人力"],
+    "sales": ["sales", "销售"],
+    "customer service": ["customer service", "customer care", "support team", "客服"],
+    "operations": ["operations", "ops", "warehouse", "logistics", "facilities", "运营", "仓库", "物流"],
+    "executive": ["executive", "ceo's office", "总裁办", "ceo办公室", "ceo 办公室"],
 }
 
 
 def _names_dept(text: str, dept: str) -> str | None:
     """The word in `text` that names `dept` (its directory name or a common alias), if any."""
     for alias in _DEPT_ALIASES.get(dept.lower(), [dept.lower()]):
-        found = re.search(rf"\b{re.escape(alias)}\b", text, re.I)
+        edge = (_L, _R) if alias.isascii() else ("", "")
+        found = re.search(rf"{edge[0]}{re.escape(alias)}{edge[1]}", text, re.I)
         if found and not (alias == "it" and found.group() == "it"):  # the pronoun "it" is not the IT department
             return found.group()
     return None
+
+
+def _names_outsider(call: CallRecord) -> bool:
+    """The call card names an organisation besides the caller ("Rita Voss, new contractor" names none)."""
+    rest = call.claims
+    for word in call.caller_name.split():
+        rest = re.sub(rf"{_L}{re.escape(word)}{_R}", "", rest)
+    return bool(re.search(r"[A-Z][a-zA-Z]+", rest))
 
 
 def _invented_colleague_of(call: CallRecord, emp, company: str = "") -> bool:
@@ -242,13 +261,13 @@ def _invented_colleague_of(call: CallRecord, emp, company: str = "") -> bool:
     if dept_word is None:
         # Not on the card, but said aloud: "I'm with <company>, Accounts. Sorry, I'm brand new."
         first = company.split()[0] if company else ""
-        return bool(first and re.search(rf"\b{re.escape(first)}\b", said, re.I) and _names_dept(said, emp.dept)
-                    and _SAID_NEW.search(said))
+        here = bool(first and re.search(rf"{_L}{re.escape(first)}{_R}", said, re.I)) or not _names_outsider(call)
+        return bool(here and _names_dept(said, emp.dept) and _SAID_NEW.search(said))
     if _NEWCOMER_WORDS.search(call.claims) or _SAID_NEW.search(said):
         return True
     rest = call.claims
     for word in [*call.caller_name.split(), dept_word, *company.split()]:
-        rest = re.sub(rf"\b{re.escape(word)}\b", "", rest, flags=re.I)
+        rest = re.sub(rf"{_L}{re.escape(word)}{_R}", "", rest, flags=re.I)
     return not re.search(r"\b[A-Z][a-zA-Z]+", rest)  # no other organisation named: they claim to work here
 
 
@@ -261,11 +280,11 @@ def callback(
     speaker = _speaker(world, target_id)
     emp = employee_by_id(world, target_id)
     if emp is not None and not emp.available:
-        return CallbackResult(VOICEMAIL_TEMPLATE.format(name=emp.name), "voicemail")
+        return CallbackResult(tr(VOICEMAIL_TEMPLATE).format(name=emp.name), "voicemail")
     if it_busy and emp is not None and emp.dept == "IT":
-        return CallbackResult(CALLBACK_BUSY.format(speaker=speaker, trouble=trouble), "busy")
+        return CallbackResult(tr(CALLBACK_BUSY).format(speaker=speaker, trouble=trouble), "busy")
     if not reachable:
-        return CallbackResult(CALLBACK_MEETING.format(speaker=speaker), "busy")
+        return CallbackResult(tr(CALLBACK_MEETING).format(speaker=speaker), "busy")
 
     references = set(call.references)
     if call.claimed_identity:
@@ -273,23 +292,23 @@ def callback(
 
     if call.is_con:
         if target_id in references:
-            text = (CALLBACK_EXPOSED.format(speaker=speaker) if emp is not None else
-                    CALLBACK_VENDOR_EXPOSED.format(speaker=speaker, caller=call.caller_name.split()[0]))
+            text = (tr(CALLBACK_EXPOSED).format(speaker=speaker) if emp is not None else
+                    tr(CALLBACK_VENDOR_EXPOSED).format(speaker=speaker, caller=call.caller_name.split()[0]))
             return CallbackResult(text, "exposed", exposed=True, it_alert=True)
         if _invented_colleague_of(call, emp, world.company.name):
             return CallbackResult(
-                CALLBACK_NO_SUCH_STAFF.format(speaker=speaker), "exposed", exposed=True, it_alert=True
+                tr(CALLBACK_NO_SUCH_STAFF).format(speaker=speaker), "exposed", exposed=True, it_alert=True
             )
-        return CallbackResult(CALLBACK_UNKNOWN.format(speaker=speaker), "unknown")
+        return CallbackResult(tr(CALLBACK_UNKNOWN).format(speaker=speaker), "unknown")
 
     if target_id == call.claimed_identity:
         if emp is None:  # a vendor's service desk vouches for its colleague
-            return CallbackResult(CALLBACK_VENDOR_SELF.format(speaker=speaker, caller=call.caller_name.split()[0]),
+            return CallbackResult(tr(CALLBACK_VENDOR_SELF).format(speaker=speaker, caller=call.caller_name.split()[0]),
                                   "confirmed")
-        return CallbackResult(CALLBACK_SELF.format(speaker=speaker), "confirmed")
+        return CallbackResult(tr(CALLBACK_SELF).format(speaker=speaker), "confirmed")
     if target_id in references:
-        return CallbackResult(CALLBACK_LEGIT.format(speaker=speaker), "confirmed")
-    return CallbackResult(CALLBACK_UNKNOWN.format(speaker=speaker), "unknown")
+        return CallbackResult(tr(CALLBACK_LEGIT).format(speaker=speaker), "confirmed")
+    return CallbackResult(tr(CALLBACK_UNKNOWN).format(speaker=speaker), "unknown")
 
 
 # ------------------------------------------------------------------ transfer (spec §7.3)
@@ -332,7 +351,7 @@ def transfer(
     name = name_of(world, target_id)
     if name is None:
         raise ValueError(f"Unknown transfer target: {target_id!r}")
-    text = f"Call transferred to {name}."
+    text = tr("Call transferred to {name}.").format(name=name)
 
     if not call.is_con:
         legit = bool(call.legit and target_id in call.legit.accept_transfer_to)
@@ -364,10 +383,10 @@ def flag(call: CallRecord, earlier_false_flags: int = 0) -> FlagResult:
     """Same text in both cases so the player cannot infer whether the call was a con."""
     if call.is_con:
         if call.slip_shown:
-            return FlagResult(FLAG_TEXT, True, True, config.BONUS_EXPOSURE, 0, caught=True)
-        return FlagResult(FLAG_TEXT, True, True, config.BONUS_CORRECT_FLAG, 0)
+            return FlagResult(tr(FLAG_TEXT), True, True, config.BONUS_EXPOSURE, 0, caught=True)
+        return FlagResult(tr(FLAG_TEXT), True, True, config.BONUS_CORRECT_FLAG, 0)
     cost = config.PENALTY_FALSE_FLAG_SERVICE + config.PENALTY_FALSE_FLAG_ESCALATION * earlier_false_flags
-    return FlagResult(FLAG_TEXT, False, False, 0, -cost)
+    return FlagResult(tr(FLAG_TEXT), False, False, 0, -cost)
 
 
 @dataclass(frozen=True)
@@ -379,9 +398,9 @@ class MessageResult:
 
 def take_message(call: CallRecord, *, strict: bool = False) -> MessageResult:
     if call.is_con:
-        return MessageResult(MESSAGE_TEXT, "took_message")
+        return MessageResult(tr(MESSAGE_TEXT), "took_message")
     ok = bool(call.legit and call.legit.message_ok) and not strict
-    return MessageResult(MESSAGE_TEXT, "took_message", satisfied=ok)
+    return MessageResult(tr(MESSAGE_TEXT), "took_message", satisfied=ok)
 
 
 # ------------------------------------------------------------------ scoring (spec §7.9)
@@ -493,7 +512,7 @@ def build_queue(day: int, legit_calls: Iterable[LegitCall], plans: Iterable[Plan
 # ------------------------------------------------------------------ planner output cleaning (spec §8.2)
 
 
-_PLACEHOLDER = re.compile(r"\[[^\]\n]{1,40}\]|\{[^}\n]{1,40}\}|<[^>\n]{1,40}>")
+_PLACEHOLDER = re.compile(r"\[[^\]\n]{1,40}\]|\{[^}\n]{1,40}\}|<[^>\n]{1,40}>|【[^】\n]{1,40}】")
 
 
 _MAX_CLAIMS = 80
@@ -512,6 +531,8 @@ def card_claims(persona_name: str, claims: str, world: World | None = None) -> s
     if not named:
         # "Office manager at Brightline" -> "Helen Okafor, office manager at Brightline"; a long description goes.
         if persona_name.strip() and len(claims) <= _SHORT_ROLE:
+            if re.search(r"[\u4e00-\u9fff]", claims):
+                return f"{persona_name.strip()}，{claims}"
             return f"{persona_name.strip()}, {claims[0].lower() + claims[1:]}"
         return persona_name.strip() or claims
     return claims
@@ -549,7 +570,7 @@ def lookalike_renames(claims: str, world: World) -> dict[str, str]:
 
 def apply_renames(text: str, renames: dict[str, str]) -> str:
     for old, new in renames.items():
-        text = re.sub(rf"\b{re.escape(old)}\b(?! Way)", new, text)
+        text = re.sub(rf"{_L}{re.escape(old)}{_R}(?! Way)", new, text)
     return text
 
 
@@ -675,7 +696,7 @@ def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) ->
         mapping = {**mapping, **full}
         if not mapping:
             return lambda text: text
-        pattern = re.compile(r"\b(" + "|".join(re.escape(k) for k in sorted(mapping, key=len, reverse=True)) + r")\b")
+        pattern = re.compile(_L + "(" + "|".join(re.escape(k) for k in sorted(mapping, key=len, reverse=True)) + ")" + _R)
         return lambda text: pattern.sub(lambda m: mapping[m.group(1)], text)
 
     calls = []
@@ -748,7 +769,9 @@ def clean_scenario(
                                 method=inc.method.strip())
 
     offstage = draft.offstage_fact if draft.offstage_fact in non_public else None
-    phases = [p.strip() for p in draft.phases if text_ok(p)][: config.NUM_DAYS]
+    # The page numbers the days itself, so a model's own "Day 1:" / "第1天：" prefix would be said twice.
+    phases = [re.sub(r"^\s*(?:Day\s*\d+|第\s*\d+\s*天)\s*[:：.\-—]\s*", "", p).strip()
+              for p in draft.phases if text_ok(p)][: config.NUM_DAYS]
     if len(phases) < config.NUM_DAYS:
         phases = []  # a half-written campaign is worse than none: the planner then plans day by day
     crew = draft.crew.strip() if text_ok(draft.crew) else ""
@@ -833,7 +856,8 @@ def legit_caller_id(world: World, claimed_identity: str | None, claims: str, rng
 _DISMISSAL = re.compile(
     r"\bstop (calling|ringing)\b|\b(don'?t|do not) (call|ring) (us |here )?(again|back)\b|\b(good-?)?bye\b|"
     r"\bhanging up\b|\bi'?m going to hang up\b|"
-    r"\b(already|just) (said|told you) no\b|\breporting (this|you)\b",
+    r"\b(already|just) (said|told you) no\b|\breporting (this|you)\b|"
+    r"再见|拜拜|别再打|不要再打|别打来了|我(要|先)?挂了|挂了啊|已经(说|讲)(过|了)不|已经拒绝|我会(上报|举报|报告)|我要(上报|举报)",
     re.IGNORECASE,
 )
 # Catching the caller out: pointing at a contradiction or asking how they know something. Only a nudge for the
@@ -844,15 +868,35 @@ _CHALLENGE = re.compile(
     r"\b(does|did|do)(n'?t| not) (add up|match|make sense|sound right)\b|\bstory\b.{0,30}\b(odd|wrong|off)\b|\bwho told you\b|"
     r"\bhow (do|did) you know\b|\bnot who you say\b|\bsuspicious\b|\byou'?re not calling from\b|"
     r"\b(don'?t|do not) have you (on|in)\b|\b(not|no one|nobody|no \w+(?: \w+)?) (on|in) (our|the) "
-    r"(vendor |supplier |staff |company )?(list|directory|records|system)\b",
+    r"(vendor |supplier |staff |company )?(list|directory|records|system)\b|"
+    r"骗子|诈骗|骗人|假的|冒充|撒谎|说谎|你刚(才)?(说|讲)|前面你说|对不上|说不通|不对劲|不合理|谁告诉你|你怎么知道|"
+    r"可疑|(名录|名单|通讯录|供应商名单)(里|上)?(没有|查不到)|没有(这个人|这家公司|叫)|"
+    r"(哪个|什么|哪位|哪来的)(合同工|同事|技术员|员工|工单|前台)|(那通|上午的|早上的)?电话是我接的|"
+    r"\bwhich (contractor|colleague|technician|ticket|temp)\b|\bI took that call\b",
     re.IGNORECASE,
 )
 
 _GREETING = re.compile(r"\b(good )?(morning|afternoon|evening)\b", re.IGNORECASE)
 
 
+_ZH_GREETING = re.compile(r"^(\s*)(早上好|上午好|早安|下午好|中午好|晚上好)")
+
+
+def zh_punctuation(text: str) -> str:
+    """Half-width commas and full stops between Chinese characters, as models often write them, made full-width."""
+    text = re.sub(r"(?<=[\u4e00-\u9fff]),\s*", "，", text)
+    text = re.sub(r"(?<=[\u4e00-\u9fff])\?", "？", text)
+    return re.sub(r"(?<=[\u4e00-\u9fff])!", "！", text)
+
+
 def fit_greeting(text: str, time: str) -> str:
     """A spoken greeting that matches the clock: callers say "Afternoon" at 11:40 often enough to jar."""
+    zh = _ZH_GREETING.match(text)
+    if zh:
+        right = "上午好" if time < "12:00" else "下午好"
+        fine = ("早上好", "上午好", "早安") if time < "10:30" else ("上午好",) if time < "12:00" else ("下午好", "中午好")
+        ok = zh.group(2) in fine
+        return text if ok else zh.group(1) + right + text[zh.end():]
     part = "morning" if time < "12:00" else "afternoon"
     match = _GREETING.match(text.lstrip())
     if not match or match.group(2).lower() == part:
@@ -870,7 +914,7 @@ def employer_word(claims: str, persona_name: str = "") -> str:
     """The distinctive first word of the company on a call card ("Colin Marsh, Halvern Research" -> "halvern")."""
     rest = claims
     for part in persona_name.split():
-        rest = re.sub(rf"\b{re.escape(part)}\b", " ", rest)
+        rest = re.sub(rf"{_L}{re.escape(part)}{_R}", " ", rest)
     for word in re.findall(r"[A-Z][\w&'-]+", rest):
         if word.lower() not in _NOT_EMPLOYER:
             return word.lower()
@@ -910,9 +954,9 @@ def _fit_surname(fields: dict[str, str], surnames: set[str], pool: list[str]) ->
     if len(parts) == 1 and pool:
         full = f"{parts[0]} {pool.pop(0)}"
         fields = {**fields, "caller_name": full,
-                  "claims": re.sub(rf"\b{re.escape(parts[0])}\b(?!\s+[A-Z])", full, fields["claims"], count=1)}
+                  "claims": re.sub(rf"{_L}{re.escape(parts[0])}{_R}(?!\s+[A-Z])", full, fields["claims"], count=1)}
     elif len(parts) > 1 and parts[-1].lower() in surnames and pool:
-        pattern = re.compile(rf"\b{re.escape(parts[-1])}\b")
+        pattern = re.compile(rf"{_L}{re.escape(parts[-1])}{_R}")
         new = pool.pop(0)
         fields = {k: pattern.sub(new, v) for k, v in fields.items()}
     last = fields["caller_name"].split()[-1].lower()
@@ -951,7 +995,7 @@ def _legit_from_draft(
         directory = {e.name.split()[0].lower() for e in world.employees}
         if first and (first.lower() in taken or first.lower() in directory) and pool:
             new = pool.pop(0)
-            pattern = re.compile(rf"\b{re.escape(first)}\b")
+            pattern = re.compile(rf"{_L}{re.escape(first)}{_R}")
             fields = {k: pattern.sub(new, v) for k, v in fields.items()}
         taken.add(_first_name(fields["caller_name"]).lower())
         if surnames is not None and surname_pool is not None:
