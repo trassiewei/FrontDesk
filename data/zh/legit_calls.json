@@ -1,11 +1,11 @@
 {
-  "L1": {"claims": "Danny，SwiftParcel 快递员", "opening_line": "你好，SwiftParcel 的。我这儿有个 Alice Adams 的包裹，要签收。她在吗？"},
+  "L1": {"claims": "Danny Ruiz，SwiftParcel 快递员", "opening_line": "你好，SwiftParcel 的。我这儿有个 Alice Adams 的包裹，要签收。她在吗？"},
   "L2": {"claims": "Henry Hill，销售部（用手机打来）", "opening_line": "我是 Henry，马上要登机了，我急需 Grace 的手机号，现在就要。"},
   "L3": {"claims": "Janet Ortiz，Ortiz Hardware（客户）", "opening_line": "你好，我是 Ortiz Hardware 的 Janet Ortiz。我们的货晚了三天，发邮件也没人回。"},
   "L4": {"claims": "Chris Doyle（求职者）", "opening_line": "你好，呃，我在申请物流协调员的职位，求职信应该写给谁？"},
   "L5": {"claims": "Dave Davis，IT 主管（内线）", "opening_line": "嘿，我是 IT 的 Dave。跟前台打个招呼。"},
-  "L6": {"claims": "Beth，Brightline Office Supply 账务部", "opening_line": "你好，Brightline Office Supply 账务部的 Beth，你们应付账款是谁负责？"},
+  "L6": {"claims": "Beth Kowalski，Brightline Office Supply 账务部", "opening_line": "你好，Brightline Office Supply 账务部的 Beth，你们应付账款是谁负责？"},
   "L7": {"claims": "Kate King，CEO 行政助理（内线）", "opening_line": "我是 Kate。Alice 不在，对吧？谁在代管财务？Jack 两点前要董事会的数字。"},
-  "L8": {"claims": "Sam，货运司机", "opening_line": "早！有一托货要送到 Trassiewei，卸货地址是哪儿来着，走哪个门？"},
-  "L9": {"claims": "Priya，NetCore IT Services", "opening_line": "你好，我是 NetCore IT Services 的 Priya，打来确认我们明天上午的上门服务。"}
+  "L8": {"claims": "Theo Grant，货运司机", "opening_line": "早！有一托货要送到 Trassiewei，卸货地址是哪儿来着，走哪个门？"},
+  "L9": {"claims": "Priya Shah，NetCore IT Services", "opening_line": "你好，我是 NetCore IT Services 的 Priya，打来确认我们明天上午的上门服务。"}
 }

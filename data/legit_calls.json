@@ -1,7 +1,7 @@
 [
   {
     "id": "L1", "day": 1, "slot": 0,
-    "caller_name": "Danny", "claims": "Danny, SwiftParcel courier", "claimed_identity": "V01",
+    "caller_name": "Danny Ruiz", "claims": "Danny Ruiz, SwiftParcel courier", "claimed_identity": "V01",
     "caller_id": "555-0700 (SwiftParcel)",
     "personality": "Friendly, chatty, a bit rushed. Makes small talk about the weather.",
     "goal": "Deliver a package addressed to Alice Adams that needs a signature this afternoon.",
@@ -71,7 +71,7 @@
   },
   {
     "id": "L6", "day": 2, "slot": 4,
-    "caller_name": "Beth", "claims": "Beth, Brightline Office Supply billing", "claimed_identity": "V02",
+    "caller_name": "Beth Kowalski", "claims": "Beth Kowalski, Brightline Office Supply billing", "claimed_identity": "V02",
     "caller_id": "555-0720 (Brightline)",
     "personality": "Efficient billing clerk.",
     "goal": "Reach whoever handles accounts payable about an unpaid invoice.",
@@ -99,7 +99,7 @@
   },
   {
     "id": "L8", "day": 3, "slot": 2,
-    "caller_name": "Sam", "claims": "Sam, freight driver", "claimed_identity": null,
+    "caller_name": "Theo Grant", "claims": "Theo Grant, freight driver", "claimed_identity": null,
     "caller_id": "555-0866",
     "personality": "Easygoing truck driver.",
     "goal": "Confirm the drop-off address and which entrance to use.",
@@ -113,7 +113,7 @@
   },
   {
     "id": "L9", "day": 3, "slot": 4,
-    "caller_name": "Priya", "claims": "Priya, NetCore IT Services", "claimed_identity": "V03",
+    "caller_name": "Priya Shah", "claims": "Priya Shah, NetCore IT Services", "claimed_identity": "V03",
     "caller_id": "555-0740 (NetCore IT Services)",
     "personality": "Real IT contractor. Professional, slightly formal. Expects to be verified and is happy about it.",
     "goal": "Confirm tomorrow's (Thursday) onsite visit and ask who will let her in.",

@@ -516,9 +516,17 @@ def callback(state: GameState, target_id: str) -> dict:
                    if call.is_con else "Someone there confirmed who you are.")
             )
         else:
+            # Only the gist reaches the caller, never the words: a voicemail greeting naming who covers for the
+            # CFO, heard through the hold music, would hand the con a fact the receptionist never said.
+            heard = {
+                "voicemail": "they did not pick up (voicemail)",
+                "busy": "they could not talk right now",
+                "confirmed": "they confirmed who you are",
+                "unknown": "they knew nothing about your call",
+            }.get(result.kind, "they gave the receptionist an answer you did not hear")
             note = (
-                f"The receptionist put you on hold to verify by calling {name_of(world, target_id)}. "
-                f"Result: {result.text}."
+                f"The receptionist put you on hold to verify by calling {name_of(world, target_id)}, and came back: "
+                f"{heard}. You did not hear that conversation."
             )
         if not call.is_con:
             note += " You are a genuine caller and you did not enjoy being kept waiting: sound a little put out."

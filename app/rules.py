@@ -911,7 +911,7 @@ _CHALLENGE = re.compile(
     r"\byou (just )?said\b|\b(a (second|minute|moment) ago|earlier you)\b|\bwhich is it\b|"
     r"\b(does|did|do)(n'?t| not) (add up|match|make sense|sound right)\b|\bstory\b.{0,30}\b(odd|wrong|off)\b|\bwho told you\b|"
     r"\bhow (do|did) you know\b|\bnot who you say\b|\bsuspicious\b|\byou'?re not calling from\b|"
-    r"\b(don'?t|do not) have you (on|in)\b|\b(not|no one|nobody|no \w+(?: \w+)?) (on|in) (our|the) "
+    r"\b(don'?t|do not) have you (on|in)\b|\b(not|isn'?t|aren'?t|no one|nobody|no \w+(?: \w+)?) (on|in) (our|the|my) "
     r"(vendor |supplier |staff |company )?(list|directory|records|system)\b|"
     r"骗子|诈骗|骗人|假的|冒充|撒谎|说谎|你刚(才)?(说|讲)|前面你说|对不上|说不通|不对劲|不合理|谁告诉你|你怎么知道|"
     r"可疑|(名录|名单|通讯录|供应商名单)(里|上)?(也|都|根本|压根)?(没有|没|查不到)|(号码|手机号|电话|号)(也)?不是(这个|这个号|她的|他的)|不是(她|他|我们)的(号码|手机|电话)|没有(这个人|这家公司|叫)|"
@@ -919,7 +919,8 @@ _CHALLENGE = re.compile(
     r"(跟|和)[^，。？！]{0,20}(没有|没)(任何)?(合作|往来|业务)|不是我们的(供应商|外包|合作方)|"
     r"\bwhich (contractor|colleague|technician|ticket|temp)\b|\bI took that call\b|"
     r"\b(we|we've) (don'?t|do not|never|have never) (work|worked|deal|dealt|do business) with\b|"
-    r"\bnot (one of )?our (vendors?|suppliers?|contractors?)\b|"
+    r"\bnot (one of )?our (vendors?|suppliers?|contractors?)\b|\b(the )?same (story|pitch|line|excuse|request)\b|"
+    r"(同样|一样|相同)的(说辞|说法|理由|借口|故事)|刚才(也)?有(人|个人)(打来|来电)|"
     r"\b(isn'?t|is not|not) (her|his|their|\w+'s) (number|mobile|phone|cell)\b",
     re.IGNORECASE,
 )
@@ -1044,14 +1045,20 @@ def _legit_from_draft(
     vendor = vendor_by_id(world, ident) if ident else None
     if ident and not (emp or vendor):
         ident = None  # an unknown id is just an outsider
+    if emp and emp.name.split()[0].lower() not in (fields["caller_name"] + " " + fields["claims"]).lower():
+        # The model sometimes puts the colleague the caller wants to reach in claimed_identity: an outsider.
+        emp, ident = None, None
     if ident is None:
         # Naming a listed vendor in the introduction means that vendor, so a directory check works as it should.
         ident = next((i for i in scan_references(fields["claims"], world) if vendor_by_id(world, i)), None)
-    if not emp and re.search(re.escape(world.company.name.split()[0]), fields["claims"] + " " + fields["caller_name"], re.I):
+    company = world.company.name.split()[0]
+    outsider_of = re.search(rf"\b(customer|client|supplier|vendor|partner|visitor|candidate|applicant)s? (of|to|for|at|with) "
+                            rf"{re.escape(company)}\b|{re.escape(company)}\s*的(客户|供应商|合作方|访客|求职者)", fields["claims"], re.I)
+    if not emp and not outsider_of and re.search(re.escape(company), fields["claims"] + " " + fields["caller_name"], re.I):
         return None  # an outsider "from HR at Trassiewei" is a colleague the directory has never heard of
     if emp:
         # A staff caller must really be that colleague, and someone who can plausibly phone in.
-        if not emp.available or emp.name.split()[0].lower() not in (fields["caller_name"] + " " + fields["claims"]).lower():
+        if not emp.available:
             return None
     else:
         first = _first_name(fields["caller_name"])

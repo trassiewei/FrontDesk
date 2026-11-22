@@ -80,7 +80,7 @@ def test_a_genuine_caller_is_satisfied_by_the_transfer_the_director_named(fake):
 
 def test_a_failed_casting_falls_back_to_the_fixed_calls(fake):
     state = start(fake, [llm.LLMError("boom")])
-    assert [c.caller_name for c in state.queue if not c.is_con] == ["Danny", "Henry Hill", "Janet Ortiz"]
+    assert [c.caller_name for c in state.queue if not c.is_con] == ["Danny Ruiz", "Henry Hill", "Janet Ortiz"]
 
 
 def test_later_days_cast_again_and_see_who_already_called(fake):
@@ -120,7 +120,7 @@ def test_a_con_persona_never_shares_a_first_name_with_a_genuine_caller(fake):
 def test_a_draft_missing_its_opening_line_is_replaced_by_the_fixed_call():
     calls = clean([draft(opening_line=""), draft(caller_name="Omar Ali"), draft(caller_name="Rita Cole")])
     assert [c.slot for c in calls] == config.LEGIT_SLOTS
-    assert calls[0].caller_name == "Danny" and calls[1].caller_name == "Omar Ali"
+    assert calls[0].caller_name == "Danny Ruiz" and calls[1].caller_name == "Omar Ali"
 
 
 def test_missing_drafts_are_filled_from_the_fixed_calls():
@@ -130,16 +130,21 @@ def test_missing_drafts_are_filled_from_the_fixed_calls():
 
 def test_placeholders_and_overlong_text_are_rejected():
     calls = clean([draft(goal="Call [the right person]"), draft(knows="x" * 2000), draft()])
-    assert [c.caller_name for c in calls] == ["Danny", "Henry Hill", "Mia Park"]
+    assert [c.caller_name for c in calls] == ["Danny Ruiz", "Henry Hill", "Mia Park"]
 
 
 def test_staff_must_be_a_reachable_colleague_named_in_the_call():
     ok = clean([draft(caller_name="Bob Baker", claims="Bob Baker, Finance", claimed_identity="E02")])[0]
     assert ok.claimed_identity == "E02" and ok.caller_id == "Ext 4102 (Bob Baker)"
     away = clean([draft(caller_name="Alice Adams", claims="Alice Adams, CFO", claimed_identity="E01")])[0]
-    assert away.caller_name == "Danny"  # Alice is on vacation
-    wrong = clean([draft(caller_name="Mia Park", claims="Mia Park", claimed_identity="E02")])[0]
-    assert wrong.caller_name == "Danny"
+    assert away.caller_name == "Danny Ruiz"  # Alice is on vacation
+    # An id naming someone else is who the caller wants to reach: the caller is an outsider, not a fake Bob.
+    wrong = clean([draft(caller_name="Mia Park", claims="Mia Park, warehouse supervisor", claimed_identity="E02")])[0]
+    assert wrong.caller_name == "Mia Park" and wrong.claimed_identity is None and not wrong.caller_id.startswith("Ext")
+    customer = clean([draft(caller_name="Nina Osei", claims="Nina Osei, customer of Trassiewei")])[0]
+    assert customer.caller_name == "Nina Osei"
+    colleague = clean([draft(caller_name="Linda Okafor", claims="Linda Okafor, HR at Trassiewei")])[0]
+    assert colleague.caller_name == "Danny Ruiz"
     mobile = clean([draft(caller_name="Bob Baker", claims="Bob Baker (on his mobile)", claimed_identity="E02")])[0]
     assert mobile.caller_id == "555-0142 (mobile)"
 

@@ -313,8 +313,8 @@ def test_callback_note_reaches_the_caller_prompt_and_costs_patience(fake):
     call = state.calls[-1]
     assert call.patience == 10 - config.CALLBACK_PATIENCE_COST
     system = fake.calls_for("caller")[-1]["messages"][0]["content"]
-    assert "The receptionist put you on hold to verify by calling Alice Adams. Result: " in system
-    assert out["callback_result"] in system
+    assert "put you on hold to verify by calling Alice Adams, and came back: they did not pick up" in system
+    assert out["callback_result"] not in system and "contact Bob Baker" not in system  # the greeting names the cover
     assert out["caller_reply"] == "Okay, thanks." and call.callbacks == ["E01"]
     assert state.callbacks_made == 1
 
