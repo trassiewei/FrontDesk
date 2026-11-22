@@ -126,6 +126,6 @@
     "breached": "They got through to the person they were after. This is how the attack succeeded.",
     "satisfied": "You helped them.",
     "unsatisfied": "They left without the help they needed.",
-    "refused_by_it": "IT turned the request down and is now on alert."
+    "refused_by_it": "The colleague the call was put through to turned the request down, and IT is now on alert."
   }
 }

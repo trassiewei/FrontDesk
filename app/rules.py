@@ -48,6 +48,7 @@ CALLBACK_UNKNOWN = "{speaker}: 'Sorry, I don't know anything about that call.'"
 CALLBACK_NUMBER = "You dialled {number}. A voice answers: 'Yes, that's right — {name} is here with us.'"
 CALLBACK_BUSY = "{speaker}: 'I can't talk — {trouble} has the whole floor on fire. Is it urgent? Call me later.'"
 CALLBACK_MEETING = "{speaker}'s line rings out, then a colleague picks up: 'They're in a meeting — I can take a message.'"
+CALLBACK_VENDOR_QUEUE = "{speaker}: a recorded voice puts you in a queue. After a few minutes of hold music you give up."
 CALLBACK_NO_SUCH_STAFF = "{speaker}: 'We don't have anyone like that joining us. Who is this?'"
 
 # ------------------------------------------------------------------ pattern matching (spec §5.2)
@@ -309,7 +310,8 @@ def callback(
     if it_busy and emp is not None and emp.dept == "IT":
         return CallbackResult(tr(CALLBACK_BUSY).format(speaker=speaker, trouble=trouble), "busy")
     if not reachable:
-        return CallbackResult(tr(CALLBACK_MEETING).format(speaker=speaker), "busy")
+        template = CALLBACK_MEETING if emp is not None else CALLBACK_VENDOR_QUEUE  # a service desk has no meetings
+        return CallbackResult(tr(template).format(speaker=speaker), "busy")
 
     references = set(call.references)
     if call.claimed_identity:

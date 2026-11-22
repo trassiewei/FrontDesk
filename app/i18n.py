@@ -120,7 +120,9 @@ ZH: dict[str, str] = {
     "{speaker}: 'I can't talk — {trouble} has the whole floor on fire. Is it urgent? Call me later.'":
         "{speaker}：“我现在没法说话，{trouble}把整层楼都搞炸了。急吗？晚点再打给我。”",
     "{speaker}'s line rings out, then a colleague picks up: 'They're in a meeting — I can take a message.'":
-        "{speaker}的电话响了很久，一位同事接起来：“在开会呢，我可以帮你转达。”",
+        "{speaker} 的电话响了很久，一位同事接起来：“在开会呢，我可以帮你转达。”",
+    "{speaker}: a recorded voice puts you in a queue. After a few minutes of hold music you give up.":
+        "{speaker}：语音提示你正在排队。听了几分钟等待音乐后，你放弃了。",
     "{speaker}: 'We don't have anyone like that joining us. Who is this?'":
         "{speaker}：“我们这边没有这样一个新人。这是谁？”",
     "Call transferred to {name}.": "已将来电转给 {name}。",

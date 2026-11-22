@@ -37,7 +37,9 @@ def _call_header(call: CallRecord, world: World) -> str:
             note += " (this genuine caller was annoyed by the hold)"
     if call.flagged:
         note += " — the receptionist flagged this call"
-    return f"{config.DAY_NAMES[call.day - 1]}, {call.time} — {_true_identity(call, world)} — result: {call.result}{note}"
+    result = ("put through to a colleague who turned the con down (IT was alerted)" if call.result == "refused_by_it"
+              else call.result)
+    return f"{config.DAY_NAMES[call.day - 1]}, {call.time} — {_true_identity(call, world)} — result: {result}{note}"
 
 
 def call_log_text(state: GameState, world: World) -> str:
