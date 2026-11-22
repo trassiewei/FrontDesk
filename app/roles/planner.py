@@ -44,6 +44,8 @@ def history_text(state: GameState) -> str:
         method = state.methods.get(call.day, "")
         burned = (" | COVER BLOWN: the desk exposed this caller" if call.end_reason == "exposed" else
                   " | COVER SHAKY: the receptionist caught this caller out" if call.challenged else "")
+        if call.dismissed:
+            burned += " | SHUT DOWN: the receptionist said no and ended the call (they refuse, not just deflect)"
         lines.append(
             f"Day {call.day} | method: {method or '-'} | {call.plan.persona_name} | claimed: {call.claims} "
             f"| tactic: {call.plan.tactic} "

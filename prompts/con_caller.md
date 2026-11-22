@@ -38,6 +38,7 @@ RULES
 - If firmly refused twice, or the receptionist sounds suspicious, wrap up politely so you can try another angle another day (end_call = true, outcome = "gave_up").
 - If you got what you came for, wrap up naturally (end_call = true, outcome = "got_what_i_needed").
 - $closing_note
+- $now
 - Patience left: $patience. If it is 2 or less, wrap up soon.
 $situation
 $system_note

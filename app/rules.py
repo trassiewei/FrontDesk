@@ -832,9 +832,24 @@ _CHALLENGE = re.compile(
     r"\b(scam|scammer|con artist|phishing|fake|impostor|imposter|liar|lying)\b|"
     r"\byou (just )?said\b|\b(a (second|minute|moment) ago|earlier you)\b|\bwhich is it\b|"
     r"\b(does|did|do)(n'?t| not) (add up|match|make sense|sound right)\b|\bstory\b.{0,30}\b(odd|wrong|off)\b|\bwho told you\b|"
-    r"\bhow (do|did) you know\b|\bnot who you say\b|\bsuspicious\b|\byou'?re not calling from\b",
+    r"\bhow (do|did) you know\b|\bnot who you say\b|\bsuspicious\b|\byou'?re not calling from\b|"
+    r"\b(don'?t|do not) have you (on|in)\b|\b(not|no one|nobody|no \w+(?: \w+)?) (on|in) (our|the) "
+    r"(vendor |supplier |staff |company )?(list|directory|records|system)\b",
     re.IGNORECASE,
 )
+
+_GREETING = re.compile(r"\b(good )?(morning|afternoon|evening)\b", re.IGNORECASE)
+
+
+def fit_greeting(text: str, time: str) -> str:
+    """A spoken greeting that matches the clock: callers say "Afternoon" at 11:40 often enough to jar."""
+    part = "morning" if time < "12:00" else "afternoon"
+    match = _GREETING.match(text.lstrip())
+    if not match or match.group(2).lower() == part:
+        return text
+    word = part if match.group(2).islower() else part.capitalize()
+    lead = len(text) - len(text.lstrip())
+    return text[:lead + match.start(2)] + word + text[lead + match.end(2):]
 
 
 def is_dismissal(text: str) -> bool:
@@ -1032,6 +1047,12 @@ def receptionist_profile(calls: Iterable[CallRecord]) -> str:
             questions += 1
     if questions:
         lines.append(f"- In {questions} of {n} calls the receptionist mostly answered with questions of their own (who, which team, what number).")
+    shut = sum(1 for c in cons if c.dismissed)
+    caught = sum(1 for c in cons if c.challenged)
+    if shut or caught:
+        bits = [f"shut {shut} call(s) down with a flat no and a goodbye" if shut else "",
+                f"caught {caught} caller(s) out on their story" if caught else ""]
+        lines.append("- The receptionist " + " and ".join(b for b in bits if b) + ": they push back, not just deflect.")
     hung = sum(1 for c in cons if c.end_reason == "hung_up")
     taken = sum(1 for c in cons if c.end_reason == "message")
     sent = sum(1 for c in cons if c.end_reason == "transferred")

@@ -252,6 +252,7 @@ def next_call(state: GameState) -> CallRecord:
     opening = call.plan.opening_line if call.is_con and call.plan else call.legit.opening_line  # type: ignore[union-attr]
     if call.is_con and any(c.is_con and c.day == call.day and not c.gained_facts for c in state.calls):
         opening = caller.adapt_opening(state, call, world)
+    opening = rules.fit_greeting(opening, call.time)
     call.status = "active"
     call.messages.append(Message(speaker="caller", text=opening, time=call.time))
     if call.claimed_identity:
@@ -347,6 +348,7 @@ def say(state: GameState, text: str) -> dict:
     # The caller does not depend on the extractor, so run them side by side.
     with ThreadPoolExecutor(max_workers=2) as pool:
         dismissed = call.is_con and rules.is_dismissal(text)
+        call.dismissed = call.dismissed or dismissed
         note = ("The receptionist has just shut this call down. Ask for nothing more: say one short, polite closing "
                 "line and end the call (end_call = true, outcome = \"gave_up\").") if dismissed else ""
         if call.is_con and not dismissed and rules.is_challenge(text):

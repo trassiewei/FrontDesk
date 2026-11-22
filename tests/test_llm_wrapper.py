@@ -223,9 +223,9 @@ def test_fake_llm_goes_through_validation_and_logging(fake_llm):
 EXPECTED_VARS = {
     "con_caller": {"own_number", "earlier_today", "claims", "persona_name", "pretext", "tactic_name", "tactic_description", "target_descriptions",
                    "skill_note", "public_info", "intel", "patience", "system_note", "transcript", "con_goal", "situation",
-                   "verify_note", "closing_note", "script_text", "slip_text", "gambit_name", "purpose"},
+                   "verify_note", "closing_note", "script_text", "slip_text", "gambit_name", "purpose", "now"},
     "legit_caller": {"transfer_ok", "own_number", "caller_name", "claims", "personality", "goal", "knows", "temptation", "success",
-                     "patience", "system_note", "transcript", "situation", "legit_note", "identity"},
+                     "patience", "system_note", "transcript", "situation", "legit_note", "identity", "now"},
     "extractor": {"facts", "caller_line", "player_message"},
     "planner": {"premise", "con_goal", "gate_facts", "doors", "offstage_rule", "incident_note", "credibility",
                 "it_alert", "public_info", "unknown_facts", "intel", "tactics", "history", "burned", "last_notebook",

@@ -756,6 +756,25 @@ def test_a_con_told_to_stop_calling_leaves_even_if_the_model_keeps_asking(fake):
     assert "shut this call down" in fake.calls_for("caller")[-1]["messages"][0]["content"]
 
 
+def test_a_persona_turned_down_this_morning_admits_it_when_calling_back(fake):
+    state = new(fake, plan(con(), con()))
+    skip_legit(state)
+    engine.next_call(state)
+    say(fake, state, "No thanks. Goodbye.", caller={"say": "Sorry to bother you.", "end_call": True, "outcome": "gave_up"})
+    first = state.calls[-1]
+    assert first.dismissed
+    while state.queue and not state.queue[0].is_con:
+        engine.next_call(state)
+        engine.hang_up(state)
+    engine.next_call(state)
+    prompt = fake.calls_for("caller")[-1]["messages"][0]["content"]
+    assert "already called at" in prompt and "I know you said no earlier" in prompt
+    assert "shut the call down firmly" in prompt
+    from app.roles import planner
+    assert "SHUT DOWN" in planner.history_text(state)
+    assert "flat no" in rules.receptionist_profile(state.calls)
+
+
 def test_dismissal_wording():
     assert rules.is_dismissal("Goodbye.") and rules.is_challenge("This sounds like a scam")
     assert rules.is_challenge("The caller this morning turned out to be fake. Who are you really?")

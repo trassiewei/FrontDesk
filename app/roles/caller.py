@@ -92,6 +92,10 @@ def earlier_today_text(state: GameState, call: CallRecord) -> str:
                }.get(c.end_reason or "", "the call ended")
         got = ", ".join(c.gained_facts) or "nothing"
         refused = " The receptionist turned the caller down." if not c.gained_facts else ""
+        if c.dismissed:
+            refused += " The receptionist shut the call down firmly (said no and goodbye)."
+        if c.challenged:
+            refused += " The receptionist caught this caller out: that story is shaky."
         if c.end_reason == "exposed":
             refused += " That cover is blown: never mention this caller, their company or their story, even if your script does."
         rows.append(f"- {c.time}, {c.caller_name}: {how}; learned {got}.{refused}")
@@ -137,6 +141,12 @@ def identity_text(call: CallRecord, world: World) -> str:
     return ""
 
 
+def _now(state: GameState, call: CallRecord) -> str:
+    day = config.DAY_NAMES[call.day - 1].split(",")[0]
+    return (f"It is {call.time} on {day}. Anything you say about time must fit the clock: at 09:10 nothing has been "
+            "going on \"all morning\", and before noon it is not the afternoon.")
+
+
 def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: str) -> str:
     plan = call.plan
     assert plan is not None
@@ -163,6 +173,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         skill_note=config.get_difficulty(state.difficulty).skill_note,
         verify_note=config.get_difficulty(state.difficulty).verify_note,
         closing_note=closing_note(state, call, world),
+        now=_now(state, call),
         public_info=public_info_text(world),
         intel=intel_text(state, world, with_quote=False),
         patience=_effective_patience(call),
@@ -200,6 +211,7 @@ def _legit_prompt(state: GameState, call: CallRecord, world: World, system_note:
         success=data.success,
         situation=situation_text(state, insider=False),
         legit_note=config.get_difficulty(state.difficulty).legit_note,
+        now=_now(state, call),
         patience=_effective_patience(call),
         system_note=system_note,
         transcript=transcript_text(call),
@@ -215,6 +227,12 @@ def adapt_opening(state: GameState, call: CallRecord, world: World) -> str:
     caught = (" The desk caught and exposed your crew's call(s) at " + ", ".join(c.time for c in burned) +
               " (" + ", ".join(c.claims for c in burned) + "): never mention, refer to or build on those callers, "
               "their company or their story; this call must stand on its own.") if burned else ""
+    rebuffed = [c for c in state.calls if c.is_con and c.day == call.day and c.plan and plan.persona_name
+                and c.plan.persona_name == plan.persona_name and (c.dismissed or c.challenged or not c.gained_facts)]
+    if rebuffed:
+        caught += (f" You, {plan.persona_name}, already called at {rebuffed[-1].time} and the receptionist turned you "
+                   "down. They remember you: open by acknowledging that briefly (\"I know you said no earlier\") and "
+                   "never act as if that call went well or as if they agreed to anything.")
     note = (f"The call is just starting; you have not spoken yet. Your planned opening line was: \"{plan.opening_line}\" "
             "Say your opening line now. Keep it if it fits, but if it assumes one of your crew's earlier calls today "
             "went better than it really did (see above), change it so it does not. Never add a mention of your "

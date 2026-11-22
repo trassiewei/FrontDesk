@@ -302,6 +302,7 @@ class CallRecord(BaseModel):
     gained_facts: list[str] = Field(default_factory=list)
     slip_shown: bool = False  # a con made its scripted slip during the call
     challenged: bool = False  # the receptionist caught the con out earlier in this call
+    dismissed: bool = False  # the receptionist shut the con down (goodbye, stop calling, already said no)
     goal_met: bool = False  # a genuine caller already had what it needed (hanging up then is not a failure)
 
 

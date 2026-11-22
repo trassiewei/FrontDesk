@@ -407,3 +407,18 @@ def test_difficulty_presets():
     assert normal.breach_threshold == config.BREACH_THRESHOLD
     with pytest.raises(ValueError):
         config.get_difficulty("nightmare")
+
+
+def test_fit_greeting_matches_the_clock():
+    assert rules.fit_greeting("Afternoon — Tomás from Ridgeline.", "11:40") == "Morning — Tomás from Ridgeline."
+    assert rules.fit_greeting("Good morning, it's Dana.", "14:05") == "Good afternoon, it's Dana."
+    assert rules.fit_greeting("  morning, quick one", "15:50") == "  afternoon, quick one"
+    assert rules.fit_greeting("Hi, morning shift here.", "15:50") == "Hi, morning shift here."
+    assert rules.fit_greeting("Morning — Ellis here.", "09:10") == "Morning — Ellis here."
+
+
+def test_challenge_catches_directory_and_vendor_list_pushback():
+    assert rules.is_challenge("Halden Systems? I don't have you on our vendor list.")
+    assert rules.is_challenge("There's no Tessa Prescott in our directory.")
+    assert rules.is_challenge("You're not in our directory.")
+    assert not rules.is_challenge("Let me look in the directory for you.")
