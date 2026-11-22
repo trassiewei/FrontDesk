@@ -14,6 +14,7 @@ $incident
 
 GENUINE CALLERS SO FAR (do not repeat these people, errands or first names)
 $history
+Kinds of caller already used this week (never use these again, not even with a different company): $used_kinds
 
 THE CALLS TODAY ($count, in this order, at these times): $slot_times
 

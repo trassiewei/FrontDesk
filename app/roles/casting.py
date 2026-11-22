@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 
 from .. import config, llm, rules
 from ..models import GameState, LegitCall, LegitCastResult, World
@@ -29,8 +30,33 @@ OUTSIDER_KINDS = [
 ]
 
 
-def _kinds_text(rng: random.Random) -> str:
-    return "; ".join(rng.sample(OUTSIDER_KINDS, 5))
+# Words in a call card that show which kind of caller it was, so the week never repeats one ("a third driver lost
+# on Harbor Way"). The model is told not to repeat kinds, but it does unless they leave the idea list.
+_KIND_SIGNS = {
+    "a delivery driver who cannot find the dock": r"driver|courier|freight|carrier|haulage|deliver",
+    "a job applicant": r"applicant|applying|candidate",
+    "a local journalist": r"reporter|journalist|gazette|newspaper|editor",
+    "a recruiter": r"recruit|talent|staffing",
+    "an insurance broker with a routine renewal": r"insur|broker|underwrit",
+    "a student asking about a site visit": r"student|college|school|university",
+    "a parking enforcement officer about a van": r"parking|enforcement",
+    "a building maintenance contractor": r"maintenance|mechanical|hvac|facilities|contractor",
+    "a former employee who needs a reference letter": r"former employee|reference",
+}
+
+
+def _kinds_text(rng: random.Random, state: GameState | None = None) -> str:
+    cards = " ".join(c.claims for c in state.calls if not c.is_con).lower() if state else ""
+    fresh = [k for k in OUTSIDER_KINDS if not (k in _KIND_SIGNS and re.search(_KIND_SIGNS[k], cards))]
+    if len(fresh) < 5:
+        fresh = OUTSIDER_KINDS
+    return "; ".join(rng.sample(fresh, 5))
+
+
+def _used_kinds(state: GameState) -> str:
+    cards = " ".join(c.claims for c in state.calls if not c.is_con).lower()
+    used = [k for k, sign in _KIND_SIGNS.items() if re.search(sign, cards)]
+    return "; ".join(used) or "none yet"
 
 
 def _vendors_text(world: World) -> str:
@@ -70,7 +96,8 @@ def cast_day(state: GameState, world: World, day: int, slots: list[int] | None =
     rng = random.Random(f"{state.seed}:cast:{day}:{extra}") if state.seed is not None else random.Random()
     system = llm.render_prompt(
         "legit_cast",
-        kinds=_kinds_text(rng),
+        kinds=_kinds_text(rng, state),
+        used_kinds=_used_kinds(state),
         company=public_info_text(world),
         employees=_employees_text(world),
         vendors=_vendors_text(world),

@@ -603,9 +603,19 @@ def clean_plan(
         "calls": cleaned, "assessment": scrub_placeholders(result.assessment).strip()[: config.MAX_SCRIPT_TEXT * 2]})
 
 
+# One shared pool for cons and genuine callers, drawn in a shuffled order: a fixed order, or a pool only cons use,
+# makes "Dana Hollis" a name that always means a con.
 _SURNAME_POOL = ["Hollis", "Prescott", "Varga", "Lindqvist", "Achebe", "Moreau", "Kowalski", "Tanaka", "Brennan",
-                 "Castillo", "Dunmore", "Iyer", "Fairley", "Oyelaran", "Petrov", "Quaid"]
-_PERSONA_POOL = ["Dana", "Ellis", "Morgan", "Tessa", "Brent", "Nora", "Wendy", "Claire", "Victor", "Zane", "Hugo", "Jade"]
+                 "Castillo", "Dunmore", "Iyer", "Fairley", "Oyelaran", "Petrov", "Quaid", "Ashby", "Nakamura",
+                 "Delacroix", "Mbeki", "Sorensen", "Gallagher", "Ruiz", "Whitcombe"]
+_NAME_POOL = ["Dana", "Ellis", "Morgan", "Tessa", "Brent", "Nora", "Wendy", "Claire", "Victor", "Zane", "Hugo", "Jade",
+              "Mia", "Owen", "Rita", "Sam", "Lena", "Omar", "Pablo", "Nina", "Gus", "Tara", "Ravi", "June"]
+
+
+def _shuffled(pool: list[str], key: str) -> list[str]:
+    out = list(pool)
+    random.Random(key).shuffle(out)
+    return out
 
 
 def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) -> PlannerResult:
@@ -618,12 +628,13 @@ def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) ->
     own = [c.persona_name.split() for c in result.calls]
     # A fresh name must not be one another call in this plan already uses, or the plan ends up with two of it.
     planned = {p[0].lower() for p in own if p}
-    pool = [n for n in _PERSONA_POOL if n.lower() not in taken | directory | planned]
+    key = "|".join(used + [c.persona_name for c in result.calls])
+    pool = [n for n in _shuffled(_NAME_POOL, key) if n.lower() not in taken | directory | planned]
     # Two callers sharing a surname ("Gideon Marsh" right before "Owen Marsh") read as one family or one trick.
     surnames = {n.split()[-1].lower() for n in used if len(n.split()) > 1}
     surnames |= {e.name.split()[-1].lower() for e in world.employees}
     planned_surnames = {p[-1].lower() for p in own if len(p) > 1}
-    surname_pool = [n for n in _SURNAME_POOL if n.lower() not in surnames | planned_surnames]
+    surname_pool = [n for n in _shuffled(_SURNAME_POOL, key) if n.lower() not in surnames | planned_surnames]
     own_renames: list[dict[str, str]] = []
     personas: list[str] = []
     seen: dict[str, tuple[str, dict[str, str]]] = {}
@@ -799,7 +810,6 @@ def pick_policy_update(
 
 # ------------------------------------------------------------------ genuine callers (casting output cleaning)
 
-_CALLER_POOL = ["Mia", "Owen", "Rita", "Sam", "Lena", "Omar", "Pablo", "Nina", "Gus", "Tara", "Ravi", "June"]
 _LEGIT_TEXT_FIELDS = ("caller_name", "claims", "personality", "goal", "knows", "temptation", "success", "opening_line")
 
 
@@ -821,7 +831,7 @@ def legit_caller_id(world: World, claimed_identity: str | None, claims: str, rng
 
 
 _DISMISSAL = re.compile(
-    r"\bstop (calling|ringing)\b|\b(don'?t|do not) (call|ring) (us |here )?(again|back)\b|\bgood-?bye\b|"
+    r"\bstop (calling|ringing)\b|\b(don'?t|do not) (call|ring) (us |here )?(again|back)\b|\b(good-?)?bye\b|"
     r"\bhanging up\b|\bi'?m going to hang up\b|"
     r"\b(already|just) (said|told you) no\b|\breporting (this|you)\b",
     re.IGNORECASE,
@@ -852,6 +862,21 @@ def fit_greeting(text: str, time: str) -> str:
     return text[:lead + match.start(2)] + word + text[lead + match.end(2):]
 
 
+_NOT_EMPLOYER = {"the", "a", "an", "from", "with", "at", "of", "for", "riverton", "trassiewei", "harbor", "it", "inc",
+                 "finance", "hr", "sales", "operations", "executive", "customer", "service", "accounts", "payable"}
+
+
+def employer_word(claims: str, persona_name: str = "") -> str:
+    """The distinctive first word of the company on a call card ("Colin Marsh, Halvern Research" -> "halvern")."""
+    rest = claims
+    for part in persona_name.split():
+        rest = re.sub(rf"\b{re.escape(part)}\b", " ", rest)
+    for word in re.findall(r"[A-Z][\w&'-]+", rest):
+        if word.lower() not in _NOT_EMPLOYER:
+            return word.lower()
+    return ""
+
+
 def is_dismissal(text: str) -> bool:
     """The receptionist has shut the call down: said goodbye, accused the caller, or told them to stop calling."""
     return bool(_DISMISSAL.search(text))
@@ -876,9 +901,30 @@ def callback_number(call, world: World) -> str:
     return _fresh_number(_known_numbers(world), random.Random(f"callback:{call.id}:{call.caller_id}"))
 
 
+def _fit_surname(fields: dict[str, str], surnames: set[str], pool: list[str]) -> dict[str, str]:
+    """A genuine outsider gets a full name like every con does ("Mia, delivery driver" next to "Dana Hollis, courier"
+    is a tell), and never a surname an earlier caller or a colleague already has."""
+    parts = fields["caller_name"].split()
+    if not parts:
+        return fields
+    if len(parts) == 1 and pool:
+        full = f"{parts[0]} {pool.pop(0)}"
+        fields = {**fields, "caller_name": full,
+                  "claims": re.sub(rf"\b{re.escape(parts[0])}\b(?!\s+[A-Z])", full, fields["claims"], count=1)}
+    elif len(parts) > 1 and parts[-1].lower() in surnames and pool:
+        pattern = re.compile(rf"\b{re.escape(parts[-1])}\b")
+        new = pool.pop(0)
+        fields = {k: pattern.sub(new, v) for k, v in fields.items()}
+    last = fields["caller_name"].split()[-1].lower()
+    surnames.add(last)
+    if last in (n.lower() for n in pool):
+        pool[:] = [n for n in pool if n.lower() != last]
+    return fields
+
+
 def _legit_from_draft(
     d: LegitDraft, *, day: int, slot: int, world: World, taken: set[str], pool: list[str],
-    rng: random.Random, avoid: set[str],
+    rng: random.Random, avoid: set[str], surnames: set[str] | None = None, surname_pool: list[str] | None = None,
 ) -> LegitCall | None:
     fields = {f: getattr(d, f).strip() for f in _LEGIT_TEXT_FIELDS}
     renames = lookalike_renames(fields["claims"], world)
@@ -908,6 +954,8 @@ def _legit_from_draft(
             pattern = re.compile(rf"\b{re.escape(first)}\b")
             fields = {k: pattern.sub(new, v) for k, v in fields.items()}
         taken.add(_first_name(fields["caller_name"]).lower())
+        if surnames is not None and surname_pool is not None:
+            fields = _fit_surname(fields, surnames, surname_pool)
     fields["claims"] = card_claims(fields["caller_name"], fields["claims"], world)
     reachable = [e.id for e in world.employees if e.available]
     accept = list(dict.fromkeys(i for i in d.accept_transfer_to if i in reachable))[:3]
@@ -928,8 +976,11 @@ def clean_legit_calls(
     fallbacks = list(fallbacks)
     used = {_first_name(n).lower() for n in taken if n.strip()}
     directory = {e.name.split()[0].lower() for e in world.employees}
-    persona = {n.lower() for n in _PERSONA_POOL}
-    pool = [n for n in _CALLER_POOL if n.lower() not in used | directory | persona]
+    key = f"{rng.random()}"
+    pool = [n for n in _shuffled(_NAME_POOL, key) if n.lower() not in used | directory]
+    surnames = {n.split()[-1].lower() for n in taken if len(n.split()) > 1}
+    surnames |= {e.name.split()[-1].lower() for e in world.employees}
+    surname_pool = [n for n in _shuffled(_SURNAME_POOL, key) if n.lower() not in surnames]
     avoid_set = set(avoid)
     calls: list[LegitCall] = []
     fallbacks.sort(key=lambda c: c.slot)
@@ -937,7 +988,7 @@ def clean_legit_calls(
         call = None
         if i < len(result.calls):
             call = _legit_from_draft(result.calls[i], day=day, slot=slot, world=world, taken=used, pool=pool,
-                                     rng=rng, avoid=avoid_set)
+                                     rng=rng, avoid=avoid_set, surnames=surnames, surname_pool=surname_pool)
         if call is None and i < len(fallbacks):
             call = fallbacks[i].model_copy(update={"slot": slot})
         if call is not None:

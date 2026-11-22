@@ -775,6 +775,30 @@ def test_a_persona_turned_down_this_morning_admits_it_when_calling_back(fake):
     assert "flat no" in rules.receptionist_profile(state.calls)
 
 
+def test_a_colleague_of_a_turned_down_caller_does_not_follow_up_on_that_call(fake):
+    state = new(fake, plan(con(name="Ellis Raman", claims="Ellis Raman, Halvern Research"),
+                           con(name="Colin Ott", claims="Colin Ott, Halvern Research")))
+    skip_legit(state)
+    engine.next_call(state)
+    say(fake, state, "No thanks. Bye.", caller={"say": "Sorry to bother you.", "end_call": True, "outcome": "gave_up"})
+    assert state.calls[-1].dismissed
+    skip_legit(state)
+    engine.next_call(state)
+    prompt = fake.calls_for("caller")[-1]["messages"][0]["content"]
+    assert "A colleague from your own company" in prompt and "admit the desk said no" in prompt
+
+
+def test_a_caught_out_con_that_asks_again_gets_one_sharper_retry(fake):
+    state = new(fake, plan(con()))
+    skip_legit(state)
+    engine.next_call(state)
+    fake.script("extractor", {"leaks": []})
+    fake.script("caller", {"say": "Fair enough. So who signs off, then?"}, {"say": "Fair enough, I'll leave it there."})
+    out = engine.say(state, "That doesn't add up.")
+    assert out["caller_reply"] == "Fair enough, I'll leave it there."
+    assert "must not contain a question" in fake.calls_for("caller")[-1]["messages"][0]["content"]
+
+
 def test_dismissal_wording():
     assert rules.is_dismissal("Goodbye.") and rules.is_challenge("This sounds like a scam")
     assert rules.is_challenge("The caller this morning turned out to be fake. Who are you really?")

@@ -234,7 +234,7 @@ EXPECTED_VARS = {
     "director": {"company", "employees", "facts", "threshold", "angle", "incident_rule", "example", "gambit_name",
                  "gambit_summary"},
     "legit_cast": {"kinds", "company", "employees", "vendors", "day", "day_name", "day_note", "incident", "history",
-                   "slot_times", "style", "count"},
+                   "slot_times", "style", "count", "used_kinds"},
     "reporter": {"player_name", "outcome", "security", "security_label", "service", "service_label",
                  "title_badge", "stats", "call_log", "intel_timeline", "overshares", "notebooks", "scenario",
                  "notices"},

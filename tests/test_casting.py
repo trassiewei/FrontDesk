@@ -374,3 +374,45 @@ def test_naming_the_cfos_cover_by_role_references_that_person():
     assert "E02" in rules.scan_references("whoever's minding Alice's desk this week pointed me your way", world)
     assert "E02" in rules.scan_references("the person covering for the CFO told me", world)
     assert "E02" not in rules.scan_references("Is Alice in today?", world)
+
+
+# ------------------------------------------------------------------ names and kinds that would give a call away
+
+
+def test_a_genuine_outsider_always_gets_a_full_name_and_a_fresh_surname():
+    calls = clean([draft(caller_name="Priya", claims="Priya from Lanterne Foods", opening_line="Hi, Priya here."),
+                   draft(caller_name="Rita Marsh", claims="Rita Marsh from Marsh & Kettle Insurance",
+                         opening_line="Hi, Rita Marsh here."),
+                   draft(caller_name="Gus Lowe", claims="Gus Lowe, a customer", opening_line="Gus here.")],
+                  taken=["Colin Marsh"])
+    first, second, _ = calls
+    assert len(first.caller_name.split()) == 2 and first.claims.startswith(first.caller_name + " from")
+    assert first.opening_line == "Hi, Priya here."
+    assert "Marsh" not in second.caller_name and "Marsh" not in second.claims
+    new = second.caller_name.split()[-1]
+    assert second.claims == f"Rita {new} from {new} & Kettle Insurance"
+
+
+def test_genuine_callers_draw_from_the_same_names_cons_do():
+    names = set()
+    for seed in range(40):
+        calls = rules.clean_legit_calls(
+            LegitCastResult(calls=[LegitDraft(**draft(caller_name="Henry Ott", claims="Henry Ott, a florist"))]),
+            day=1, world=load_world(), fallbacks=[c for c in load_legit_calls() if c.day == 1], taken=[],
+            rng=random.Random(seed))
+        names.add(calls[0].caller_name.split()[0])
+    assert len(names) > 5 and names & {"Dana", "Ellis", "Morgan", "Tessa"}
+
+
+def test_kinds_of_caller_already_heard_this_week_leave_the_idea_list(fake):
+    from app.roles import casting
+    state = start(fake, [cast(draft(caller_name="Omar Ali", claims="Omar Ali, delivery driver for Corvid Freight"),
+                              draft(caller_name="Rita Cole", claims="Rita Cole, a reporter with the Riverton Gazette"),
+                              draft(caller_name="Gus Lowe", claims="Gus Lowe, a customer"))])
+    for c in state.queue:
+        state.calls.append(c)
+    for seed in range(10):
+        ideas = casting._kinds_text(random.Random(seed), state)
+        assert "delivery driver" not in ideas and "journalist" not in ideas
+    used = casting._used_kinds(state)
+    assert "delivery driver" in used and "journalist" in used and "recruiter" not in used

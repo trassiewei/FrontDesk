@@ -363,6 +363,10 @@ def say(state: GameState, text: str) -> dict:
         extractor_future = pool.submit(extractor.extract, state.game_id, world, previous_caller_line, text)
         turn = caller_future.result()
         extracted = extractor_future.result()
+    if call.is_con and call.challenged and not dismissed and not turn.end_call and "?" in turn.say:
+        # Caught out, the model often apologises and then asks for the same thing reworded: one sharper retry.
+        turn = caller.take_turn(state, call, world, note + " Your line must not contain a question or any request: "
+                                "answer the point in a few words and close.")
     if dismissed and not turn.end_call:
         # A con told to stop calling that keeps asking reads as a broken bot, not a careful crew: it leaves here.
         line = turn.say if "?" not in turn.say else config.DISMISSED_LINE

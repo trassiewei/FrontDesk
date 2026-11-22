@@ -233,6 +233,15 @@ def adapt_opening(state: GameState, call: CallRecord, world: World) -> str:
         caught += (f" You, {plan.persona_name}, already called at {rebuffed[-1].time} and the receptionist turned you "
                    "down. They remember you: open by acknowledging that briefly (\"I know you said no earlier\") and "
                    "never act as if that call went well or as if they agreed to anything.")
+    else:
+        mine = rules.employer_word(call.claims, plan.persona_name)
+        colleague = [c for c in state.calls if c.is_con and c.day == call.day and c.id != call.id and mine
+                     and rules.employer_word(c.claims, c.plan.persona_name if c.plan else c.caller_name) == mine
+                     and (c.dismissed or c.challenged or not c.gained_facts)]
+        if colleague:
+            caught += (f" A colleague from your own company ({colleague[-1].claims}) called at {colleague[-1].time} "
+                       "and the receptionist turned them down. Never say you are following up on that call or that it "
+                       "went anywhere; if you mention it at all, admit the desk said no.")
     note = (f"The call is just starting; you have not spoken yet. Your planned opening line was: \"{plan.opening_line}\" "
             "Say your opening line now. Keep it if it fits, but if it assumes one of your crew's earlier calls today "
             "went better than it really did (see above), change it so it does not. Never add a mention of your "
