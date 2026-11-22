@@ -249,6 +249,31 @@ def _names_outsider(call: CallRecord) -> bool:
     return bool(re.search(r"[A-Z][a-zA-Z]+", rest))
 
 
+# Cards that mention one of our departments without claiming to work in it.
+_NOT_STAFF = re.compile(
+    r"\b(applicant|applying|application|candidate|job|position|posting|role|opening|vacancy|interview|former(ly)?|"
+    r"ex-|used to work|left the company|retired|next door|neighbou?r|nearby|customer|client|supplier|vendor)\b|"
+    r"应聘|申请|求职|岗位|职位|面试|前员工|以前在|离职|退休|隔壁|客户|供应商",
+    re.IGNORECASE)
+
+
+def claims_unlisted_staff(caller_name: str, claims: str, world: World) -> bool:
+    """A card that gives one of our departments as the caller's own and names no outside organisation."""
+    if _NOT_STAFF.search(claims):
+        return False
+    company = world.company.name.split()
+    for dept in {e.dept for e in world.employees}:
+        word = _names_dept(claims, dept)
+        if word is None:
+            continue
+        rest = claims
+        for w in [*caller_name.split(), word, *company]:
+            rest = re.sub(rf"{_L}{re.escape(w)}{_R}", "", rest, flags=re.I)
+        if not re.search(r"\b[A-Z][a-zA-Z]+", rest):
+            return True
+    return False
+
+
 def _invented_colleague_of(call: CallRecord, emp, company: str = "") -> bool:
     """A con posing as a member of a department (often "new this week") is exposed by anyone in that department.
 
@@ -553,7 +578,10 @@ _DESCRIBES_CALL = re.compile(
 
 def zh_card(claims: str) -> str:
     """A Chinese card cut from a longer sentence often ends in a dangling 的 ("…企业业务部的")."""
-    return re.sub(r"(?<=[部处科组室心司店厂行所队边门位员])的[\s。，,.]*$", "", claims.strip())
+    claims = re.sub(r"(?<=[部处科组室心司店厂行所队边门位员聘访货件])的[\s。，,.]*$", "", claims.strip())
+    if re.search(r"[\u4e00-\u9fff]", claims):
+        claims = re.sub(r"\s*,\s*", "，", claims, count=1)  # "Priya Chandra, Brightline 的账务专员"
+    return claims
 
 
 def card_claims(persona_name: str, claims: str, world: World | None = None, opening: str = "") -> str:
@@ -920,7 +948,10 @@ _CHALLENGE = re.compile(
     r"\bwhich (contractor|colleague|technician|ticket|temp)\b|\bI took that call\b|"
     r"\b(we|we've) (don'?t|do not|never|have never) (work|worked|deal|dealt|do business) with\b|"
     r"\bnot (one of )?our (vendors?|suppliers?|contractors?)\b|\b(the )?same (story|pitch|line|excuse|request)\b|"
-    r"(同样|一样|相同)的(说辞|说法|理由|借口|故事)|刚才(也)?有(人|个人)(打来|来电)|"
+    r"第[二三四五六几]个了|第[二三四五六几]通(了|这样)|又是[^，。？！]{1,10}[？?]|"
+    r"\b(second|third|fourth|fifth|another) (call|caller|one) (like this|like that|with (this|that|the same))\b|"
+    r"(同样|一样|相同)的(说辞|说法|理由|借口|故事)|(说辞|说法|理由|借口|故事)(都|也)?(一模一样|一样|相同)|"
+    r"(刚才|上午|昨天|之前)(也|已经)?有(人|个人|两家|几家|别人)[^，。？！]{0,8}(打来|来电|问过|问)|问(过)?同样的|"
     r"\b(isn'?t|is not|not) (her|his|their|\w+'s) (number|mobile|phone|cell)\b",
     re.IGNORECASE,
 )
@@ -1046,7 +1077,12 @@ def _legit_from_draft(
     if ident and not (emp or vendor):
         ident = None  # an unknown id is just an outsider
     if emp and emp.name.split()[0].lower() not in (fields["caller_name"] + " " + fields["claims"]).lower():
-        # The model sometimes puts the colleague the caller wants to reach in claimed_identity: an outsider.
+        # The model sometimes puts the colleague the caller wants to reach in claimed_identity: an outsider. A draft
+        # whose caller also says they ARE that colleague ("it's me, Leo") is just broken.
+        first = re.escape(emp.name.split()[0])
+        selfclaim = rf"(\b(I'?m|I am|this is|it'?s|she is|he is)\s+{first}{_R}|(是我|我是|我就是)[，,\s]*{first}{_R})"
+        if re.search(selfclaim, fields["opening_line"] + " " + fields["knows"], re.I):
+            return None
         emp, ident = None, None
     if ident is None:
         # Naming a listed vendor in the introduction means that vendor, so a directory check works as it should.
@@ -1056,6 +1092,8 @@ def _legit_from_draft(
                             rf"{re.escape(company)}\b|{re.escape(company)}\s*的(客户|供应商|合作方|访客|求职者)", fields["claims"], re.I)
     if not emp and not outsider_of and re.search(re.escape(company), fields["claims"] + " " + fields["caller_name"], re.I):
         return None  # an outsider "from HR at Trassiewei" is a colleague the directory has never heard of
+    if not emp and claims_unlisted_staff(fields["caller_name"], fields["claims"], world):
+        return None  # "Rebecca Lin, Operations": a colleague the directory and the department have never heard of
     if emp:
         # A staff caller must really be that colleague, and someone who can plausibly phone in.
         if not emp.available:

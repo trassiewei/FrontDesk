@@ -362,7 +362,6 @@ def say(state: GameState, text: str) -> dict:
         raise EngineError("You have no replies left today. Transfer the call, take a message or hang up.", 409)
     world = load_world()
 
-    previous_caller_line = next((m.text for m in reversed(call.messages) if m.speaker == "caller"), "")
     caller_said = "\n".join(m.text for m in call.messages if m.speaker == "caller")
     player_msg = Message(speaker="player", text=text, time=call.time)
     call.messages.append(player_msg)
@@ -387,8 +386,9 @@ def say(state: GameState, text: str) -> dict:
                     "is after: accept now, in a few words, and stay on the line (end_call = false).")
         # Worker threads do not inherit the request's language unless the context is carried over.
         caller_future = pool.submit(contextvars.copy_context().run, caller.take_turn, state, call, world, note)
+        # The whole call, not just the last line: repeating a name the caller gave three lines ago is no leak.
         extractor_future = pool.submit(contextvars.copy_context().run, extractor.extract, state.game_id, world,
-                                       previous_caller_line, text, state.lang)
+                                       caller_said, text, state.lang)
         turn = caller_future.result()
         extracted = extractor_future.result()
     if call.is_con and call.challenged and not dismissed and not turn.end_call and _asks(turn.say):

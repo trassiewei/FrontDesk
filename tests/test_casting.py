@@ -139,8 +139,15 @@ def test_staff_must_be_a_reachable_colleague_named_in_the_call():
     away = clean([draft(caller_name="Alice Adams", claims="Alice Adams, CFO", claimed_identity="E01")])[0]
     assert away.caller_name == "Danny Ruiz"  # Alice is on vacation
     # An id naming someone else is who the caller wants to reach: the caller is an outsider, not a fake Bob.
-    wrong = clean([draft(caller_name="Mia Park", claims="Mia Park, warehouse supervisor", claimed_identity="E02")])[0]
+    wrong = clean([draft(caller_name="Mia Park", claims="Mia Park, dispatcher at Kestrel Freight", claimed_identity="E02")])[0]
     assert wrong.caller_name == "Mia Park" and wrong.claimed_identity is None and not wrong.caller_id.startswith("Ext")
+    broken = clean([draft(caller_name="Ruth Delgado", claims="Ruth Delgado, Operations", claimed_identity="E12",
+                          opening_line="喂，是我，Leo Lewis……我这边有点赶。")])[0]
+    assert broken.caller_name == "Danny Ruiz"
+    unlisted = clean([draft(caller_name="Rebecca Lin", claims="Rebecca Lin，Operations 部门，从仓库那边打来的")])[0]
+    assert unlisted.caller_name == "Danny Ruiz"
+    applicant = clean([draft(caller_name="Ted Whitaker", claims="Ted Whitaker, applying for the warehouse position")])[0]
+    assert applicant.caller_name == "Ted Whitaker"
     customer = clean([draft(caller_name="Nina Osei", claims="Nina Osei, customer of Trassiewei")])[0]
     assert customer.caller_name == "Nina Osei"
     colleague = clean([draft(caller_name="Linda Okafor", claims="Linda Okafor, HR at Trassiewei")])[0]
