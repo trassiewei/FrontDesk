@@ -799,6 +799,45 @@ def test_a_caught_out_con_that_asks_again_gets_one_sharper_retry(fake):
     assert "must not contain a question" in fake.calls_for("caller")[-1]["messages"][0]["content"]
 
 
+def test_a_caught_out_con_still_fishing_after_the_retry_leaves(fake):
+    state = new(fake, plan(con()))
+    skip_legit(state)
+    engine.next_call(state)
+    fake.script("extractor", {"leaks": []})
+    fake.script("caller", {"say": "Sure. So who signs off?"}, {"say": "Right. I just need to know who signs off."})
+    out = engine.say(state, "Our CFO isn't called Dana.")
+    assert out["call_ended"] and "?" not in out["caller_reply"]
+
+
+def test_an_easy_con_bolts_when_caught_or_told_it_will_be_checked(fake):
+    for line in ("There's nobody called Marcus in IT.", "Let me check with Leo first, one moment."):
+        state = new(fake, plan(con()), difficulty="easy")
+        skip_legit(state)
+        engine.next_call(state)
+        out = say(fake, state, line, caller={"say": "Oh, no need. Who runs IT, then?"})
+        assert out["call_ended"] and "?" not in out["caller_reply"], line
+        assert "panic" in fake.calls_for("caller")[-1]["messages"][0]["content"]
+
+
+def test_a_normal_con_does_not_bolt_at_the_mention_of_a_check(fake):
+    state = new(fake, plan(con()))
+    skip_legit(state)
+    engine.next_call(state)
+    out = say(fake, state, "Let me check with Leo first.", caller={"say": "Of course, take your time."})
+    assert not out["call_ended"]
+
+
+def test_easy_days_have_at_most_one_tempting_genuine_caller():
+    from app.models import LegitCall
+    from app.roles.casting import _limit_temptations
+    mk = lambda t: LegitCall(id="x", day=1, slot=0, caller_name="A B", claims="A B, X Ltd", claimed_identity=None,  # noqa: E731
+                             caller_id="555-0100", personality="", goal="", knows="", temptation=t, success="",
+                             accept_transfer_to=[], message_ok=True, opening_line="Hi.", patience=7)
+    out = _limit_temptations([mk("Bob's mobile"), mk("None"), mk("who is in")], [], 1)
+    assert [c.temptation for c in out] == ["Bob's mobile", "None", "None"]
+    assert _limit_temptations([mk("who is in")], [mk("Bob's mobile")], 1)[0].temptation == "None"
+
+
 def test_dismissal_wording():
     assert rules.is_dismissal("Goodbye.") and rules.is_challenge("This sounds like a scam")
     assert rules.is_challenge("The caller this morning turned out to be fake. Who are you really?")
@@ -809,6 +848,11 @@ def test_dismissal_wording():
     assert not rules.is_dismissal("Can I take a message?") and not rules.is_dismissal("I'll call Bob back")
     assert rules.is_dismissal("My answer's the same. Please don't call this line again for it.")
     assert rules.is_dismissal("The answer is still no.") and not rules.is_dismissal("There's still no one at that desk.")
+    assert rules.is_challenge("Our CFO isn't called Dana.") and rules.is_challenge("There is no Dana here.")
+    assert rules.is_challenge("You don't know your own manager?") and rules.is_challenge("我们 CFO 不叫 Dana。")
+    assert not rules.is_challenge("There's no one in Finance right now.") and not rules.is_challenge("His name is Bob.")
+    assert rules.announces_check("I'll call Leo back to confirm.") and rules.announces_check("我先跟 Leo 确认一下")
+    assert not rules.announces_check("Let me check if Bob is free.")
 
 
 def test_a_con_caught_out_is_told_to_stop_asking_for_the_rest_of_the_call(fake):

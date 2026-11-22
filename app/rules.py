@@ -953,8 +953,14 @@ _CHALLENGE = re.compile(
     r"第[二三四五六几]个了|第[二三四五六几]通(了|这样)|又是[^，。？！]{1,10}[？?]|"
     r"\b(second|third|fourth|fifth|another) (call|caller|one) (like this|like that|with (this|that|the same))\b|"
     r"(同样|一样|相同)的(说辞|说法|理由|借口|故事)|(说辞|说法|理由|借口|故事)(都|也)?(一模一样|一样|相同)|"
-    r"(刚才|上午|昨天|之前)(也|已经)?有(人|个人|两家|几家|别人)[^，。？！]{0,8}(打来|来电|问过|问)|问(过)?同样的|"
-    r"\b(isn'?t|is not|not) (her|his|their|\w+'s) (number|mobile|phone|cell)\b",
+    r"(刚才|上午|早上|昨天|之前)(也|已经)?有(人|个|位|两家|几家|别人)[^，。？！]{0,20}(打来|来电|问过|问)|问(过)?同样的|"
+    r"\b(isn'?t|is not|not) (her|his|their|\w+'s) (number|mobile|phone|cell)\b|"
+    # Catching a wrong name: "our CFO isn't called Dana", "there's no Dana here", "wrong name".
+    r"\b(isn'?t|is not|aren'?t|are not) (called|named)\b|\bwrong name\b|\b(not|isn'?t) (his|her|their|the|our \w+'s) name\b|"
+    r"\bthere'?s no(body| one)? (\w+ )?(called|named|by that name)\b|\bthere (is|'s) no (?-i:[A-Z])\w+ (here|at|in|on)\b|"
+    r"\b(doesn'?t|does not) work (here|for us)\b|\byou (don'?t|do not) (even )?know (your own|who your|the name)\b|"
+    r"(你|您)连[^，。？！]{1,12}都不知道|(没有|没)(跟|和)[^，。？！]{0,20}(合作|打过交道|有过往来)|谁(让|叫)(你|您)(打|来)|"
+    r"不叫|叫错|名字(不对|错了)|没这个人|(没有|没)(这个|这位)(人|同事)|不在我们(这|这里|公司)(工作|上班)",
     re.IGNORECASE,
 )
 
@@ -1012,6 +1018,18 @@ _OFFERS_TRANSFER = re.compile(
     r"\b(put|putting) you (through|over)\b|\b(transfer|transferring|connect|connecting) you\b|\bpass you (on|over)\b|"
     r"(帮|给)?(您|你)(转|接)(给|到|过去)|(转|接)(给|到)[^，。？！]{0,12}(那边|那里|分机)?|转过去|转接",
     re.IGNORECASE)
+
+
+_ANNOUNCES_CHECK = re.compile(
+    r"\b(verify|verifying|double[- ]check)\b|\b(check|checking|confirm|confirming) (with|that with|this with)\b|"
+    r"\b(call|ring|phone) (you|them|him|her|\w+) back\b|\bcall(ing)? \w+ to (check|confirm)\b|"
+    r"核实|核对|回拨|打回(去|给)|(跟|和|向|找)[^，。？！]{0,10}(确认|核实|问一下|问问)|先(问问|问一下|确认)",
+    re.IGNORECASE)
+
+
+def announces_check(text: str) -> bool:
+    """The receptionist says they will verify the caller with someone (easy cons bolt when they hear it)."""
+    return bool(_ANNOUNCES_CHECK.search(text))
 
 
 def offers_transfer(text: str) -> bool:

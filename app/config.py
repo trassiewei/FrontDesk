@@ -58,6 +58,7 @@ LLM_LEAK_MIN_CONFIDENCE = 0.5
 IMPATIENT_PATIENCE = 3
 PATIENCE_EXHAUSTED_LINE = "Forget it, I'll try another way."
 DISMISSED_LINE = "Right, understood. Sorry to have bothered you."
+CAUGHT_LINE = "Oh, I, um... never mind, I'll sort it out another way. Bye."
 
 
 @dataclass(frozen=True)
@@ -82,6 +83,8 @@ class Difficulty:
     tell_note: str  # how obvious the slip is at this level
     spoof_chance: float = 0.0  # chance a con posing as a listed vendor shows that vendor's real number
     cast_note: str = ""  # how the casting director writes the genuine callers at this level
+    folds_when_caught: bool = False  # the con gives up the moment the receptionist catches its story out
+    max_temptations: int = 3  # genuine callers a day who casually ask for something the desk should not hand over
 
 
 def tell_turn_on(diff: Difficulty, day: int) -> int:
@@ -107,6 +110,8 @@ DIFFICULTIES: dict[str, Difficulty] = {
         "exist, or an answer that contradicts what you said a moment ago.",
         cast_note=("Plain, friendly callers with clear errands who are easy to place. Nobody is rushed or vague; "
                    "staff and vendors give their names and reasons plainly."),
+        folds_when_caught=True,
+        max_temptations=1,
     ),
     "normal": Difficulty(
         "normal", BREACH_THRESHOLD, CON_PATIENCE, RATTLED_AFTER,

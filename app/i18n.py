@@ -142,6 +142,7 @@ ZH: dict[str, str] = {
     "suspicious calls you flagged": "你标记的可疑来电",
     "Forget it, I'll try another way.": "算了，我想别的办法吧。",
     "Right, understood. Sorry to have bothered you.": "好的，明白了。打扰了。",
+    "Oh, I, um... never mind, I'll sort it out another way. Bye.": "呃，那个……算了，我再想别的办法吧。再见。",
     "Sorry, you're breaking up — I'll call back later.": "抱歉，信号不好，我晚点再打。",
     "after hours": "下班后",
     # summary: the end page

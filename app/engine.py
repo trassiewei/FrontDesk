@@ -377,9 +377,18 @@ def say(state: GameState, text: str) -> dict:
             note = ("The receptionist has just caught something in your story that does not fit. Do not ask your "
                     "target question again on this call: answer the point briefly and plausibly, then steer toward "
                     "a polite close.")
+            if _diff(state).folds_when_caught:
+                note = ("The receptionist has just caught you out and you panic: mumble a short excuse, ask for "
+                        "nothing and end the call now (end_call = true, outcome = \"gave_up\").")
         elif call.is_con and not dismissed and call.challenged:
             note = ("Earlier in this call the receptionist caught you out. Do not ask for any of your targets again, "
                     "not even reworded: close politely now (end_call = true, outcome = \"gave_up\").")
+        bolts = (call.is_con and not dismissed and _diff(state).folds_when_caught
+                 and (call.challenged or rules.announces_check(text)))
+        if bolts and not call.challenged:
+            note = ("The receptionist has just said they will check up on you and you panic: stammer a short excuse "
+                    "(\"no need, I'm in a rush\"), ask for nothing and end the call now (end_call = true, "
+                    "outcome = \"gave_up\").")
         door = _offered_door(state, call, text, world) if call.is_con and not dismissed and not call.challenged else None
         if door:
             note = (f"The receptionist has just offered to put you through to {door}. That is exactly what your crew "
@@ -395,7 +404,14 @@ def say(state: GameState, text: str) -> dict:
         # Caught out, the model often apologises and then asks for the same thing reworded: one sharper retry.
         turn = caller.take_turn(state, call, world, note + " Your line must not contain a question or any request: "
                                 "answer the point in a few words and close.")
-    if turn.end_call and not dismissed and rules.offers_transfer(text):
+        if _asks(turn.say):
+            # Still asking after the retry: a caught con that keeps fishing reads as a broken bot. It leaves.
+            turn = turn.model_copy(update={"say": tr(config.CAUGHT_LINE), "end_call": True, "outcome": "gave_up"})
+    if bolts and not turn.end_call:
+        # Easy: an amateur who has been caught out, or hears they will be checked up on, does not stay to chat.
+        line = turn.say if not _asks(turn.say) else tr(config.CAUGHT_LINE)
+        turn = turn.model_copy(update={"say": line, "end_call": True, "outcome": "gave_up"})
+    if turn.end_call and not dismissed and not bolts and rules.offers_transfer(text):
         # "I'll put you through to Bob" is a promise, not the transfer (that is the player's button): a caller
         # who hangs up on it would leave the player unable to do what they just offered.
         turn = turn.model_copy(update={"end_call": False, "outcome": "none"})
@@ -612,8 +628,13 @@ _SERVICE_REASONS = {
 }
 
 
+_REQUEST = re.compile(r"\b(i (just |really )?need to know|(just )?tell me|let me know|point me (to|at))\b|"
+                      r"告诉我|麻烦你|我(只是)?需要知道", re.IGNORECASE)
+
+
 def _asks(line: str) -> bool:
-    return "?" in line or "？" in line
+    """Whether a caller's line asks for something: a question, or a request phrased as a statement."""
+    return "?" in line or "？" in line or bool(_REQUEST.search(line))
 
 
 def _service_hit(state: GameState, reason: str, points: int) -> None:

@@ -130,4 +130,21 @@ def cast_day(state: GameState, world: World, day: int, slots: list[int] | None =
         taken=[c.caller_name for c in state.calls] + [c.caller_name for c in cast] + [state.player_name], rng=rng,
         avoid=[c.caller_id for c in state.calls] + [c.caller_id for c in cast], slots=slots,
     )
-    return calls
+    return _limit_temptations(calls, cast, diff.max_temptations)
+
+
+def _tempts(call: LegitCall) -> bool:
+    return call.temptation.strip().lower() not in ("", "none", "无", "没有")
+
+
+def _limit_temptations(calls: list[LegitCall], cast, limit: int) -> list[LegitCall]:
+    """At most `limit` tempting genuine callers a day: on easy, fishing questions should mostly mean a con."""
+    left = limit - sum(_tempts(c) for c in cast)
+    out = []
+    for c in calls:
+        if _tempts(c):
+            if left <= 0:
+                c = c.model_copy(update={"temptation": "None"})
+            left -= 1
+        out.append(c)
+    return out
