@@ -179,7 +179,8 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
             tactic_ids=[t.id for t in tactics],
         )
 
-    used = [c.plan.persona_name for c in state.calls if c.is_con and c.plan]
+    # The player's own name counts as taken: a caller called "Sam" phoning receptionist Sam is confusing.
+    used = [c.plan.persona_name for c in state.calls if c.is_con and c.plan] + [state.player_name]
 
     def clean(raw: PlannerResult) -> PlannerResult:
         return rules.dedupe_personas(clean_plain(raw), world, used)

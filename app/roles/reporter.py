@@ -28,8 +28,13 @@ def _call_header(call: CallRecord, world: World) -> str:
             f" — the caller made this slip: {' / '.join(call.plan.tells)}" if call.slip_shown
             else " — the caller never got to make a slip"
         )
-    if call.callbacks and not call.is_con:
-        note += " — the receptionist put this genuine caller on hold to check them (it annoyed them)"
+    if call.callbacks:
+        # The callback's answer is logged as a bare "[system]" line; without this the model reads it as a colleague
+        # who happened to chime in, and tells the player they never verified anyone.
+        who = ", ".join(name_of(world, i) or i for i in call.callbacks)
+        note += f" — the receptionist put the caller on hold and phoned {who} to verify them"
+        if not call.is_con:
+            note += " (this genuine caller was annoyed by the hold)"
     if call.flagged:
         note += " — the receptionist flagged this call"
     return f"{config.DAY_NAMES[call.day - 1]}, {call.time} — {_true_identity(call, world)} — result: {call.result}{note}"

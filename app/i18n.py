@@ -105,7 +105,7 @@ ZH: dict[str, str] = {
         "Dave：“谢谢，我会去查一下，也跟帮助台打个招呼。”",
     "You took a message.": "你记下了留言。",
     "{name}'s voicemail: 'I'm out of the office until Monday, November 23. For urgent Finance matters, please contact Bob Baker.'":
-        "{name}的语音信箱：“我 11 月 23 日（周一）前不在办公室。财务急事请联系 Bob Baker。”",
+        "{name} 的语音信箱：“我 11 月 23 日（周一）前不在办公室。财务急事请联系 Bob Baker。”",
     "{speaker}: 'No, I didn't call — and I didn't send anyone. Who is this?'":
         "{speaker}：“没有，我没打过电话，也没让谁打给你们。这人是谁？”",
     "{speaker}: 'Yes, that was me calling. Put me back through.'": "{speaker}：“对，刚才是我打的。把我接回去吧。”",

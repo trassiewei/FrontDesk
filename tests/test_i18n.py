@@ -138,3 +138,18 @@ def test_a_new_starter_who_names_the_department_aloud_is_exposed_by_that_departm
     assert rules.callback(con, "E12", world).exposed
     outsider = make_call(caller_name="Rita Voss", claims="Rita Voss，Kestrel Freight 的司机", messages=said)
     assert not rules.callback(outsider, "E12", world).exposed
+
+
+def test_more_ways_to_catch_a_caller_out():
+    assert rules.is_challenge("我们跟 Ledgerstone 好像没有合作。") and rules.is_challenge("We don't work with Ledgerstone.")
+    assert rules.is_challenge("Alice 的手机号不是这个。她的助理名录上也没有。") and rules.is_challenge("That isn't her number.")
+    assert not rules.is_challenge("我和 Bob 确认过，没有问题。")
+
+
+def test_chinese_cards_lose_a_dangling_de_and_never_describe_the_call():
+    assert rules.zh_card("Tobias Reinhardt，Riverton Savings Bank 企业业务部的") == "Tobias Reinhardt，Riverton Savings Bank 企业业务部"
+    assert rules.zh_card("Mia，目的") == "Mia，目的"
+    card = rules.card_claims("Dennis Oyelaran", "Dennis Oyelaran，打错电话的人，本想联系一家船运公司", None, "哦，你们不是搬家公司吗？")
+    assert card == "Dennis Oyelaran"
+    assert rules.card_claims("Mia Park", "Mia Park, florist following up on an order", None,
+                             "Hi, Mia from Petal & Stem.") == "Mia Park, Petal & Stem"

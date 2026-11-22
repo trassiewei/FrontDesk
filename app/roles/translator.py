@@ -12,7 +12,7 @@ import re
 
 from pydantic import BaseModel, Field
 
-from .. import llm
+from .. import llm, rules
 from ..models import GameState, LegitCall, PlannerResult
 
 log = logging.getLogger("frontdesk.translator")
@@ -67,8 +67,8 @@ def localize_day(state: GameState, plan: PlannerResult, legit: list[LegitCall]) 
         claims, opening, purpose, refused, verified = (next(done) for _ in range(5))
         beats = [next(done) for _ in c.beats]
         tells = [next(done) for _ in c.tells]
-        calls.append(c.model_copy(update={"claims": claims, "opening_line": opening, "purpose": purpose,
+        calls.append(c.model_copy(update={"claims": rules.zh_card(claims), "opening_line": opening, "purpose": purpose,
                                           "if_refused": refused, "if_verified": verified, "beats": beats,
                                           "tells": tells}))
-    legit_out = [g.model_copy(update={"claims": next(done), "opening_line": next(done)}) for g in legit]
+    legit_out = [g.model_copy(update={"claims": rules.zh_card(next(done)), "opening_line": next(done)}) for g in legit]
     return plan.model_copy(update={"notebook": notebook, "calls": calls}), legit_out

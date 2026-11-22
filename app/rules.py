@@ -543,6 +543,19 @@ def _bare_card(persona_name: str, *texts: str) -> str:
     return f"{name}，{org}" if re.search(r"[\u4e00-\u9fff]", org) else f"{name}, {org}"
 
 
+# Words that describe the call rather than introduce the caller.
+_DESCRIBES_CALL = re.compile(
+    r"\b(wrong number|dialled the wrong|calling (about|to|for|because)|following up|trying to|wants? to|hoping to|"
+    r"looking for|who (is|wants|needs|called))\b|打错|拨错|本想|想(要|找|问|联系|跟进)|来电(询问|咨询|是)|询问|跟进|"
+    r"的人[，,]",
+    re.IGNORECASE)
+
+
+def zh_card(claims: str) -> str:
+    """A Chinese card cut from a longer sentence often ends in a dangling 的 ("…企业业务部的")."""
+    return re.sub(r"(?<=[部处科组室心司店厂行所队边门位员])的[\s。，,.]*$", "", claims.strip())
+
+
 def card_claims(persona_name: str, claims: str, world: World | None = None, opening: str = "") -> str:
     """The call card must read like a caller's self-introduction. A planner's description of the call ("A billing
     clerk following up on...") would give the con away, so it is replaced by the persona's name."""
@@ -561,6 +574,9 @@ def card_claims(persona_name: str, claims: str, world: World | None = None, open
         return _bare_card(persona_name, claims, opening) or claims
     if claims.strip(" ,.，。").lower() == persona_name.strip().lower():
         return _bare_card(persona_name, opening)
+    if _DESCRIBES_CALL.search(claims):
+        # "Dennis Oyelaran, a wrong number trying to reach a moving company" says what the call is, not who it is.
+        return _bare_card(persona_name, opening) or claims
     return claims
 
 
@@ -634,8 +650,8 @@ def clean_plan(
                 update={
                     "beats": beats[: config.MAX_BEATS],
                     "tells": tells[: config.MAX_TELLS],
-                    "claims": card_claims(call.persona_name, scrub_placeholders(call.claims), world,
-                                          scrub_placeholders(call.opening_line)),
+                    "claims": zh_card(card_claims(call.persona_name, scrub_placeholders(call.claims), world,
+                                          scrub_placeholders(call.opening_line))),
                     "pretext": scrub_placeholders(call.pretext),
                     "opening_line": scrub_placeholders(call.opening_line),
                     "if_refused": scrub_placeholders(call.if_refused).strip()[: config.MAX_SCRIPT_TEXT],
@@ -898,9 +914,13 @@ _CHALLENGE = re.compile(
     r"\b(don'?t|do not) have you (on|in)\b|\b(not|no one|nobody|no \w+(?: \w+)?) (on|in) (our|the) "
     r"(vendor |supplier |staff |company )?(list|directory|records|system)\b|"
     r"骗子|诈骗|骗人|假的|冒充|撒谎|说谎|你刚(才)?(说|讲)|前面你说|对不上|说不通|不对劲|不合理|谁告诉你|你怎么知道|"
-    r"可疑|(名录|名单|通讯录|供应商名单)(里|上)?(没有|查不到)|没有(这个人|这家公司|叫)|"
+    r"可疑|(名录|名单|通讯录|供应商名单)(里|上)?(也|都|根本|压根)?(没有|没|查不到)|(号码|手机号|电话|号)(也)?不是(这个|这个号|她的|他的)|不是(她|他|我们)的(号码|手机|电话)|没有(这个人|这家公司|叫)|"
     r"(哪个|什么|哪位|哪来的)(合同工|同事|技术员|员工|工单|前台)|(那通|上午的|早上的)?电话是我接的|"
-    r"\bwhich (contractor|colleague|technician|ticket|temp)\b|\bI took that call\b",
+    r"(跟|和)[^，。？！]{0,20}(没有|没)(任何)?(合作|往来|业务)|不是我们的(供应商|外包|合作方)|"
+    r"\bwhich (contractor|colleague|technician|ticket|temp)\b|\bI took that call\b|"
+    r"\b(we|we've) (don'?t|do not|never|have never) (work|worked|deal|dealt|do business) with\b|"
+    r"\bnot (one of )?our (vendors?|suppliers?|contractors?)\b|"
+    r"\b(isn'?t|is not|not) (her|his|their|\w+'s) (number|mobile|phone|cell)\b",
     re.IGNORECASE,
 )
 
@@ -1028,7 +1048,7 @@ def _legit_from_draft(
         taken.add(_first_name(fields["caller_name"]).lower())
         if surnames is not None and surname_pool is not None:
             fields = _fit_surname(fields, surnames, surname_pool)
-    fields["claims"] = card_claims(fields["caller_name"], fields["claims"], world, fields["opening_line"])
+    fields["claims"] = zh_card(card_claims(fields["caller_name"], fields["claims"], world, fields["opening_line"]))
     reachable = [e.id for e in world.employees if e.available]
     accept = list(dict.fromkeys(i for i in d.accept_transfer_to if i in reachable))[:3]
     return LegitCall(

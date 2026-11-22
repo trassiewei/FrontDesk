@@ -833,3 +833,15 @@ def test_the_day_tally_says_what_cost_service_without_naming_a_call(fake):
     reasons = out["day_scores"]["service_reasons"]
     assert any(r.startswith("genuine callers flagged as suspicious: -5") for r in reasons)
     assert not any(c.caller_name in " ".join(reasons) for c in state.calls)
+
+
+def test_no_caller_shares_the_receptionists_name(fake):
+    fake.script("planner", plan(con(name="Jordan Pike", claims="Jordan Pike, Ledgerstone Systems",
+                                    opening="Morning, Jordan Pike here.")))
+    state = engine.new_game("Jordan", "normal", seed=7)
+    engine.start_day(state)
+    assert state.planned[1].calls and state.planned[1].calls[0].persona_name.split()[0] != "Jordan"
+    while state.queue:
+        engine.next_call(state)
+        assert not state.calls[-1].caller_name.startswith("Jordan")
+        engine.hang_up(state)

@@ -127,7 +127,7 @@ def cast_day(state: GameState, world: World, day: int, slots: list[int] | None =
     calls = rules.clean_legit_calls(
         draft,  # type: ignore[arg-type]
         day=day, world=world, fallbacks=_fallbacks(state, day, cast),
-        taken=[c.caller_name for c in state.calls] + [c.caller_name for c in cast], rng=rng,
+        taken=[c.caller_name for c in state.calls] + [c.caller_name for c in cast] + [state.player_name], rng=rng,
         avoid=[c.caller_id for c in state.calls] + [c.caller_id for c in cast], slots=slots,
     )
     return calls
