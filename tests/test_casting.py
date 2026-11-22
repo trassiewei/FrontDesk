@@ -191,6 +191,16 @@ def test_a_call_card_never_shows_the_planners_description_of_the_call():
     assert rules.card_claims("Gareth Lomax", "Gareth Lomax, Starboard support", world) == "Gareth Lomax, Starboard support"
     assert rules.card_claims("Colin Draper", "Same client's coordinator, following up on the signature", world) == "Colin Draper"
     assert rules.card_claims("Alex", "Dave Davis, IT", world) == "Dave Davis, IT"
+    long = "Same client's coordinator, following up on the signature for the envelope"
+    assert rules.card_claims("Colin Draper", long, world, "Hi, Colin from Kestrel Freight here.") == "Colin Draper, Kestrel Freight"
+
+
+def test_a_card_with_only_a_name_borrows_the_company_from_the_introduction():
+    opening = "Hi there, Gus Sorensen from Cordell Property Group — we manage the building."
+    assert rules.card_claims("Gus Sorensen", "Gus Sorensen", None, opening) == "Gus Sorensen, Cordell Property Group"
+    assert rules.card_claims("Rita Cole", "Rita Cole", None, "Rita at the Riverton Community College.") == "Rita Cole, Riverton Community College"
+    assert rules.card_claims("Colin Hale", "Colin Hale", None, "I run the farm stand on Route 9.") == "Colin Hale"
+    assert rules.card_claims("张伟", "张伟", None, "你好，我是来自华达物流的张伟。") == "张伟，华达物流"
 
 
 def test_internal_callers_count_as_verified_for_the_it_transfer_rule(fake):

@@ -519,7 +519,31 @@ _MAX_CLAIMS = 80
 _SHORT_ROLE = 50
 
 
-def card_claims(persona_name: str, claims: str, world: World | None = None) -> str:
+# "Gus Sorensen from Cordell Property Group" -> "Cordell Property Group"; "张伟，来自华达物流" -> "华达物流".
+_INTRO_ORG = re.compile(
+    r"\b(?:from|at|with|over at)\s+(?:the\s+)?([A-Z][\w&'.-]*(?:\s+(?:of\s+|&\s+)?[A-Z][\w&'.-]*){0,4})"
+    r"|(?:我是来自|来自|我是|这里是)([\u4e00-\u9fffA-Za-z]{2,14}?(?:公司|集团|物流|快递|中心|事务所|银行|学院|大学|医院|酒店|供应|服务))")
+
+
+def _intro_org(*texts: str) -> str:
+    for text in texts:
+        m = _INTRO_ORG.search(text or "")
+        if m:
+            return (m.group(1) or m.group(2)).strip().rstrip(".,")
+    return ""
+
+
+def _bare_card(persona_name: str, *texts: str) -> str:
+    """Name alone on a card reads as a tell (everyone else gives a company or role), so borrow the company the
+    caller names in their introduction when there is one."""
+    name = persona_name.strip()
+    org = _intro_org(*texts)
+    if not name or not org or org.lower() in name.lower():
+        return name
+    return f"{name}，{org}" if re.search(r"[\u4e00-\u9fff]", org) else f"{name}, {org}"
+
+
+def card_claims(persona_name: str, claims: str, world: World | None = None, opening: str = "") -> str:
     """The call card must read like a caller's self-introduction. A planner's description of the call ("A billing
     clerk following up on...") would give the con away, so it is replaced by the persona's name."""
     claims = claims.strip()
@@ -527,14 +551,16 @@ def card_claims(persona_name: str, claims: str, world: World | None = None) -> s
     named = (first and first in claims.lower()) or (
         world is not None and any(employee_by_id(world, i) for i in scan_references(claims, world)))
     if not claims or len(claims) > _MAX_CLAIMS:
-        return persona_name.strip() or claims[:_MAX_CLAIMS]
+        return _bare_card(persona_name, claims, opening) or claims[:_MAX_CLAIMS]
     if not named:
         # "Office manager at Brightline" -> "Helen Okafor, office manager at Brightline"; a long description goes.
         if persona_name.strip() and len(claims) <= _SHORT_ROLE:
             if re.search(r"[\u4e00-\u9fff]", claims):
                 return f"{persona_name.strip()}，{claims}"
             return f"{persona_name.strip()}, {claims[0].lower() + claims[1:]}"
-        return persona_name.strip() or claims
+        return _bare_card(persona_name, claims, opening) or claims
+    if claims.strip(" ,.，。").lower() == persona_name.strip().lower():
+        return _bare_card(persona_name, opening)
     return claims
 
 
@@ -608,7 +634,8 @@ def clean_plan(
                 update={
                     "beats": beats[: config.MAX_BEATS],
                     "tells": tells[: config.MAX_TELLS],
-                    "claims": card_claims(call.persona_name, scrub_placeholders(call.claims), world),
+                    "claims": card_claims(call.persona_name, scrub_placeholders(call.claims), world,
+                                          scrub_placeholders(call.opening_line)),
                     "pretext": scrub_placeholders(call.pretext),
                     "opening_line": scrub_placeholders(call.opening_line),
                     "if_refused": scrub_placeholders(call.if_refused).strip()[: config.MAX_SCRIPT_TEXT],
@@ -854,7 +881,8 @@ def legit_caller_id(world: World, claimed_identity: str | None, claims: str, rng
 
 
 _DISMISSAL = re.compile(
-    r"\bstop (calling|ringing)\b|\b(don'?t|do not) (call|ring) (us |here )?(again|back)\b|\b(good-?)?bye\b|"
+    r"\bstop (calling|ringing)\b|\b(don'?t|do not) (call|ring)\b[^.?!]{0,30}\b(again|back)\b|\b(good-?)?bye\b|"
+    r"\b(my )?answer'?s? (is )?(still )?the same\b|\bthe answer is (still )?no\b|\bstill no\b(?! ?(one|body))|"
     r"\bhanging up\b|\bi'?m going to hang up\b|"
     r"\b(already|just) (said|told you) no\b|\breporting (this|you)\b|"
     r"再见|拜拜|别再打|不要再打|别打来了|我(要|先)?挂了|挂了啊|已经(说|讲)(过|了)不|已经拒绝|我会(上报|举报|报告)|我要(上报|举报)",
@@ -1000,7 +1028,7 @@ def _legit_from_draft(
         taken.add(_first_name(fields["caller_name"]).lower())
         if surnames is not None and surname_pool is not None:
             fields = _fit_surname(fields, surnames, surname_pool)
-    fields["claims"] = card_claims(fields["caller_name"], fields["claims"], world)
+    fields["claims"] = card_claims(fields["caller_name"], fields["claims"], world, fields["opening_line"])
     reachable = [e.id for e in world.employees if e.available]
     accept = list(dict.fromkeys(i for i in d.accept_transfer_to if i in reachable))[:3]
     return LegitCall(

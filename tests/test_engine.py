@@ -807,6 +807,8 @@ def test_dismissal_wording():
     assert not rules.is_dismissal("You said executive suite a second ago, now finance?")
     assert rules.is_challenge("Your dispatcher called Monday with a story that didn't add up.")
     assert not rules.is_dismissal("Can I take a message?") and not rules.is_dismissal("I'll call Bob back")
+    assert rules.is_dismissal("My answer's the same. Please don't call this line again for it.")
+    assert rules.is_dismissal("The answer is still no.") and not rules.is_dismissal("There's still no one at that desk.")
 
 
 def test_a_con_caught_out_is_told_to_stop_asking_for_the_rest_of_the_call(fake):
