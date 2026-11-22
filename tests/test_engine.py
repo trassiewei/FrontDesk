@@ -872,3 +872,19 @@ def test_a_caller_does_not_hang_up_on_a_promised_transfer(fake):
     assert out["call_ended"] is False
     assert engine.transfer(state, "E02")["end_reason"] == "transferred"
     assert rules.offers_transfer("我帮您转给 Carol。") and not rules.offers_transfer("I can't put you through.")
+
+
+def test_a_ready_con_is_told_to_accept_when_the_desk_offers_its_door(fake):
+    from app.models import IntelRecord
+    from app.world import non_public_facts, scenario_of
+    state = new(fake, plan(con()))
+    from app.world import load_world
+    for f in non_public_facts(load_world()):
+        state.intel[f.id] = IntelRecord(fact_id=f.id, day=1, time="09:00", call_id="x", quote="q", source="llm")
+    door = load_world().employees[[e.id for e in load_world().employees].index(scenario_of(state).doors[0].employee_id)]
+    skip_legit(state)
+    engine.next_call(state)
+    say(fake, state, f"Want me to put you through to {door.name.split()[0]}?")
+    assert f"offered to put you through to {door.name}" in fake.calls_for("caller")[-1]["messages"][0]["content"]
+    say(fake, state, "Okay, anything else?")
+    assert "offered to put you through" not in fake.calls_for("caller")[-1]["messages"][0]["content"]

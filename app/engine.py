@@ -339,6 +339,20 @@ def _conclude_caller_turn(state: GameState, call: CallRecord, turn: CallerTurn) 
     return say, reason
 
 
+def _offered_door(state: GameState, call: CallRecord, text: str, world) -> str | None:
+    """The name of a door the receptionist just offered to transfer a con to, when the con is ready to use it. The
+    planner's script often has other targets, and the model then turns down the one offer the whole week was for."""
+    if not rules.offers_transfer(text):
+        return None
+    diff = _diff(state)
+    scenario = scenario_of(state)
+    if not rules.breach_ready(call, state.intel, state.it_alert, diff.breach_threshold, world.facts, scenario):
+        return None
+    named = set(rules.scan_references(text, world))
+    door = next((employee_by_id(world, d.employee_id) for d in scenario.doors if d.employee_id in named), None)
+    return door.name if door else None
+
+
 def say(state: GameState, text: str) -> dict:
     call = _active(state)
     text = (text or "").strip()
@@ -367,6 +381,10 @@ def say(state: GameState, text: str) -> dict:
         elif call.is_con and not dismissed and call.challenged:
             note = ("Earlier in this call the receptionist caught you out. Do not ask for any of your targets again, "
                     "not even reworded: close politely now (end_call = true, outcome = \"gave_up\").")
+        door = _offered_door(state, call, text, world) if call.is_con and not dismissed and not call.challenged else None
+        if door:
+            note = (f"The receptionist has just offered to put you through to {door}. That is exactly what your crew "
+                    "is after: accept now, in a few words, and stay on the line (end_call = false).")
         # Worker threads do not inherit the request's language unless the context is carried over.
         caller_future = pool.submit(contextvars.copy_context().run, caller.take_turn, state, call, world, note)
         extractor_future = pool.submit(contextvars.copy_context().run, extractor.extract, state.game_id, world,
