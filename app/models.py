@@ -335,6 +335,7 @@ class GameState(BaseModel):
     security: int = 100
     service_penalty: int = 0
     service_hits: dict[int, dict[str, int]] = Field(default_factory=dict)  # day -> reason -> points lost
+    security_hits: dict[int, dict[str, int]] = Field(default_factory=dict)  # day -> reason -> points gained/lost
     handled_legit: int = 0
     satisfied_legit: int = 0
     exposures: int = 0

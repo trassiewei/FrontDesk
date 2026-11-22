@@ -53,8 +53,8 @@ const I18N = {
     net_error: "Could not reach the server.", bad_request: "That request was not valid.", failed: "Request failed ({status}).",
     preparing: "Preparing today's calls… (this can take a few seconds)", start_shift: "Start your shift",
     start_day: "Start the day", end_of_day: "End of day",
-    tally: "Tonight's tally: Security {sec} ({secd}), Service {svc} ({svcd})", lost_to: ". Service lost to: {list}.",
-    unhappy: ". {n} caller(s) left unhappy today.", list_sep: "; ", next_day: "Next day",
+    tally: "Tonight's tally: Security {sec} ({secd}), Service {svc} ({svcd})", lost_to: ". Service lost to: {list}", sec_moved: ". Security changed by: {list}", end_dot: ".",
+    unhappy: ". {n} caller(s) left unhappy today", list_sep: "; ", next_day: "Next day",
     answer: "📞 Answer next call", calls_left: "Calls left today: {n}", no_more: "No more calls today.", end_day: "End the day",
     flag: "🚩 Flag last call as suspicious", last_call: "Last call", caller_id: "Caller ID: {id}", impatient: "😤 sounds impatient",
     ph_none: "No replies left today. Transfer, take a message or hang up.",
@@ -100,8 +100,8 @@ const I18N = {
     net_error: "连不上服务器。", bad_request: "请求无效。", failed: "请求失败（{status}）。",
     preparing: "正在准备今天的来电…（可能要几秒钟）", start_shift: "开始上班",
     start_day: "开始今天的工作", end_of_day: "今天结束",
-    tally: "今晚结算：安全 {sec}（{secd}），服务 {svc}（{svcd}）", lost_to: "。服务分扣在：{list}。",
-    unhappy: "。今天有 {n} 位来电者不满意。", list_sep: "；", next_day: "下一天",
+    tally: "今晚结算：安全 {sec}（{secd}），服务 {svc}（{svcd}）", lost_to: "。服务分扣在：{list}", sec_moved: "。安全分变动：{list}", end_dot: "。",
+    unhappy: "。今天有 {n} 位来电者不满意", list_sep: "；", next_day: "下一天",
     answer: "📞 接听下一通", calls_left: "今天还有 {n} 通来电", no_more: "今天没有来电了。", end_day: "结束今天",
     flag: "🚩 把上一通标记为可疑", last_call: "上一通电话", caller_id: "来电号码：{id}", impatient: "😤 听起来不耐烦",
     ph_none: "今天的回复次数用完了。请转接、留言或挂断。",
@@ -325,7 +325,9 @@ function summaryView() {
                    svc: G.summary.scores.service, svcd: fmtDelta(G.summary.scores.service_delta) }) +
       ((G.summary.scores.service_reasons || []).length
         ? t("lost_to", { list: G.summary.scores.service_reasons.join(t("list_sep")) })
-        : (G.summary.scores.unhappy_callers ? t("unhappy", { n: G.summary.scores.unhappy_callers }) : ""))) : null,
+        : (G.summary.scores.unhappy_callers ? t("unhappy", { n: G.summary.scores.unhappy_callers }) : "")) +
+      ((G.summary.scores.security_reasons || []).length
+        ? t("sec_moved", { list: G.summary.scores.security_reasons.join(t("list_sep")) }) : "") + t("end_dot")) : null,
     el("div", { class: "row" },
       el("button", { class: "primary big", onclick: () => { G.summary = null; render(); } }, t("next_day"))));
 }

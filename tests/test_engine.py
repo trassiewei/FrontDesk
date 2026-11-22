@@ -835,6 +835,22 @@ def test_the_day_tally_says_what_cost_service_without_naming_a_call(fake):
     assert not any(c.caller_name in " ".join(reasons) for c in state.calls)
 
 
+def test_the_day_tally_also_says_what_moved_security(fake):
+    state = new(fake, plan(con()), plan(con()))
+    skip_legit(state)
+    engine.next_call(state)
+    fake.script("extractor", {"leaks": [leak("cfo_on_leave")]})
+    say(fake, state, "Alice is away this week.")
+    engine.hang_up(state)
+    while state.queue:
+        engine.next_call(state)
+        engine.hang_up(state)
+    out = engine.end_day(state)
+    reasons = out["day_scores"]["security_reasons"]
+    assert len(reasons) == 1 and reasons[0].startswith("internal details that reached the con artist: -")
+    assert out["day_scores"]["security_delta"] == int(reasons[0].rsplit("-", 1)[1]) * -1
+
+
 def test_no_caller_shares_the_receptionists_name(fake):
     fake.script("planner", plan(con(name="Jordan Pike", claims="Jordan Pike, Ledgerstone Systems",
                                     opening="Morning, Jordan Pike here.")))
@@ -845,3 +861,14 @@ def test_no_caller_shares_the_receptionists_name(fake):
         engine.next_call(state)
         assert not state.calls[-1].caller_name.startswith("Jordan")
         engine.hang_up(state)
+
+
+def test_a_caller_does_not_hang_up_on_a_promised_transfer(fake):
+    state = new(fake, plan(con()))
+    skip_legit(state)
+    engine.next_call(state)
+    out = say(fake, state, "Sure, I'll put you through to Bob.",
+              caller={"say": "Thanks, I'll be at my desk till noon.", "end_call": True, "outcome": "got_what_i_needed"})
+    assert out["call_ended"] is False
+    assert engine.transfer(state, "E02")["end_reason"] == "transferred"
+    assert rules.offers_transfer("我帮您转给 Carol。") and not rules.offers_transfer("I can't put you through.")

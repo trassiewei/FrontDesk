@@ -974,6 +974,21 @@ def is_dismissal(text: str) -> bool:
     return bool(_DISMISSAL.search(text))
 
 
+_OFFERS_TRANSFER = re.compile(
+    r"\b(put|putting) you (through|over)\b|\b(transfer|transferring|connect|connecting) you\b|\bpass you (on|over)\b|"
+    r"(帮|给)?(您|你)(转|接)(给|到|过去)|(转|接)(给|到)[^，。？！]{0,12}(那边|那里|分机)?|转过去|转接",
+    re.IGNORECASE)
+
+
+def offers_transfer(text: str) -> bool:
+    """The receptionist says they are about to put the caller through."""
+    for m in _OFFERS_TRANSFER.finditer(text):
+        if not re.search(r"(can'?t|cannot|won'?t|unable to|not able to|not going to|不能|没法|无法|不会|不方便)\W*\w*\W*$",
+                         text[max(0, m.start() - 20):m.start()], re.IGNORECASE):
+            return True
+    return False
+
+
 def is_challenge(text: str) -> bool:
     """The receptionist accused the caller or pointed at something in their story that does not fit."""
     return bool(_CHALLENGE.search(text))

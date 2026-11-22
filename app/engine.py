@@ -377,6 +377,10 @@ def say(state: GameState, text: str) -> dict:
         # Caught out, the model often apologises and then asks for the same thing reworded: one sharper retry.
         turn = caller.take_turn(state, call, world, note + " Your line must not contain a question or any request: "
                                 "answer the point in a few words and close.")
+    if turn.end_call and not dismissed and rules.offers_transfer(text):
+        # "I'll put you through to Bob" is a promise, not the transfer (that is the player's button): a caller
+        # who hangs up on it would leave the player unable to do what they just offered.
+        turn = turn.model_copy(update={"end_call": False, "outcome": "none"})
     if dismissed and not turn.end_call:
         # A con told to stop calling that keeps asking reads as a broken bot, not a careful crew: it leaves here.
         line = turn.say if not _asks(turn.say) else tr(config.DISMISSED_LINE)
@@ -420,7 +424,7 @@ def _apply_leaks(
         for fact_id in rules.new_leak_ids(merged, state.intel):
             state.intel[fact_id] = record(fact_id)
             call.gained_facts.append(fact_id)
-            state.security = rules.apply_security_delta(state.security, -rules.leak_penalty(facts[fact_id], effects(state).leak_multiplier))
+            _security_hit(state, "leak", -rules.leak_penalty(facts[fact_id], effects(state).leak_multiplier))
     elif not (call.claimed_identity and employee_by_id(world, call.claimed_identity)):
         # Telling a real colleague an internal detail is not oversharing; telling an outsider is.
         for fact_id in merged:
@@ -471,7 +475,7 @@ def callback(state: GameState, target_id: str) -> dict:
 
     if result.exposed:
         state.exposures += 1
-        state.security = rules.apply_security_delta(state.security, config.BONUS_EXPOSURE)
+        _security_hit(state, "exposed", config.BONUS_EXPOSURE)
         if call.claimed_identity and call.claimed_identity not in state.burned_identities:
             state.burned_identities.append(call.claimed_identity)
         state.it_alert = state.it_alert or result.it_alert
@@ -522,7 +526,7 @@ def transfer(state: GameState, target_id: str) -> dict:
     # A call on an internal extension cannot be spoofed, so it counts as verified for this rule.
     internal = call.caller_id.startswith("Ext ")
     if penalty and employee_by_id(world, target_id).dept == "IT" and not call.callbacks and not internal:  # type: ignore[union-attr]
-        state.security = rules.apply_security_delta(state.security, -penalty)
+        _security_hit(state, "it_transfer", -penalty)
         text += tr(" (Policy: an unverified transfer to IT was logged. −{penalty} Security.)").format(penalty=penalty)
     call.messages.append(Message(speaker="system", text=text, time=call.time))
     state.it_alert = state.it_alert or result.it_alert
@@ -561,7 +565,7 @@ def flag_last_call(state: GameState) -> dict:
     if result.correct:
         state.correct_flags += 1
         state.it_alert = state.it_alert or result.it_alert
-        state.security = rules.apply_security_delta(state.security, result.security_delta)
+        _security_hit(state, "flag", result.security_delta)
         if result.caught:
             state.exposures += 1
             if call.claimed_identity and call.claimed_identity not in state.burned_identities:
@@ -590,6 +594,27 @@ def _service_hit(state: GameState, reason: str, points: int) -> None:
     state.service_penalty += points
     day = state.service_hits.setdefault(state.day, {})
     day[reason] = day.get(reason, 0) + points
+
+
+_SECURITY_REASONS = {
+    "leak": "internal details that reached the con artist",
+    "it_transfer": "unverified transfers to IT",
+    "exposed": "callers exposed by a callback",
+    "flag": "suspicious calls you flagged",
+}
+
+
+def _security_hit(state: GameState, reason: str, points: int) -> None:
+    before = state.security
+    state.security = rules.apply_security_delta(state.security, points)
+    day = state.security_hits.setdefault(state.day, {})
+    day[reason] = day.get(reason, 0) + state.security - before
+
+
+def security_reasons(state: GameState, day: int) -> list[str]:
+    """What moved Security on `day`, by kind only, like Service: never which call it was."""
+    colon = "：" if i18n.current() == "zh" else ": "
+    return [f"{tr(_SECURITY_REASONS[k])}{colon}{v:+d}" for k, v in state.security_hits.get(day, {}).items() if v]
 
 
 def service_reasons(state: GameState, day: int) -> list[str]:
@@ -630,7 +655,7 @@ def end_day(state: GameState) -> dict:
     day_scores = {"security": settled["security"], "service": settled["service"],
                   "security_delta": settled["security"] - before[0], "service_delta": settled["service"] - before[1],
                   "unhappy_callers": sum(1 for c in state.calls if c.day == day and not c.is_con and not c.satisfied),
-                  "service_reasons": service_reasons(state, day)}
+                  "service_reasons": service_reasons(state, day), "security_reasons": security_reasons(state, day)}
 
     day_summary = briefing_text = None
     if not state.game_over:

@@ -44,7 +44,8 @@ def closing_note(state: GameState, call: CallRecord, world: World) -> str:
             f"Your plan: you now know enough to be believed. Steer the call toward asking to be put through to {who}, "
             "with a reason that fits your pretext and what your crew is after. "
             f"If the receptionist offers to put you through to {door_name}, accept at once. "
-            "If the receptionist transfers you, say thanks and finish (end_call = true, outcome = \"got_what_i_needed\"). "
+            "If the receptionist says they will put you through, thank them and stay on the line (end_call = false): "
+            "the transfer itself happens on its own. "
             "If the receptionist says no, do not push: ask for something smaller or wrap up."
         )
     return (
