@@ -120,6 +120,7 @@ class Gambit(BaseModel):
     summary: str  # the crew's view: how the method plays out over the three days
     angle: str  # what kind of job it suits (fed to the director)
     requires_incident: bool = False  # the method only works with a staged fault
+    insider: bool = False  # the method needs callers who claim to work here (closed to outsider-only crews)
     tactics: list[str] = Field(default_factory=list)  # tactic ids that fit the method
     sign: str  # what the player could have noticed
     counter: str  # what to do about it

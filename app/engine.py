@@ -500,7 +500,8 @@ def callback(state: GameState, target_id: str) -> dict:
         state.callbacks_today += 1  # a hold that reached nobody does not use up the allowance
     state.replies_left -= config.CALLBACK_REPLY_COST
     call.messages.append(Message(speaker="system", text=result.text, time=call.time))
-    call.patience -= effects(state).callback_cost
+    # A line that just rings out is a short hold: it costs the caller far less patience than a real check.
+    call.patience -= 1 if result.kind in ("busy", "voicemail") else effects(state).callback_cost
     if not call.is_con:
         _service_hit(state, "hold", config.CALLBACK_ANNOY_SERVICE)  # being put on hold and checked annoys a real caller
 

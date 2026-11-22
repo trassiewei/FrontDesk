@@ -242,19 +242,31 @@ def _names_dept(text: str, dept: str) -> str | None:
     return None
 
 
+_OUR_WORDS = [a for aliases in _DEPT_ALIASES.values() for a in aliases if a.isascii()] + [
+    "department", "dept", "team", "desk", "office", "support", "lead", "manager", "coordinator", "assistant",
+    "officer", "specialist", "technician", "engineer", "analyst", "clerk", "supervisor", "director", "head",
+    "senior", "junior", "new", "temp", "contractor", "floor", "shift"]
+
+
+def _org_left(claims: str, caller_name: str, company: str = "") -> bool:
+    """Whether a card still names an organisation once the caller's name, our company, our departments and plain
+    job words are taken out ("Ellis Prescott, IT Helpdesk" names none; "Rita, Kestrel Staffing" does)."""
+    rest = claims
+    for w in sorted([*caller_name.split(), *company.split(), *_OUR_WORDS], key=len, reverse=True):
+        rest = re.sub(rf"{_L}{re.escape(w)}{_R}", "", rest, flags=re.I)
+    return bool(re.search(r"[A-Z][a-zA-Z]+", rest))
+
+
 def _names_outsider(call: CallRecord) -> bool:
     """The call card names an organisation besides the caller ("Rita Voss, new contractor" names none)."""
-    rest = call.claims
-    for word in call.caller_name.split():
-        rest = re.sub(rf"{_L}{re.escape(word)}{_R}", "", rest)
-    return bool(re.search(r"[A-Z][a-zA-Z]+", rest))
+    return _org_left(call.claims, call.caller_name)
 
 
 # Cards that mention one of our departments without claiming to work in it.
 _NOT_STAFF = re.compile(
     r"\b(applicant|applying|application|candidate|job|position|posting|role|opening|vacancy|interview|former(ly)?|"
     r"ex-|used to work|left the company|retired|next door|neighbou?r|nearby|customer|client|supplier|vendor)\b|"
-    r"应聘|申请|求职|岗位|职位|面试|前员工|以前在|离职|退休|隔壁|客户|供应商",
+    r"应聘|申请|求职|岗位|职位|面试|前员工|前[^，。]{1,4}(员工|主管|经理)|原[^，。]{0,4}员工|以前在|离职|退休|隔壁|客户|供应商",
     re.IGNORECASE)
 
 
@@ -267,10 +279,7 @@ def claims_unlisted_staff(caller_name: str, claims: str, world: World) -> bool:
         word = _names_dept(claims, dept)
         if word is None:
             continue
-        rest = claims
-        for w in [*caller_name.split(), word, *company]:
-            rest = re.sub(rf"{_L}{re.escape(w)}{_R}", "", rest, flags=re.I)
-        if not re.search(r"\b[A-Z][a-zA-Z]+", rest):
+        if not _org_left(claims, " ".join([caller_name, word]), " ".join(company)):
             return True
     return False
 
@@ -573,7 +582,9 @@ def _bare_card(persona_name: str, *texts: str) -> str:
 # Words that describe the call rather than introduce the caller.
 _DESCRIBES_CALL = re.compile(
     r"\b(wrong number|dialled the wrong|calling (about|to|for|because)|following up|trying to|wants? to|hoping to|"
-    r"looking for|who (is|wants|needs|called))\b|打错|拨错|本想|想(要|找|问|联系|跟进)|来电(询问|咨询|是)|询问|跟进|"
+    r"looking for|who (is|wants|needs|called))\b|"
+    r"[,，]\s*(re[a-z]+ing|chasing|checking|asking|confirming|arranging|enquiring|inquiring|booking|reporting|"
+    r"moving|cancell?ing|querying)\b|打错|拨错|本想|想(要|找|问|联系|跟进)|来电(询问|咨询|是)|询问|跟进|"
     r"的人[，,]",
     re.IGNORECASE)
 
@@ -589,7 +600,7 @@ def zh_card(claims: str) -> str:
 def card_claims(persona_name: str, claims: str, world: World | None = None, opening: str = "") -> str:
     """The call card must read like a caller's self-introduction. A planner's description of the call ("A billing
     clerk following up on...") would give the con away, so it is replaced by the persona's name."""
-    claims = claims.strip()
+    claims = re.sub(r"\b(I'?m|I am) (an? )?", "", claims.strip())  # "…, I'm a former employee here"
     first = persona_name.split()[0].lower() if persona_name.split() else ""
     named = (first and first in claims.lower()) or (
         world is not None and any(employee_by_id(world, i) for i in scan_references(claims, world)))
@@ -799,7 +810,27 @@ def outsider_violations(call: PlannedCall, world: World) -> list[str]:
     found = [call.claimed_identity] if call.claimed_identity else []
     found += [i for i in scan_references(call.claims, world) if vendor_by_id(world, i) is not None]
     found += [e.id for e in world.employees if e.name.lower() == call.persona_name.strip().lower()]
+    for emp_id in scan_references(call.claims, world):
+        # "Martin Reyes, office of Alice Adams" speaks for a colleague: that colleague (or their team) settles it.
+        if employee_by_id(world, emp_id) and _SPEAKS_FOR.search(call.claims):
+            found.append(emp_id)
+    if claims_unlisted_staff(call.persona_name, call.claims, world) or (
+            _NEW_STAFF.search(call.claims) and not _names_outside_org(call.persona_name, call.claims, world)):
+        # A "new temp in Accounts" is staff we would know about: HR (or the department) settles it in one call.
+        dept = next((e.dept for e in world.employees if _names_dept(call.claims, e.dept)), None)
+        found += [next(e.id for e in world.employees if e.dept == (dept or "HR"))]
     return list(dict.fromkeys(found))
+
+
+_SPEAKS_FOR = re.compile(r"\b(office of|assistant to|on behalf of|PA to|calling for|'s (office|assistant|team|PA))\b|"
+                         r"的助理|办公室|代表", re.IGNORECASE)
+_NEW_STAFF = re.compile(r"\b(temp|temporary|new (starter|hire|joiner|recruit)|first day|just started|started this week)\b|"
+                        r"新来的|新员工|新入职|临时工|刚入职|第一天上班", re.IGNORECASE)
+
+
+def _names_outside_org(caller_name: str, claims: str, world: World) -> bool:
+    """Whether a card names an organisation of its own (a capitalised name besides the caller's and ours)."""
+    return _org_left(claims, caller_name, world.company.name)
 
 
 # ------------------------------------------------------------------ scenario (director output cleaning)
@@ -958,7 +989,8 @@ _CHALLENGE = re.compile(
     # Catching a wrong name: "our CFO isn't called Dana", "there's no Dana here", "wrong name".
     r"\b(isn'?t|is not|aren'?t|are not) (called|named)\b|\bwrong name\b|\b(not|isn'?t) (his|her|their|the|our \w+'s) name\b|"
     r"\bthere'?s no(body| one)? (\w+ )?(called|named|by that name)\b|\bthere (is|'s) no (?-i:[A-Z])\w+ (here|at|in|on)\b|"
-    r"\b(doesn'?t|does not) work (here|for us)\b|\byou (don'?t|do not) (even )?know (your own|who your|the name)\b|"
+    r"\b(doesn'?t|does not) work (here|for us)\b|\bby that name\b|"
+    r"\b(don'?t|doesn'?t|do not|does not) have (anyone|anybody|a|an) (\w+ )?(called|named)\b|\b(don'?t|do not) have an? (?-i:[A-Z])\w+ (here|in|at|on)\b|\byou (don'?t|do not) (even )?know (your own|who your|the name)\b|"
     r"(你|您)连[^，。？！]{1,12}都不知道|(没有|没)(跟|和)[^，。？！]{0,20}(合作|打过交道|有过往来)|谁(让|叫)(你|您)(打|来)|"
     r"不叫|叫错|名字(不对|错了)|没这个人|(没有|没)(这个|这位)(人|同事)|不在我们(这|这里|公司)(工作|上班)",
     re.IGNORECASE,
@@ -1302,12 +1334,13 @@ def receptionist_profile(calls: Iterable[CallRecord]) -> str:
 
 
 def method_options(gambits: Iterable[Gambit], current: str, used: Iterable[str], scenario: Scenario,
-                   day: int) -> list[Gambit]:
+                   day: int, outsider_only: bool = False) -> list[Gambit]:
     """Methods the crew can switch to: not one it already used, and one that needs a staged incident only if the
     scenario still has one to come."""
     used_set = set(used) | {current}
     incident_ahead = scenario.incident is not None and scenario.incident.day >= day
-    return [g for g in gambits if g.id not in used_set and (incident_ahead or not g.requires_incident)]
+    return [g for g in gambits if g.id not in used_set and (incident_ahead or not g.requires_incident)
+            and not (outsider_only and g.insider)]
 
 
 def method_rule(spotted: bool, stalled: bool, current: Gambit | None, options: list[Gambit]) -> str:

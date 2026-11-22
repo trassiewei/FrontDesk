@@ -94,7 +94,7 @@ def test_new_game_defaults_and_bad_difficulty(fake):
 
 
 def test_difficulty_sets_con_patience(fake):
-    assert new(fake, plan(con()), difficulty="hard").queue[1].patience == 12
+    assert new(fake, plan(con(claims="Alex, Kestrel Couriers")), difficulty="hard").queue[1].patience == 12
     assert new(fake, plan(con()), difficulty="easy").queue[1].patience == 8
 
 
@@ -243,7 +243,7 @@ def test_patience_runs_out_with_a_fixed_closing_line(fake):
 
 
 def test_max_player_turns_ends_the_call(fake):
-    state = new(fake, plan(con()), difficulty="hard")  # patience 12, so the reply cap hits first
+    state = new(fake, plan(con(claims="Alex, Kestrel Couriers")), difficulty="hard")  # patience 12, so the reply cap hits first
     take_con(state)
     for _ in range(config.MAX_PLAYER_TURNS_PER_CALL - 1):
         assert say(fake, state, "Hm.")["call_ended"] is False
@@ -311,7 +311,7 @@ def test_callback_note_reaches_the_caller_prompt_and_costs_patience(fake):
     out = engine.callback(state, "E01")  # Alice is on leave: voicemail
     assert "voicemail" in out["callback_result"] and not out["call_ended"]
     call = state.calls[-1]
-    assert call.patience == 10 - config.CALLBACK_PATIENCE_COST
+    assert call.patience == 10 - 1  # a line that only rings out is a short hold
     system = fake.calls_for("caller")[-1]["messages"][0]["content"]
     assert "put you on hold to verify by calling Alice Adams, and came back: they did not pick up" in system
     assert out["callback_result"] not in system and "contact Bob Baker" not in system  # the greeting names the cover
@@ -932,3 +932,27 @@ def test_a_ready_con_is_told_to_accept_when_the_desk_offers_its_door(fake):
     assert f"offered to put you through to {door.name}" in fake.calls_for("caller")[-1]["messages"][0]["content"]
     say(fake, state, "Okay, anything else?")
     assert "offered to put you through" not in fake.calls_for("caller")[-1]["messages"][0]["content"]
+
+
+def test_hard_crews_never_pose_as_new_staff():
+    from app.models import PlannedCall
+    from app.world import load_world
+    world = load_world()
+    mk = lambda claims: PlannedCall(persona_name="Rita Raman", claims=claims, pretext="p", tactic="small_ask",  # noqa: E731
+                                    opening_line="Hi.")
+    assert rules.outsider_violations(mk("Rita Raman, new temp in Accounts"), world)
+    assert rules.outsider_violations(mk("Rita Raman, agency temp, first day"), world) == ["E06"]
+    assert not rules.outsider_violations(mk("Rita Raman, temp from Kestrel Staffing"), world)
+    assert not rules.outsider_violations(mk("Rita Raman, Hartline Couriers"), world)
+
+
+def test_outsider_only_crews_cannot_switch_to_an_insider_method():
+    from app.world import load_gambits, load_scenarios
+    gambits = load_gambits()
+    scenario = load_scenarios()[0]
+    ids = lambda only: {g.id for g in rules.method_options(gambits, "", [], scenario, 2, only)}  # noqa: E731
+    assert "lost_new_hire" in ids(False) and "lost_new_hire" not in ids(True)
+
+
+def test_cards_that_describe_the_call_lose_the_description():
+    assert rules.card_claims("Marcus Bell", "Marcus Bell, rescheduling an interview", None, "Hi, Marcus Bell here.") == "Marcus Bell"

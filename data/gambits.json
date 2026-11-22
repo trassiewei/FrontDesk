@@ -41,6 +41,7 @@
   },
   {
     "id": "lost_new_hire",
+    "insider": true,
     "name": "The Lost New Hire",
     "summary": "Someone new, flustered and grateful: a temp whose login does not work, a hire whose manager is away. Sympathy and a little helplessness make every refusal feel cruel.",
     "angle": "getting access, a reset or a colleague's details for 'a new starter' who does not exist",

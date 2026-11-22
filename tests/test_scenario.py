@@ -362,7 +362,9 @@ def test_it_verify_penalises_unverified_transfers_to_it_only(fake):
     assert state2.security == 100
 
 
-def test_callback_fast_makes_callbacks_cheaper(fake):
+def test_callback_fast_makes_callbacks_cheaper(fake, monkeypatch):
+    from dataclasses import replace
+    monkeypatch.setitem(config.DIFFICULTIES, "normal", replace(config.DIFFICULTIES["normal"], callback_reach=1.0))
     state = start(fake)
     call = take_con(state)
     before = call.patience

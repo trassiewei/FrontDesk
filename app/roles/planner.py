@@ -115,7 +115,8 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     yesterday = [c for c in state.calls if c.is_con and c.day == day - 1]
     spotted = day > 1 and state.exposures > state.heat_log.get(day - 1, 0)
     stalled = bool(yesterday) and not any(c.gained_facts for c in yesterday)
-    options = rules.method_options(load_gambits(), current, state.methods.values(), scenario, day)
+    options = rules.method_options(load_gambits(), current, state.methods.values(), scenario, day,
+                                   diff.outsider_only)
     # The model tends to take the first option listed, so the order changes from game to game.
     (random.Random(f"{state.seed}:methods:{day}") if state.seed is not None else random.Random()).shuffle(options)
     must_switch = spotted and bool(options)

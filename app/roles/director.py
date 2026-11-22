@@ -43,7 +43,8 @@ def design(game_id: str, world: World, difficulty: str, rng: random.Random, pres
             raise ValueError(f"Unknown scenario: {preset_id!r}")
         return found
     fallback = presets[0]
-    gambit = rng.choice(load_gambits())
+    outsider_only = config.get_difficulty(difficulty).outsider_only
+    gambit = rng.choice([g for g in load_gambits() if not (outsider_only and g.insider)])
     incident_day = rng.choice(config.INCIDENT_DAYS) if gambit.requires_incident else rules.incident_chance_roll(rng)
     example = presets[1]
     system = llm.render_prompt(
