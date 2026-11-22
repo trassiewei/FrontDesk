@@ -150,6 +150,11 @@ class ExtractorResult(BaseModel):
     leaks: list[Leak] = Field(default_factory=list)
 
 
+class MemoDraft(BaseModel):
+    title: str = ""
+    text: str = ""
+
+
 class PlannedCall(BaseModel):
     persona_name: str
     claimed_identity: str | None = None
@@ -163,6 +168,12 @@ class PlannedCall(BaseModel):
     if_verified: str = ""
     tells: list[str] = Field(default_factory=list)  # slips the caller makes that an attentive receptionist can notice
     purpose: str = ""  # what this call sets up for the crew, and why it looks harmless
+    # Hard only. "echo": poses as a genuine caller from an earlier day; "decoy": a deliberately clumsy con meant to
+    # be caught; "investigator": a fake fraud investigator following up on the decoy; "memo": the contractor the
+    # crew's forged bulletin notice announced.
+    move: str = ""
+    echo_of: str = ""  # id of the genuine call an echo poses as
+    prep: str = ""  # answers the crew prepared overnight for the checks that caught it before
 
 
 class PlannerResult(BaseModel):
@@ -172,6 +183,7 @@ class PlannerResult(BaseModel):
     calls: list[PlannedCall] = Field(default_factory=list)
     attempt_breach_offstage: bool = False
     method: str = ""  # gambit id the crew works with today (it may switch after being spotted)
+    memo: MemoDraft | None = None  # hard: a forged notice the crew slips into today's bulletin
 
 
 class IncidentDraft(BaseModel):
@@ -241,7 +253,7 @@ class Notice(BaseModel):
 
     day: int
     kind: Literal["policy", "incident"]
-    id: str
+    id: str  # "memo" marks the crew's forged notice (revealed only after the game)
     title: str
     text: str
 
@@ -329,6 +341,7 @@ class GameState(BaseModel):
     methods: dict[int, str] = Field(default_factory=dict)  # day -> gambit id the crew used that day
     heat_log: dict[int, int] = Field(default_factory=dict)  # day -> exposures when that day was planned
     con_slots: dict[int, list[int]] = Field(default_factory=dict)  # which of the day's slots the con calls take
+    moves: dict[int, list[str]] = Field(default_factory=dict)  # hard: day -> special moves the crew must play
     it_alert: bool = False
     scenario: Scenario | None = None  # None only in hand-built test states; use world.scenario_of(state)
     notices: list[Notice] = Field(default_factory=list)

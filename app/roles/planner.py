@@ -68,6 +68,82 @@ def history_text(state: GameState) -> str:
     return "\n".join(lines) if lines else "none yet"
 
 
+def debrief_text(state: GameState, world: World) -> str:
+    """Hard: what the receptionist said to each of the crew's callers so far, so the crew can prepare answers for
+    the checks that caught it. The crew only hears its own calls."""
+    if not config.get_difficulty(state.difficulty).debrief:
+        return ""
+    blocks = []
+    for call in state.calls:
+        if not call.is_con or call.plan is None:
+            continue
+        marks = [m for m, on in (("CAUGHT OUT", call.challenged), ("EXPOSED", call.end_reason == "exposed"),
+                                 ("SHUT DOWN", call.dismissed)) if on]
+        head = (f"Day {call.day} {call.time} | {call.plan.persona_name} ({call.claims}) | result: {call.result}"
+                + (f" | {', '.join(marks)}" if marks else ""))
+        said = [m.text for m in call.messages if m.speaker == "player"][:6]
+        lines = [head] + [f'  receptionist: "{t[:160]}"' for t in said]
+        lines += [f"  the receptionist put your caller on hold and phoned {name_of(world, t) or t}" for t in call.callbacks]
+        blocks.append("\n".join(lines))
+    if not blocks:
+        return ""
+    return (
+        "\nDEBRIEF (everything the receptionist said to your callers so far)\n" + "\n".join(blocks) + "\n"
+        "Work out which questions or checks tripped your callers (who they dealt with before, a reference, a detail "
+        "of their own company, a callback) and prepare today's callers for them: write ready answers in each call's "
+        "\"prep\" field (1-3 short sentences). You can prepare anything an outsider could research: a plausible "
+        "reference number, your own company's details, a name and department from the public info or your intel. "
+        "You cannot prepare what you never heard: what was said on calls your crew was not on, or what a real "
+        "employee will say if the receptionist phones them. Never repeat a cover the desk has already seen.\n"
+    )
+
+
+_MOVE_RULES = {
+    "echo": (
+        "ECHO (one call): pose as one of these real callers who phoned the desk on an earlier day (your crew picked "
+        "up their details from a delivery note and the building's visitor log). Set move = \"echo\", echo_of = its id, "
+        "and use its persona_name and claims exactly. The caller follows up on that business and uses it to ask for "
+        "today's target. Nobody on your crew heard the original call: you do not know what the receptionist told "
+        "them or did for them.\n{pool}"
+    ),
+    "decoy": (
+        "DECOY (your first call): a deliberately clumsy, obvious con (move = \"decoy\"): pushy, a wrong detail, it asks "
+        "for something sensitive straight out and gives up when refused. It is meant to be noticed; give it 2 tells."
+    ),
+    "investigator": (
+        "INVESTIGATOR (your second call, move = \"investigator\"): an outside fraud investigator (a bank's fraud team, "
+        "a police financial-crime unit or a telecom's fraud desk; invent the organisation) following up on \"the "
+        "suspicious call you had this morning\". Their number was flagged; they want to know what the caller asked "
+        "and to warn whoever handles payments directly, which is your way to today's target or a transfer. Its "
+        "weakness: no outsider could know a call reached this desk. Make it calm, official and helpful."
+    ),
+    "memo": (
+        "FORGED MEMO: your crew slipped a notice into the company bulletin the staff read this morning. Write it in "
+        "\"memo\" ({{\"title\": ..., \"text\": ...}}, 30-60 words, in the style of an internal notice and ending with a "
+        "sender line such as \"— Dave (IT)\") announcing an outside "
+        "contractor or service that will phone the front desk today, and plan one call as that contractor "
+        "(move = \"memo\") who refers to the notice. The notice must carry exactly one flaw a careful reader could "
+        "check against the directory: it is signed by someone who is not in the directory, or gives a contact "
+        "address outside the company's domain, or names a real employee with the wrong department or title."
+    ),
+}
+
+
+def moves_text(state: GameState, world: World, day: int) -> str:
+    """Hard: the special cons the crew must play today."""
+    moves = state.moves.get(day, [])
+    if not moves:
+        return ""
+    pool = rules.echo_pool(state.calls, day, world)
+    pool_text = "\n".join(f"  {c.id} | {c.caller_name} | {c.claims} | called about: {c.legit.goal} | "
+                          f"details: {c.legit.knows}" for c in pool if c.legit)
+    rules_text = [_MOVE_RULES[m].format(pool=pool_text) for m in moves if m != "echo" or pool]
+    if not rules_text:
+        return ""
+    return ("\nSPECIAL MOVES TODAY (required; the other calls, if any, have move = \"\")\n"
+            + "\n".join(f"- {r}" for r in rules_text) + "\n")
+
+
 def _doors_text(state: GameState, world: World) -> str:
     threshold = config.get_difficulty(state.difficulty).breach_threshold
     lines = []
@@ -155,6 +231,8 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         day=day,
         max_calls=len(slots_today),
         call_times=" and ".join(config.SLOT_TIMES[s] for s in slots_today),
+        debrief=debrief_text(state, world),
+        special_moves=moves_text(state, world, day),
     )
     system += i18n.llm_note(state.lang, "planner")
     try:
@@ -186,17 +264,24 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     def clean(raw: PlannerResult) -> PlannerResult:
         return rules.dedupe_personas(clean_plain(raw), world, used)
 
+    moves = state.moves.get(day, [])
+    pool = rules.echo_pool(state.calls, day, world)
+    if not pool:
+        moves = [m for m in moves if m != "echo"]
+
     def finish(raw: PlannerResult, method: str) -> PlannerResult:
         done = clean(raw)
         if diff.outsider_only:
             done = rules.drop_directory_claims(done, world)
+        done = rules.apply_moves(done, moves, pool)
         return done.model_copy(update={"method": method})
 
     cleaned = clean(result).model_copy(update={"method": chosen})  # type: ignore[arg-type]
     bad = {c.persona_name: rules.outsider_violations(c, world) for c in cleaned.calls} if diff.outsider_only else {}
     bad = {name: ids for name, ids in bad.items() if ids}
     if not bad:
-        return _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today))  # type: ignore[arg-type]
+        plan = _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today))  # type: ignore[arg-type]
+        return _ensure_moves(state, system, result, plan, finish, moves)  # type: ignore[arg-type]
     named = "; ".join(f"{name} (pretends to be or works for {', '.join(name_of(world, i) or i for i in ids)})"
                       for name, ids in bad.items())
     try:
@@ -211,7 +296,28 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         result = retry
     except llm.LLMError as exc:
         log.warning("Planner retry failed, keeping the first plan: %s", exc)
-    return _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today))  # type: ignore[arg-type]
+    plan = _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today))  # type: ignore[arg-type]
+    return _ensure_moves(state, system, result, plan, finish, moves)  # type: ignore[arg-type]
+
+
+def _ensure_moves(state: GameState, system: str, raw: PlannerResult, plan: PlannerResult, finish,
+                  moves: list[str]) -> PlannerResult:
+    """A plan that left out one of today's special moves is asked for once more; the better of the two is kept."""
+    missing = rules.missing_moves(plan, moves)
+    if not missing or raw.notebook == fallback_plan().notebook:
+        return plan
+    try:
+        retry = llm.complete_json(
+            "planner", system, llm.USER_TURN, PlannerResult, state.game_id,
+            extra_messages=[{"role": "assistant", "content": raw.model_dump_json()}, {"role": "user", "content": (
+                f"Your plan leaves out today's special move(s): {', '.join(missing)}. Follow SPECIAL MOVES TODAY "
+                "exactly (set each call's move, echo_of and the memo as described) and return the complete JSON again.")}],
+        )
+    except llm.LLMError as exc:
+        log.warning("Planner move retry failed, keeping the plan: %s", exc)
+        return plan
+    better = finish(retry, plan.method)
+    return better if len(rules.missing_moves(better, moves)) < len(missing) and better.calls else plan
 
 
 def _fill_slots(state: GameState, system: str, raw: PlannerResult, plan: PlannerResult, finish, wanted: int) -> PlannerResult:

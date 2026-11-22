@@ -149,6 +149,20 @@ ZH: dict[str, str] = {
     "Called back {name}": "回拨了 {name}",
     "Dialled the number the caller gave": "拨了来电者给的号码",
     "Flagged as suspicious": "标记为可疑",
+    "Posed as {caller}, a genuine caller from day {day} at {time}. It knew their details, but not what was "
+    "said on that call: asking about it would have given it away.":
+        "冒充第 {day} 天 {time} 打来的真人 {caller}。它知道对方的资料，但不知道那通电话里说过什么：问一句上次的情况就能识破。",
+    "A decoy: a deliberately clumsy con meant to be noticed, to set up the next call.":
+        "诱饵：故意演得很拙劣、专门让你识破的骗子，为下一通电话铺路。",
+    "A fake fraud investigator following up on the decoy. No outsider could have known a call "
+    "reached this desk.":
+        "假冒的反诈调查员，跟进刚才的诱饵来电。外人根本不可能知道前台刚接过那通电话。",
+    "The bulletin notice “{title}” that morning was forged by the crew. Its flaw could be checked against "
+    "the directory.":
+        "当天早上公告栏里的「{title}」是团伙伪造的，它的破绽对照名录就能查出来。",
+    "{speaker}: '{caller}? Yes, I've dealt with them — but I thought that was all sorted. I'm not "
+    "expecting anything more from them.'":
+        "{speaker}：“{caller}？对，我跟他们打过交道，不过我以为那事已经办完了。我没在等他们的消息。”",
     # score labels and titles
     "Breached": "已被攻破", "Vault": "滴水不漏", "Solid": "稳当", "Leaky": "漏风",
     "Helpful": "热心", "Okay": "还行", "Cold": "冷淡",

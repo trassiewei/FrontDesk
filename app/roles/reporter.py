@@ -18,7 +18,11 @@ def _true_identity(call: CallRecord, world: World) -> str:
     who = f"con artist using the persona '{call.caller_name}', claiming to be: {call.claims}"
     if impersonating:
         who += f" (impersonating {impersonating})"
-    return who + f"; tactic: {plan.tactic if plan else '?'}" + (f"; its purpose in the plan: {plan.purpose}" if plan and plan.purpose else "")
+    special = f"; special move: {plan.move}" if plan and plan.move else ""
+    if plan and plan.move == "echo":
+        special += f" (posing as the genuine caller of call {plan.echo_of}, without knowing what was said on it)"
+    return (who + f"; tactic: {plan.tactic if plan else '?'}" + special
+            + (f"; its purpose in the plan: {plan.purpose}" if plan and plan.purpose else ""))
 
 
 def _call_header(call: CallRecord, world: World) -> str:
@@ -110,7 +114,9 @@ def notices_text(state: GameState) -> str:
     if not state.notices:
         return "(none)"
     return "\n".join(
-        f"{config.DAY_NAMES[n.day - 1]} — {n.kind} — {n.title}: {n.text}" for n in sorted(state.notices, key=lambda n: n.day)
+        f"{config.DAY_NAMES[n.day - 1]} — {n.kind} — {n.title}: {n.text}"
+        + (" [FORGED by the con crew and slipped into the bulletin; the staff saw it as genuine]" if n.id == "memo" else "")
+        for n in sorted(state.notices, key=lambda n: n.day)
     )
 
 

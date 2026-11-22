@@ -154,6 +154,11 @@ def test_staff_must_be_a_reachable_colleague_named_in_the_call():
     assert colleague.caller_name == "Danny Ruiz"
     mobile = clean([draft(caller_name="Bob Baker", claims="Bob Baker (on his mobile)", claimed_identity="E02")])[0]
     assert mobile.caller_id == "555-0142 (mobile)"
+    # The right first name with an invented surname, on the colleague's own extension: it is that colleague.
+    dave = clean([draft(caller_name="Dave Rothman", claims="Dave Rothman, IT Lead", claimed_identity="E04",
+                        opening_line="It's Dave Rothman, quick one.")])[0]
+    assert (dave.caller_name, dave.claimed_identity) == ("Dave Davis", "E04")
+    assert "Rothman" not in dave.claims + dave.opening_line
 
 
 def test_vendor_callers_show_the_vendors_number_and_unknown_ids_become_outsiders():

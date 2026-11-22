@@ -67,6 +67,7 @@ def public_call(state: GameState) -> dict | None:
 def public_state(state: GameState) -> dict:
     last = next((c for c in state.calls if c.id == state.last_call_id), None)
     scores = summary.shown_scores(state)
+    hidden = config.get_difficulty(state.difficulty).hide_scores and not state.game_over
     return {
         "game_id": state.game_id,
         "player_name": state.player_name,
@@ -76,14 +77,15 @@ def public_state(state: GameState) -> dict:
         "day": state.day,
         "day_name": i18n.day_name(state.day),
         "clock": _clock(state),
-        "security": scores["security"],
-        "service": scores["service"],
+        "security": None if hidden else scores["security"],
+        "service": None if hidden else scores["service"],
+        "scores_hidden": hidden,
         "calls_remaining_today": len(state.queue),
         "replies_left_today": state.replies_left,
         "callbacks_left_today": max(0, config.get_difficulty(state.difficulty).callbacks_per_day - state.callbacks_today),
         "active_call": public_call(state),
         "can_flag_last_call": state.phase == "BETWEEN_CALLS" and last is not None and not last.flagged,
-        "exposures": state.exposures if state.game_over else state.settled_exposures,
+        "exposures": state.exposures if state.game_over else None if hidden else state.settled_exposures,
         "bulletin": [{"day": n.day, "kind": n.kind, "title": n.title, "text": n.text} for n in state.notices],
         "game_over": state.game_over,
         "outcome": state.outcome if state.game_over else None,

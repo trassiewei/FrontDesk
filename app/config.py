@@ -85,6 +85,9 @@ class Difficulty:
     cast_note: str = ""  # how the casting director writes the genuine callers at this level
     folds_when_caught: bool = False  # the con gives up the moment the receptionist catches its story out
     max_temptations: int = 3  # genuine callers a day who casually ask for something the desk should not hand over
+    hide_scores: bool = False  # the scores stay hidden until the game is over
+    debrief: bool = False  # each night the crew studies the checks that caught it and prepares answers for them
+    special_moves: bool = False  # the crew plays scripted special cons (echo, decoy + investigator, forged memo)
 
 
 def tell_turn_on(diff: Difficulty, day: int) -> int:
@@ -176,6 +179,9 @@ DIFFICULTIES: dict[str, Difficulty] = {
                    "concrete details of their own business in 'knows' (a reference number, the company and, for anyone "
                    "with history here, the directory employee they dealt with), which they give at once when asked: "
                    "that is what sets them apart from a con."),
+        hide_scores=True,
+        debrief=True,
+        special_moves=True,
     ),
 }
 

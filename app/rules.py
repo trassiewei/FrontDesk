@@ -50,6 +50,9 @@ CALLBACK_BUSY = "{speaker}: 'I can't talk — {trouble} has the whole floor on f
 CALLBACK_MEETING = "{speaker}'s line rings out, then a colleague picks up: 'They're in a meeting — I can take a message.'"
 CALLBACK_VENDOR_QUEUE = "{speaker}: a recorded voice puts you in a queue. After a few minutes of hold music you give up."
 CALLBACK_NO_SUCH_STAFF = "{speaker}: 'We don't have anyone like that joining us. Who is this?'"
+# An echo con names someone the real caller did deal with: they know the caller, but cannot vouch for this call.
+CALLBACK_ECHO = ("{speaker}: '{caller}? Yes, I've dealt with them — but I thought that was all sorted. I'm not "
+                 "expecting anything more from them.'")
 
 # ------------------------------------------------------------------ pattern matching (spec §5.2)
 
@@ -308,10 +311,11 @@ def _invented_colleague_of(call: CallRecord, emp, company: str = "") -> bool:
 
 def callback(
     call: CallRecord, target_id: str, world: World, *, it_busy: bool = False, reachable: bool = True,
-    trouble: str = "the outage",
+    trouble: str = "the outage", echo_refs: Iterable[str] = (),
 ) -> CallbackResult:
     """`it_busy`: an outage is under way, so nobody in the IT department can confirm or deny anything.
-    `reachable`: False when the person simply cannot be reached (hard difficulty makes this common)."""
+    `reachable`: False when the person simply cannot be reached (hard difficulty makes this common).
+    `echo_refs`: for a con posing as an earlier genuine caller, the people that real caller dealt with."""
     speaker = _speaker(world, target_id)
     emp = employee_by_id(world, target_id)
     if emp is not None and not emp.available:
@@ -327,6 +331,8 @@ def callback(
         references.add(call.claimed_identity)
 
     if call.is_con:
+        if target_id in set(echo_refs):
+            return CallbackResult(tr(CALLBACK_ECHO).format(speaker=speaker, caller=call.caller_name), "unknown")
         if target_id in references:
             text = (tr(CALLBACK_EXPOSED).format(speaker=speaker) if emp is not None else
                     tr(CALLBACK_VENDOR_EXPOSED).format(speaker=speaker, caller=call.caller_name.split()[0]))
@@ -744,6 +750,13 @@ def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) ->
     personas: list[str] = []
     seen: dict[str, tuple[str, dict[str, str]]] = {}
     for call, parts in zip(result.calls, own):
+        if call.move == "echo":
+            # An echo poses as a real earlier caller: its name is the whole point, so it never changes.
+            own_renames.append({})
+            personas.append(call.persona_name)
+            if parts:
+                taken.add(parts[0].lower())
+            continue
         if call.persona_name in seen:
             # The same persona calling twice in one day is a deliberate follow-up ("me again"): it keeps one name.
             persona, mine = seen[call.persona_name]
@@ -1150,6 +1163,11 @@ def _legit_from_draft(
         # A staff caller must really be that colleague, and someone who can plausibly phone in.
         if not emp.available:
             return None
+        wrong = fields["caller_name"]
+        if wrong.lower() != emp.name.lower():
+            # "Dave Rothman, IT Lead" calling from Dave Davis's extension: the caller is Dave Davis.
+            fields = {k: re.sub(rf"{_L}{re.escape(wrong)}{_R}", emp.name, v) for k, v in fields.items()}
+            fields["caller_name"] = emp.name
     else:
         first = _first_name(fields["caller_name"])
         directory = {e.name.split()[0].lower() for e in world.employees}
@@ -1368,3 +1386,78 @@ def crew_heat(exposures: int, rattled_after: int) -> str:
         return (f"HOT: you have been exposed {exposures} time(s). The desk is on guard. "
                 "Play safe: use a fresh outsider with a quiet, believable reason to call.")
     return f"Warm: exposed {exposures} time(s). Change your approach rather than repeat it."
+
+
+# ------------------------------------------------------------------ special moves (hard)
+
+MOVES = ("echo", "decoy", "investigator", "memo")
+
+
+def schedule_moves(rng: random.Random) -> dict[int, list[str]]:
+    """Which special con each day of a hard game carries. Day 1 has no earlier genuine caller to echo and is the
+    crew's quiet day, so the decoy pair and the echo take days 2 and 3; the forged memo goes out on day 1 or
+    alongside the echo (the decoy pair needs both of its day's con calls)."""
+    decoy_day, echo_day = rng.sample([2, 3], 2)
+    moves: dict[int, list[str]] = {decoy_day: ["decoy", "investigator"], echo_day: ["echo"]}
+    memo_day = rng.choice([1, echo_day])
+    moves.setdefault(memo_day, []).append("memo")
+    return moves
+
+
+def echo_pool(calls: Iterable[CallRecord], day: int, world: World) -> list[CallRecord]:
+    """Genuine callers from earlier days a con could pose as: outsiders the directory cannot vouch for."""
+    pool = []
+    for c in calls:
+        if c.is_con or c.day >= day or c.legit is None or c.claimed_identity:
+            continue
+        probe = PlannedCall(persona_name=c.caller_name, claims=c.claims, pretext="", tactic="", opening_line="")
+        if not outsider_violations(probe, world):
+            pool.append(c)
+    return pool
+
+
+def echo_refs(original: CallRecord) -> list[str]:
+    """The people a genuine caller dealt with: the ones it named, and the ones it wanted to be put through to."""
+    refs = list(original.references) + list(original.legit.accept_transfer_to if original.legit else [])
+    return list(dict.fromkeys(r for r in refs if r))
+
+
+def apply_moves(result: PlannerResult, moves: Iterable[str], pool: list[CallRecord]) -> PlannerResult:
+    """Keep only the special moves scheduled for today, make them consistent, and order the decoy pair.
+
+    An echo takes the real caller's name and card exactly; a memo needs a forged notice with a title and text;
+    the decoy rings before the investigator who follows it up."""
+    wanted = set(moves)
+    by_id = {c.id: c for c in pool}
+    by_name = {c.caller_name.lower(): c for c in pool}
+    memo_ok = bool(result.memo and result.memo.title.strip() and result.memo.text.strip()) and "memo" in wanted
+    calls, used = [], set()
+    for call in result.calls:
+        move = call.move if call.move in wanted and call.move not in used else ""
+        update: dict = {"move": move}
+        if move == "echo":
+            original = by_id.get(call.echo_of) or by_name.get(call.persona_name.strip().lower())
+            if original is None:
+                update = {"move": ""}
+            else:
+                update.update(echo_of=original.id, persona_name=original.caller_name, claims=original.claims,
+                              claimed_identity=None)
+        elif move == "memo" and not memo_ok:
+            update = {"move": ""}
+        if update["move"]:
+            used.add(update["move"])
+        if update["move"] != "echo":
+            update["echo_of"] = ""
+        calls.append(call.model_copy(update=update))
+    order = {"decoy": 0, "investigator": 1}
+    if "decoy" in used and "investigator" in used:
+        pair = sorted((c for c in calls if c.move in order), key=lambda c: order[c.move])
+        rest = iter(pair)
+        calls = [next(rest) if c.move in order else c for c in calls]
+    memo = result.memo if memo_ok and "memo" in used else None
+    return result.model_copy(update={"calls": calls, "memo": memo})
+
+
+def missing_moves(result: PlannerResult, moves: Iterable[str]) -> list[str]:
+    have = {c.move for c in result.calls}
+    return [m for m in moves if m not in have]

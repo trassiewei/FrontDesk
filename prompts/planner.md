@@ -34,7 +34,7 @@ $tactics
 
 YOUR PREVIOUS CALLS
 $history
-
+$debrief
 IDENTITIES THAT ARE BURNED (never reuse): $burned
 YOUR PREVIOUS NOTEBOOK PAGE
 $last_notebook
@@ -47,7 +47,7 @@ YOUR CALLERS' SKILL LEVEL: $skill_note
 YOUR CREW'S STYLE: $planner_note
 TODAY: Day $day of 3. Your calls ring at $call_times (your opening lines must fit the time of day). You have $max_calls call slots today: plan exactly $max_calls calls, one per time, each with its own persona.
 $incident_note
-
+$special_moves
 PLANNING RULES
 - Think like a patient professional: small, plausible requests; each call should look harmless on its own and make sense as a step of your METHOD and today's step of the campaign.
 - Think in chains. Every call should leave something behind for the next one (a name to drop, a system word, a reference, a feeling of familiarity) and use something an earlier call left. Say so in "purpose".
@@ -77,4 +77,4 @@ ASSESSMENT: 2–3 sentences, plain: what the receptionist's behaviour tells you 
 NOTEBOOK: write 80–150 words in first person, in the voice of your crew's operator (see THE OPERATION), cool and observant. Be honest and specific: your read of the receptionist (habits, weak spots, what they guard and what they let slip — quote them when useful), what worked, what failed, today's plan, and one line about the pressure you are under (the buyer, the deadline). The player will read this at the end.
 
 Respond with ONLY a JSON object:
-{"assessment": "...", "method": "gambit_id", "notebook": "...", "arc": "...", "calls": [{"purpose": "...", "persona_name": "...", "claimed_identity": null, "claims": "...", "pretext": "...", "tactic": "small_ask", "target_facts": ["..."], "opening_line": "...", "beats": ["...", "..."], "if_refused": "...", "if_verified": "...", "tells": ["..."]}], "attempt_breach_offstage": false}
+{"assessment": "...", "method": "gambit_id", "notebook": "...", "arc": "...", "calls": [{"purpose": "...", "persona_name": "...", "claimed_identity": null, "claims": "...", "pretext": "...", "tactic": "small_ask", "target_facts": ["..."], "opening_line": "...", "beats": ["...", "..."], "if_refused": "...", "if_verified": "...", "tells": ["..."], "prep": "", "move": "", "echo_of": ""}], "memo": null, "attempt_breach_offstage": false}

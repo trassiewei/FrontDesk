@@ -154,6 +154,8 @@ def new_game(player_name: str, difficulty: str, seed: int | None = None, scenari
                                          lang=lang)
     except ValueError as exc:
         raise EngineError(str(exc), 422) from exc
+    if diff.special_moves:
+        state.moves = rules.schedule_moves(_rng(state, "moves"))
     _enter_day(state, 1)
     return state
 
@@ -186,6 +188,9 @@ def _enter_day(state: GameState, day: int) -> None:
     state.notebooks[day] = plan.notebook
     if plan.method:
         state.methods[day] = plan.method
+    if plan.memo:
+        # The crew's forged notice sits among the real ones; only the end page says it was fake.
+        state.notices.append(Notice(day=day, kind="incident", id="memo", title=plan.memo.title, text=plan.memo.text))
     if learned:
         hint = _rng(state, "recon_hint", day).choice(load_story()["recon_hints"])
         state.notices.append(Notice(day=day, kind="incident", id="recon_hint", title=hint["title"], text=hint["text"]))
@@ -490,9 +495,11 @@ def callback(state: GameState, target_id: str) -> dict:
         call.number_checked = True
     else:
         reachable = _rng(state, "reach", call.id, target_id).random() < _diff(state).callback_reach
+        original = next((c for c in state.calls if call.is_con and call.plan and call.plan.move == "echo"
+                         and c.id == call.plan.echo_of), None)
         result = rules.callback(
             call, target_id, world, it_busy=rules.incident_active(scenario_of(state), state.day), reachable=reachable,
-            trouble=_trouble(state),
+            trouble=_trouble(state), echo_refs=rules.echo_refs(original) if original else (),
         )
         call.callbacks.append(target_id)
     state.callbacks_made += 1
@@ -700,10 +707,12 @@ def end_day(state: GameState) -> dict:
     settled = summary.scores(state)
     state.settled_security, state.settled_service = settled["security"], settled["service"]
     state.settled_exposures = state.exposures
-    day_scores = {"security": settled["security"], "service": settled["service"],
+    day_scores: dict | None = {"security": settled["security"], "service": settled["service"],
                   "security_delta": settled["security"] - before[0], "service_delta": settled["service"] - before[1],
                   "unhappy_callers": sum(1 for c in state.calls if c.day == day and not c.is_con and not c.satisfied),
                   "service_reasons": service_reasons(state, day), "security_reasons": security_reasons(state, day)}
+    if diff.hide_scores and not state.game_over and day < config.NUM_DAYS:
+        day_scores = None  # hard: the player does not learn how the day went until the game is over
 
     day_summary = briefing_text = None
     if not state.game_over:

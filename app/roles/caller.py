@@ -100,6 +100,8 @@ def earlier_today_text(state: GameState, call: CallRecord) -> str:
             refused += " The receptionist caught this caller out: that story is shaky."
         if c.end_reason == "exposed":
             refused += " That cover is blown: never mention this caller, their company or their story, even if your script does."
+        if c.plan and c.plan.move == "decoy":
+            refused = " This was your crew's decoy: it was meant to look suspicious and fail."
         rows.append(f"- {c.time}, {c.caller_name}: {how}; learned {got}.{refused}")
     return "\n".join(rows) or "- None: this is your crew's first call today."
 
@@ -150,9 +152,55 @@ def _now(state: GameState, call: CallRecord) -> str:
             "has already passed (\"after lunch\", \"around one\" in a call at 15:50), shift it so it is still ahead.")
 
 
+def move_text(state: GameState, call: CallRecord, world: World) -> str:
+    """Hard: what the caller must know to play its special move, and what its crew prepared for it."""
+    plan = call.plan
+    assert plan is not None
+    lines = []
+    if plan.move == "echo":
+        original = next((c for c in state.calls if c.id == plan.echo_of and c.legit), None)
+        if original and original.legit:
+            day = config.DAY_NAMES[original.day - 1].split(",")[0]
+            lines.append(
+                f"SPECIAL: you are posing as {original.caller_name}, a real caller who phoned this desk on {day} at "
+                f"{original.time} about: {original.legit.goal}. Your crew knows their details: {original.legit.knows} "
+                "Use these confidently: you are following up on that business. But nobody on your crew heard that "
+                "call. You do not know what the receptionist said to them, promised them, or who they were put "
+                "through to. If asked about it, answer only in general terms and steer back to today's question; "
+                "never invent a specific about it. If the receptionist states something about that call, you have no "
+                "way to know whether it is true, so you go along with it.")
+    elif plan.move == "decoy":
+        lines.append(
+            "SPECIAL: you are your crew's DECOY. Ignore the skill level above: play a clumsy, nervous amateur who is "
+            "obviously fishing. Ask for something sensitive straight out, get a small detail wrong, and give up and "
+            "end the call as soon as you are refused or doubted. Your crew wants this call noticed.")
+    elif plan.move == "investigator":
+        decoy = next((c for c in state.calls if c.is_con and c.day == call.day and c.plan and c.plan.move == "decoy"), None)
+        when = f"at {decoy.time} ({decoy.claims})" if decoy else "earlier today"
+        lines.append(
+            f"SPECIAL: your crew made a clumsy decoy call to this desk {when}. You pose as an outside fraud "
+            "investigator following up on it: that caller's number is on your fraud watch list. Ask calmly what they "
+            "asked about and who handles payments here, so you can warn that person directly (or be put through). "
+            "You cannot explain how you know a call reached this desk: if asked, say your systems flagged it, "
+            "and do not elaborate.")
+    elif plan.move == "memo":
+        memo = next((n for n in state.notices if n.day == call.day and n.id == "memo"), None)
+        if memo:
+            lines.append(
+                f"SPECIAL: your crew slipped this notice into the staff bulletin this morning: \"{memo.title}: "
+                f"{memo.text}\" You are the contractor it announces. Refer to it naturally (\"you should have had a "
+                "notice about us\"). If the receptionist doubts the notice, you know nothing beyond what it says.")
+    if plan.prep:
+        lines.append(f"PREPARED ANSWERS (your crew researched these overnight; they count as things you know): {plan.prep}")
+    return "\n".join(lines)
+
+
 def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: str) -> str:
     plan = call.plan
     assert plan is not None
+    diff = config.get_difficulty(state.difficulty)
+    decoy = plan.move == "decoy"
+    look = config.get_difficulty("easy") if decoy else diff
     tactic = next((t for t in load_tactics() if t.id == plan.tactic), None)
     targets = [fact_by_id(world, fid) for fid in plan.target_facts]
     target_text = "; ".join(f.description for f in targets if f) or "whatever small details the receptionist lets slip"
@@ -173,9 +221,10 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         tactic_name=tactic.name if tactic else plan.tactic,
         tactic_description=tactic.description if tactic else "",
         target_descriptions=target_text,
-        skill_note=config.get_difficulty(state.difficulty).skill_note,
-        verify_note=config.get_difficulty(state.difficulty).verify_note,
-        closing_note=closing_note(state, call, world),
+        skill_note=look.skill_note,
+        verify_note=look.verify_note,
+        closing_note="Do not ask to be transferred anywhere." if decoy else closing_note(state, call, world),
+        move_note=move_text(state, call, world),
         now=_now(state, call),
         public_info=public_info_text(world),
         intel=intel_text(state, world, with_quote=False),
@@ -228,7 +277,8 @@ def adapt_opening(state: GameState, call: CallRecord, world: World) -> str:
     pretend otherwise ("my colleague took your survey answers"), so the caller says it fresh."""
     plan = call.plan
     assert plan is not None
-    burned = [c for c in state.calls if c.is_con and c.day == call.day and c.end_reason == "exposed"]
+    burned = [c for c in state.calls if c.is_con and c.day == call.day and c.end_reason == "exposed"
+              and not (c.plan and c.plan.move == "decoy")]
     caught = (" The desk caught and exposed your crew's call(s) at " + ", ".join(c.time for c in burned) +
               " (" + ", ".join(c.claims for c in burned) + "): never mention, refer to or build on those callers, "
               "their company or their story; this call must stand on its own.") if burned else ""

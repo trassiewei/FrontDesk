@@ -12,7 +12,7 @@ YOUR CHARACTER FOR THIS CALL
 - Skill level: $skill_note
 
 THE JOB: your crew's method is "$gambit_name". Today's call is one step of it. What this call is for: $purpose
-
+$move_note
 YOUR SCRIPT FOR THIS CALL (your crew planned it; follow it, but stay natural)
 $script_text
 

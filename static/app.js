@@ -48,6 +48,7 @@ const I18N = {
   en: {
     logo: "FRONT DESK", your_name: "Your name", difficulty: "Difficulty", easy: "Easy", normal: "Normal", hard: "Hard",
     replies_title: "Replies you can still send today", replies_left: "Replies left", security: "Security", service: "Service",
+    scores_hidden: "Hard: your scores stay hidden until the end of the week",
     tab_directory: "Directory", tab_desk: "Desk", tab_policy: "Policy", tab_notes: "My notes",
     notes_placeholder: "Write your own notes here…", notes_hint: "Kept only in this page's memory — refreshing the page clears it.",
     net_error: "Could not reach the server.", bad_request: "That request was not valid.", failed: "Request failed ({status}).",
@@ -84,7 +85,7 @@ const I18N = {
     stats: "Stats", s_calls: "Calls taken", s_callbacks: "Callbacks made", s_exposures: "Callers exposed",
     s_correct: "Correct flags", s_wrong: "Wrong flags", s_overshare: "Overshares to real callers",
     s_leaked: "Facts the con learned", download: "Download game log (JSON)", play_again: "Play again",
-    real: "REAL", con: "CON", day_time: "Day {n} · {time}", pretending: "Pretending to be: ", move: "Move: ",
+    real: "REAL", con: "CON", day_time: "Day {n} · {time}", pretending: "Pretending to be: ", move: "Move: ", special: "Special move: ",
     counter: "Counter: ", purpose: "What it was for: ", slip: "Their slip: ", script: "Their script: ",
     ended: "How it ended: ", you: "You: ", careful: "Careful: ",
     accomplice: "the number they gave you was their accomplice. Whoever answers there will vouch for a con.",
@@ -95,6 +96,7 @@ const I18N = {
   zh: {
     logo: "前台", your_name: "你的名字", difficulty: "难度", easy: "简单", normal: "普通", hard: "困难",
     replies_title: "今天还能发送的回复数", replies_left: "剩余回复", security: "安全", service: "服务",
+    scores_hidden: "困难模式：分数要到一周结束才揭晓",
     tab_directory: "名录", tab_desk: "桌面", tab_policy: "规定", tab_notes: "我的笔记",
     notes_placeholder: "在这里写你自己的笔记…", notes_hint: "只保存在本页面内存里，刷新页面就会清空。",
     net_error: "连不上服务器。", bad_request: "请求无效。", failed: "请求失败（{status}）。",
@@ -131,7 +133,7 @@ const I18N = {
     stats: "统计", s_calls: "接听来电", s_callbacks: "回拨核实", s_exposures: "戳穿骗子",
     s_correct: "正确标记", s_wrong: "错误标记", s_overshare: "对真人说多了",
     s_leaked: "骗子套到的信息", download: "下载游戏记录（JSON）", play_again: "再玩一局",
-    real: "真人", con: "骗子", day_time: "第 {n} 天 · {time}", pretending: "冒充：", move: "套路：",
+    real: "真人", con: "骗子", day_time: "第 {n} 天 · {time}", pretending: "冒充：", move: "套路：", special: "特别招数：",
     counter: "对策：", purpose: "目的：", slip: "露出的破绽：", script: "他们的台本：",
     ended: "结果：", you: "你：", careful: "注意：",
     accomplice: "他们给你的号码是同伙接的。打那个号码，接电话的人会替骗子担保。",
@@ -279,8 +281,10 @@ function renderTopbar() {
   $("#top-clock").textContent = `${s.day_name} · ${s.clock}`;
   $("#top-replies b").textContent = s.replies_left_today;
   $("#top-replies").classList.toggle("low", s.replies_left_today <= 3);
-  $("#top-security b").textContent = s.security;
-  $("#top-service b").textContent = s.service;
+  $("#top-security b").textContent = s.scores_hidden ? "?" : s.security;
+  $("#top-service b").textContent = s.scores_hidden ? "?" : s.service;
+  $("#top-security").title = s.scores_hidden ? t("scores_hidden") : t("security");
+  $("#top-service").title = s.scores_hidden ? t("scores_hidden") : t("service");
   $("#top-player").textContent = s.player_name;
 }
 
@@ -726,6 +730,7 @@ function revealCard(c) {
   ];
   const sep = t("list_sep");
   if (c.impersonating) rows.push(el("p", {}, el("span", { class: "label" }, t("pretending")), c.impersonating));
+  if (c.special) rows.push(el("p", {}, el("span", { class: "label" }, t("special")), c.special));
   if (c.tactic) {
     rows.push(el("p", {}, el("span", { class: "label" }, t("move")), `${c.tactic.name}${lang() === "zh" ? "。" : ". "}${c.tactic.sign}`),
       el("p", {}, el("span", { class: "label" }, t("counter")), c.tactic.counter));

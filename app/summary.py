@@ -80,6 +80,33 @@ def _fact_text(fact) -> str:
     return (overlay("world").get("facts") or {}).get(fact.id) or fact.description
 
 
+MOVE_TEXTS = {
+    "echo": "Posed as {caller}, a genuine caller from day {day} at {time}. It knew their details, but not what was "
+            "said on that call: asking about it would have given it away.",
+    "decoy": "A decoy: a deliberately clumsy con meant to be noticed, to set up the next call.",
+    "investigator": "A fake fraud investigator following up on the decoy. No outsider could have known a call "
+                    "reached this desk.",
+    "memo": "The bulletin notice “{title}” that morning was forged by the crew. Its flaw could be checked against "
+            "the directory.",
+}
+
+
+def move_text(state: GameState, call) -> str:
+    """What a hard crew's special move was, for the end page ('' for an ordinary call)."""
+    plan = call.plan if call.is_con else None
+    if plan is None or plan.move not in MOVE_TEXTS:
+        return ""
+    if plan.move == "echo":
+        original = next((c for c in state.calls if c.id == plan.echo_of), None)
+        if original is None:
+            return ""
+        return tr(MOVE_TEXTS["echo"]).format(caller=original.caller_name, day=original.day, time=original.time)
+    if plan.move == "memo":
+        memo = next((n for n in state.notices if n.day == call.day and n.id == "memo"), None)
+        return tr(MOVE_TEXTS["memo"]).format(title=memo.title) if memo else ""
+    return tr(MOVE_TEXTS[plan.move])
+
+
 def call_reveal(state: GameState, world: World) -> list[dict]:
     """Every call with its hidden truth, for the end page. Only ever built after the game is over."""
     playbook = load_playbook()
@@ -104,6 +131,7 @@ def call_reveal(state: GameState, world: World) -> list[dict]:
             "tactic": {"name": tactic["name"], "sign": tactic["sign"], "counter": tactic["counter"]} if tactic else None,
             "script": call.plan.beats if call.is_con and call.plan else [],
             "purpose": call.plan.purpose if call.is_con and call.plan else "",
+            "special": move_text(state, call),
             "outcome": playbook["outcomes"].get(call.result or "", call.result or ""),
             "learned": [facts[f] for f in call.gained_facts if f in facts],
             "player": player,

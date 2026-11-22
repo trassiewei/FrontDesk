@@ -59,6 +59,14 @@ def _short_plans_stay_short(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_special_moves(request, monkeypatch):
+    """Most hard tests script plain plans; the special moves (echo, decoy, memo) have their own tests."""
+    if not request.node.get_closest_marker("special_moves"):
+        from app import rules as _rules
+        monkeypatch.setattr(_rules, "schedule_moves", lambda rng: {})
+
+
+@pytest.fixture(autouse=True)
 def _english_by_default():
     """A test that starts a Chinese game must not leave the language set for the next test."""
     from app import i18n

@@ -60,6 +60,9 @@ def localize_day(state: GameState, plan: PlannerResult, legit: list[LegitCall]) 
         texts += [c.claims, c.opening_line, c.purpose, c.if_refused, c.if_verified, *c.beats, *c.tells]
     for g in legit:
         texts += [g.claims, g.opening_line]
+    memo = plan.memo
+    if memo:
+        texts += [memo.title, memo.text]
     done = iter(to_chinese(state.game_id, texts))
     notebook = next(done)
     calls = []
@@ -71,4 +74,6 @@ def localize_day(state: GameState, plan: PlannerResult, legit: list[LegitCall]) 
                                           "if_refused": refused, "if_verified": verified, "beats": beats,
                                           "tells": tells}))
     legit_out = [g.model_copy(update={"claims": rules.zh_card(next(done)), "opening_line": next(done)}) for g in legit]
-    return plan.model_copy(update={"notebook": notebook, "calls": calls}), legit_out
+    if memo:
+        memo = memo.model_copy(update={"title": next(done), "text": next(done)})
+    return plan.model_copy(update={"notebook": notebook, "calls": calls, "memo": memo}), legit_out
