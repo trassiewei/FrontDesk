@@ -295,6 +295,10 @@ def _invented_colleague_of(call: CallRecord, emp, company: str = "") -> bool:
     if emp is None or call.claimed_identity is not None:
         return False
     said = " ".join(m.text for m in call.messages if m.speaker == "caller")
+    if emp.dept == "HR" and (_NEWCOMER_WORDS.search(call.claims) or _SAID_NEW.search(said)) \
+            and not _org_left(call.claims, call.caller_name, company):
+        # HR knows every new hire and temp in every department ("new temp in Executive support").
+        return True
     dept_word = _names_dept(call.claims, emp.dept)
     if dept_word is None:
         # Not on the card, but said aloud: "I'm with <company>, Accounts. Sorry, I'm brand new."

@@ -422,3 +422,10 @@ def test_challenge_catches_directory_and_vendor_list_pushback():
     assert rules.is_challenge("There's no Tessa Prescott in our directory.")
     assert rules.is_challenge("You're not in our directory.")
     assert not rules.is_challenge("Let me look in the directory for you.")
+
+
+def test_hr_knows_every_new_hire_so_a_callback_exposes_an_invented_temp(world, make_call):
+    call = make_call(claims="Ginny Tarbell, new temp, Executive support", caller_name="Ginny Tarbell")
+    assert rules.callback(call, "E06", world).exposed
+    staffing = make_call(claims="Ginny Tarbell, Kestrel Staffing", caller_name="Ginny Tarbell")
+    assert not rules.callback(staffing, "E06", world).exposed  # an agency placing a temp is not staff

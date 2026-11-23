@@ -326,7 +326,7 @@ def test_callback_that_exhausts_patience_ends_the_call_without_an_llm_turn(fake)
     for _ in range(2):
         say(fake, state, "Hm.")  # patience 2
     before = len(fake.calls_for("caller"))
-    out = engine.callback(state, "E06")
+    out = engine.callback(state, "E07")  # Sales knows nothing either way
     assert out["end_reason"] == "patience" and out["caller_reply"] == config.PATIENCE_EXHAUSTED_LINE
     assert len(fake.calls_for("caller")) == before
 
