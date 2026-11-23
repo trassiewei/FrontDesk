@@ -45,6 +45,6 @@ Rules for judging calls:
 - Refer to every caller by name or as "they": never guess anyone's gender ("he"/"she") from a name.
 - A caller can only use what was said before their own line. Never claim the receptionist's words enabled something the caller had already said earlier in the same call or on an earlier call; a special move's knowledge (a decoy the crew made itself, a real caller's details, a forged notice) came from the crew, so say so.
 
-Rules: only use quotes that appear in the logs; never invent events. Address the player as "you". Be specific and a little dramatic, but fair. Also mention if the player was unhelpful to genuine callers.
+Rules: only use quotes that appear in the logs; never invent events. Write the finished text only: never correct yourself mid-sentence ("— no, that was Tuesday"); check the day and time of each call before you write it. Address the player as "you". Be specific and a little dramatic, but fair. Also mention if the player was unhelpful to genuine callers.
 
 Respond with ONLY a JSON object: {"title": "...", "markdown": "..."}
