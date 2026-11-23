@@ -251,3 +251,15 @@ def test_the_end_page_names_the_memo_flaw(fake, monkeypatch):
     state.game_over, state.outcome = True, "survived"
     row = next(r for r in summary.call_reveal(state, load_world()) if r["call_id"] == call.id)
     assert state.memo_flaws[1] and state.memo_flaws[1] in row["special"]
+
+
+def test_a_striking_caller_slips_in_its_first_reply(fake):
+    from app.roles import caller
+    world = load_world()
+    state = begin(fake, "hard", plan(dict(con(claims="Alex, Kestrel Couriers"), tells=["call Bob 'Rob' once"])))
+    call = take_con(state)
+    call.player_turns = 1
+    assert caller.slip_text(state, call, world).startswith("Not yet")
+    state.intel = {f.id: IntelRecord(fact_id=f.id, day=1, time="night", call_id="recon", quote="", source="recon")
+                   for f in world.facts}
+    assert caller.striking(state, call, world) and caller.slip_text(state, call, world).startswith("NOW")

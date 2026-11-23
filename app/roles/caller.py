@@ -39,7 +39,7 @@ def closing_note(state: GameState, call: CallRecord, world: World) -> str:
             "with a hurried excuse that fits your story (something urgent). If the receptionist hesitates, push."
         )
     ready = rules.breach_ready(call, state.intel, state.it_alert, diff.breach_threshold, world.facts, scenario)
-    if ready and diff.debrief and not call.plan.move == "decoy":
+    if ready and striking(state, call, world):
         # Hard: the strike sounds like routine business; a ready caller who keeps fishing gives itself away.
         return (
             f"Your plan: you now know enough to be believed. Your business is for {who}: in your first or second line, "
@@ -115,8 +115,18 @@ def earlier_today_text(state: GameState, call: CallRecord) -> str:
     return "\n".join(rows) or "- None: this is your crew's first call today."
 
 
-def slip_text(state: GameState, call: CallRecord) -> str:
-    """When the con makes its scripted slip. The code decides the moment; the model only phrases the slip."""
+def striking(state: GameState, call: CallRecord, world: World) -> bool:
+    """Hard: a ready crew's caller asks for the transfer at once (see closing_note), so the call is short."""
+    diff = config.get_difficulty(state.difficulty)
+    scenario = scenario_of(state)
+    return bool(diff.debrief and call.plan and call.plan.move != "decoy" and scenario.doors and rules.breach_ready(
+        call, state.intel, state.it_alert, diff.breach_threshold, world.facts, scenario))
+
+
+def slip_text(state: GameState, call: CallRecord, world: World) -> str:
+    """When the con makes its scripted slip. The code decides the moment; the model only phrases the slip.
+    A striking caller wants to be put through within a line or two, so it slips in its first reply: a call that
+    ends before its slip would leave the receptionist nothing to catch."""
     plan = call.plan
     assert plan is not None
     diff = config.get_difficulty(state.difficulty)
@@ -124,7 +134,8 @@ def slip_text(state: GameState, call: CallRecord) -> str:
         return "You have no scripted slip on this call."
     if call.slip_shown:
         return "You have already made your slip. Do not repeat it and never draw attention to it."
-    if call.player_turns < config.tell_turn_on(diff, call.day):
+    due = 1 if striking(state, call, world) else config.tell_turn_on(diff, call.day)
+    if call.player_turns < due:
         return "Not yet: make no slip in this line."
     options = " OR ".join(f'"{t}"' for t in plan.tells)
     return (
@@ -226,7 +237,7 @@ def _con_prompt(state: GameState, call: CallRecord, world: World, system_note: s
         pretext=plan.pretext,
         script_text=script_text(state, call),
         earlier_today=earlier_today_text(state, call),
-        slip_text=slip_text(state, call),
+        slip_text=slip_text(state, call, world),
         tactic_name=tactic.name if tactic else plan.tactic,
         tactic_description=tactic.description if tactic else "",
         target_descriptions=target_text,
