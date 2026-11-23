@@ -597,9 +597,11 @@ _DESCRIBES_CALL = re.compile(
 
 def zh_card(claims: str) -> str:
     """A Chinese card cut from a longer sentence often ends in a dangling 的 ("…企业业务部的")."""
-    claims = re.sub(r"(?<=[部处科组室心司店厂行所队边门位员聘访货件])的[\s。，,.]*$", "", claims.strip())
+    claims = re.sub(r"(?<=[部处科组室心司店厂行所队边门位员聘访货件A-Za-z0-9)）])\s*的[\s。，,.]*$", "", claims.strip())
     if re.search(r"[\u4e00-\u9fff]", claims):
         claims = re.sub(r"\s*,\s*", "，", claims, count=1)  # "Priya Chandra, Brightline 的账务专员"
+        # "Riverton社区报" -> "Riverton 社区报", the spacing the rest of the game's Chinese uses.
+        claims = re.sub(r"(?<=[A-Za-z0-9])(?=[\u4e00-\u9fff])|(?<=[\u4e00-\u9fff])(?=[A-Za-z0-9])", " ", claims)
     return claims
 
 
@@ -1149,6 +1151,11 @@ def _fit_surname(fields: dict[str, str], surnames: set[str], pool: list[str]) ->
     return fields
 
 
+_VAGUE_ORG = re.compile(r"\b(a|an|some)\s+(\w+[\s-]+){0,3}(company|firm|agency|business|outfit|supplier|forwarder)\b"
+                        r"(?! called| named)|(一家|某家|某个|一个)[^，,。]{0,14}(公司|企业|机构|货代|代理|供应商|厂)",
+                        re.IGNORECASE)
+
+
 def _legit_from_draft(
     d: LegitDraft, *, day: int, slot: int, world: World, taken: set[str], pool: list[str],
     rng: random.Random, avoid: set[str], surnames: set[str] | None = None, surname_pool: list[str] | None = None,
@@ -1180,6 +1187,8 @@ def _legit_from_draft(
                             rf"{re.escape(company)}\b|{re.escape(company)}\s*的(客户|供应商|合作方|访客|求职者)", fields["claims"], re.I)
     if not emp and not outsider_of and re.search(re.escape(company), fields["claims"] + " " + fields["caller_name"], re.I):
         return None  # an outsider "from HR at Trassiewei" is a colleague the directory has never heard of
+    if not emp and _VAGUE_ORG.search(fields["claims"]):
+        return None  # "a cloud company over in Ashford": a genuine business caller names their own company
     if not emp and claims_unlisted_staff(fields["caller_name"], fields["claims"], world):
         return None  # "Rebecca Lin, Operations": a colleague the directory and the department have never heard of
     if emp:

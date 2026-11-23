@@ -149,6 +149,8 @@ def test_more_ways_to_catch_a_caller_out():
 def test_chinese_cards_lose_a_dangling_de_and_never_describe_the_call():
     assert rules.zh_card("Tobias Reinhardt，Riverton Savings Bank 企业业务部的") == "Tobias Reinhardt，Riverton Savings Bank 企业业务部"
     assert rules.zh_card("Mia，目的") == "Mia，目的"
+    assert rules.zh_card("Tomas Vela，NetCore IT Services 的") == "Tomas Vela，NetCore IT Services"
+    assert rules.zh_card("Rosalind Chadwick，Riverton社区报的记者") == "Rosalind Chadwick，Riverton 社区报的记者"
     card = rules.card_claims("Dennis Oyelaran", "Dennis Oyelaran，打错电话的人，本想联系一家船运公司", None, "哦，你们不是搬家公司吗？")
     assert card == "Dennis Oyelaran"
     assert rules.card_claims("Mia Park", "Mia Park, florist following up on an order", None,

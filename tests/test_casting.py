@@ -444,3 +444,12 @@ def test_kinds_of_caller_already_heard_this_week_leave_the_idea_list(fake):
         assert "delivery driver" not in ideas and "journalist" not in ideas
     used = casting._used_kinds(state)
     assert "delivery driver" in used and "journalist" in used and "recruiter" not in used
+
+
+def test_a_genuine_business_caller_must_name_their_company():
+    for claims in ("Ann Lee, account manager at a cloud company in Ashford", "Ann Lee，Ashford 那边一家云服务公司的经理"):
+        calls = rules.clean_legit_calls(
+            LegitCastResult(calls=[LegitDraft(**draft(caller_name="Ann Lee", claims=claims))]),
+            day=1, world=load_world(), fallbacks=[c for c in load_legit_calls() if c.day == 1], taken=[],
+            rng=random.Random(1))
+        assert calls[0].caller_name != "Ann Lee"  # the vague draft gave way to a fixed call
