@@ -89,7 +89,10 @@ def test_callback_unrelated_person_knows_nothing(world, make_call):
 
 def test_callback_exposes_con_who_mentioned_a_colleague(world, make_call):
     call = make_call(claimed_identity=None, references=["E02"])
-    assert rules.callback(call, "E02", world).exposed
+    result = rules.callback(call, "E02", world)
+    assert result.exposed and "Never heard of them" in result.text  # named, not impersonated
+    posing = make_call(claimed_identity="E02", references=[])
+    assert "I didn't call" in rules.callback(posing, "E02", world).text
 
 
 def test_callback_vendor_uses_service_desk_speaker(world, make_call):

@@ -119,6 +119,8 @@ ZH: dict[str, str] = {
     "{speaker}: 'No, I didn't call — and I didn't send anyone. Who is this?'":
         "{speaker}：“没有，我没打过电话，也没让谁打给你们。这人是谁？”",
     "{speaker}: 'Yes, that was me calling. Put me back through.'": "{speaker}：“对，刚才是我打的。把我接回去吧。”",
+    "{speaker}: '{caller}? Never heard of them — I'm not dealing with anyone by that name. Who is this?'":
+        "{speaker}：“{caller}？没听说过这个人，我这边没跟叫这个名字的人打过交道。这是谁？”",
     "{speaker}: 'Nobody here called you, and we have no {caller} on the team. Who is this?'":
         "{speaker}：“我们这边没人给你们打过电话，也没有叫 {caller} 的人。这是谁？”",
     "{speaker}: 'Yes, {caller} is one of ours and did call you. Go ahead.'":

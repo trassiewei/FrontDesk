@@ -41,6 +41,8 @@ VOICEMAIL_TEMPLATE = (
 )
 CALLBACK_EXPOSED = "{speaker}: 'No, I didn't call — and I didn't send anyone. Who is this?'"
 CALLBACK_SELF = "{speaker}: 'Yes, that was me calling. Put me back through.'"
+# A caller who only named this colleague ("I need Leo about my claim"), rather than posing as them.
+CALLBACK_NAMED_STRANGER = "{speaker}: '{caller}? Never heard of them — I'm not dealing with anyone by that name. Who is this?'"
 CALLBACK_VENDOR_EXPOSED = "{speaker}: 'Nobody here called you, and we have no {caller} on the team. Who is this?'"
 CALLBACK_VENDOR_SELF = "{speaker}: 'Yes, {caller} is one of ours and did call you. Go ahead.'"
 CALLBACK_LEGIT = "{speaker}: 'Yes, that's legit.'"
@@ -338,8 +340,12 @@ def callback(
         if target_id in set(echo_refs):
             return CallbackResult(tr(CALLBACK_ECHO).format(speaker=speaker, caller=call.caller_name), "unknown")
         if target_id in references:
-            text = (tr(CALLBACK_EXPOSED).format(speaker=speaker) if emp is not None else
-                    tr(CALLBACK_VENDOR_EXPOSED).format(speaker=speaker, caller=call.caller_name.split()[0]))
+            if emp is None:
+                text = tr(CALLBACK_VENDOR_EXPOSED).format(speaker=speaker, caller=call.caller_name.split()[0])
+            elif target_id == call.claimed_identity:
+                text = tr(CALLBACK_EXPOSED).format(speaker=speaker)
+            else:
+                text = tr(CALLBACK_NAMED_STRANGER).format(speaker=speaker, caller=call.caller_name)
             return CallbackResult(text, "exposed", exposed=True, it_alert=True)
         if _invented_colleague_of(call, emp, world.company.name):
             return CallbackResult(

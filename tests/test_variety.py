@@ -76,3 +76,13 @@ def test_a_cover_two_recent_games_used_is_banned_and_dropped_from_plans(monkeypa
 
 def test_the_models_stock_names_are_always_renamed():
     assert "Priya Raman" in variety.avoid_names("any")
+
+
+def test_a_kind_of_genuine_caller_two_recent_games_had_counts_as_used(monkeypatch):
+    from app.models import GameState
+    from app.roles import casting
+    entries = [{"id": "g1", "legit": ["Ann, a student at Riverton College | arrange a class visit"]},
+               {"id": "g2", "legit": ["Bo, student at Ashford Tech | site visit for a course"]}]
+    monkeypatch.setattr(variety, "_load", lambda: entries)
+    state = GameState(game_id="g3", player_name="Sam", difficulty="normal")
+    assert "a student asking about a site visit" in casting._used_kinds(state)

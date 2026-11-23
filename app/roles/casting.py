@@ -74,9 +74,23 @@ def _seen_lately(kind: str, text: str) -> bool:
     return bool(sign and text and re.search(sign, text))
 
 
+def _overused_kinds(state: GameState, games: int = 4, at_least: int = 2) -> list[str]:
+    """Kinds of genuine caller that at least `at_least` of the last `games` other games already had."""
+    entries = [e for e in variety._load() if e.get("id") != state.game_id][-games:]
+    counts: dict[str, int] = {}
+    for entry in entries:
+        text = " ".join(str(x) for x in entry.get("legit") or []).lower()
+        for kind in OUTSIDER_KINDS:
+            if _seen_lately(kind, text):
+                counts[kind] = counts.get(kind, 0) + 1
+    return [k for k in OUTSIDER_KINDS if counts.get(k, 0) >= at_least]
+
+
 def _used_kinds(state: GameState) -> str:
     cards = " ".join(c.claims for c in state.calls if not c.is_con).lower()
     used = [k for k, sign in _KIND_SIGNS.items() if re.search(sign, cards)]
+    # Kinds recent games kept using count as used too: models reach for a student visit in game after game.
+    used += [k for k in _overused_kinds(state) if k not in used]
     return "; ".join(used) or "none yet"
 
 
