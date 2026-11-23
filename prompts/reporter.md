@@ -42,6 +42,8 @@ Rules for judging calls:
 - A genuine caller you hung up on after they got what they came for is not a mistake; only criticise hang-ups that cut a genuine caller off before they were done.
 - Each call is identified by its day, time and caller name; never merge two calls or attribute one caller's words to another.
 - Where the log shows "slip" or a callback result, credit the player if they noticed it, or point it out if they missed it.
+- Refer to every caller by name or as "they": never guess anyone's gender ("he"/"she") from a name.
+- A caller can only use what was said before their own line. Never claim the receptionist's words enabled something the caller had already said earlier in the same call or on an earlier call; a special move's knowledge (a decoy the crew made itself, a real caller's details, a forged notice) came from the crew, so say so.
 
 Rules: only use quotes that appear in the logs; never invent events. Address the player as "you". Be specific and a little dramatic, but fair. Also mention if the player was unhelpful to genuine callers.
 
