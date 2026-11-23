@@ -481,13 +481,13 @@ function renderTabs() {
   $("#tab-directory").replaceChildren(directory);
   const co = w.company;
   $("#tab-desk").replaceChildren(
+    ...callLog(),
     el("h3", {}, t("company")),
     el("div", { class: "sticky" }, `${co.name} · ${co.address} · ${co.website}`,
       el("br"), t("main_line", { n: co.main_number }),
       el("br"), Object.entries(co.general_emails || {}).map(([k, v]) => `${k}: ${v}`).join(" · ")),
     el("h3", {}, t("sticky")), ...w.sticky_notes.map((n) => el("div", { class: "sticky" }, n)),
-    el("h3", {}, t("internal")), el("ul", { class: "internal" }, w.internal_notes.map((n) => el("li", {}, n))),
-    ...callLog());
+    el("h3", {}, t("internal")), el("ul", { class: "internal" }, w.internal_notes.map((n) => el("li", {}, n))));
   const level = G.state ? G.state.difficulty : "normal";
   const bulletin = (G.state && G.state.bulletin) || [];
   const policyTab = [];
