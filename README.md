@@ -43,6 +43,8 @@ The screen has the call on the left and your reference material on the right.
 - **Number the caller gave**: dial the number the caller offered. It looks like a check, but whoever answers there vouches for them, and a con's accomplice answers too.
 - **Hang up**.
 
+**Quit game** (top right, click twice) abandons the current game and goes back to the start page.
+
 **Between calls** you can **flag the last call** as suspicious. A right flag earns Security; a flag on a genuine caller costs Service, and each wrong flag costs more than the last. You are not told whether a flag was right until the game ends.
 
 **The reference tabs**:
@@ -213,6 +215,8 @@ Each game is saved to `games/<id>.json` and its model requests are logged to `lo
 | `FRONTDESK_MAX_SAVED_GAMES` | 50 | Never more than this many saves; the oldest go first. |
 
 `games/recent.json` remembers which names, errands, cover stories, jobs and methods the last few games used, so the next game picks different ones.
+
+To keep a game for good (a demo whose report you want to show), put its id on a line of `games/keep.txt`; kept games are never pruned. A game the player quits with the **Quit game** button is deleted straight away.
 
 ### Tests and evaluation
 

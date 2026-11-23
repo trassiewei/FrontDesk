@@ -84,7 +84,7 @@ const I18N = {
     th_day: "Day", th_time: "Time", th_info: "Information", th_words: "Your words", th_source: "Source",
     stats: "Stats", s_calls: "Calls taken", s_callbacks: "Callbacks made", s_exposures: "Callers exposed",
     s_correct: "Correct flags", s_wrong: "Wrong flags", s_overshare: "Overshares to real callers",
-    s_leaked: "Facts the con learned", download: "Download game log (JSON)", play_again: "Play again",
+    s_leaked: "Facts the con learned", download: "Download game log (JSON)", play_again: "Play again", quit: "⏏ Quit game", quit_confirm: "Click again to quit (this game is lost)",
     real: "REAL", con: "CON", day_time: "Day {n} · {time}", pretending: "Pretending to be: ", move: "Move: ", special: "Special move: ",
     counter: "Counter: ", purpose: "What it was for: ", slip: "Their slip: ", script: "Their script: ",
     ended: "How it ended: ", you: "You: ", careful: "Careful: ",
@@ -132,7 +132,7 @@ const I18N = {
     th_day: "天", th_time: "时间", th_info: "信息", th_words: "你的原话", th_source: "来源",
     stats: "统计", s_calls: "接听来电", s_callbacks: "回拨核实", s_exposures: "戳穿骗子",
     s_correct: "正确标记", s_wrong: "错误标记", s_overshare: "对真人说多了",
-    s_leaked: "骗子套到的信息", download: "下载游戏记录（JSON）", play_again: "再玩一局",
+    s_leaked: "骗子套到的信息", download: "下载游戏记录（JSON）", play_again: "再玩一局", quit: "⏏ 退出本局", quit_confirm: "再点一次退出（本局作废）",
     real: "真人", con: "骗子", day_time: "第 {n} 天 · {time}", pretending: "冒充：", move: "套路：", special: "特别招数：",
     counter: "对策：", purpose: "目的：", slip: "露出的破绽：", script: "他们的台本：",
     ended: "结果：", you: "你：", careful: "注意：",
@@ -286,6 +286,24 @@ function renderTopbar() {
   $("#top-security").title = s.scores_hidden ? t("scores_hidden") : t("security");
   $("#top-service").title = s.scores_hidden ? t("scores_hidden") : t("service");
   $("#top-player").textContent = s.player_name;
+  const quit = $("#quit-button");
+  quit.textContent = G.quitArmed ? t("quit_confirm") : t("quit");
+  quit.classList.toggle("armed", !!G.quitArmed);
+}
+
+function quitGame() {
+  // Two clicks, so a stray click never throws a game away.
+  if (!G.quitArmed) {
+    G.quitArmed = true;
+    clearTimeout(G.quitTimer);
+    G.quitTimer = setTimeout(() => { G.quitArmed = false; if (G.state) renderTopbar(); }, 4000);
+    return renderTopbar();
+  }
+  G.quitArmed = false;
+  clearTimeout(G.quitTimer);
+  const id = G.id;
+  if (id) api("POST", `/api/game/${id}/quit`).catch(() => {});  // the save goes; nothing to wait for
+  playAgain();
 }
 
 function renderLeft() {
@@ -787,6 +805,7 @@ function playAgain() {
 
 async function boot() {
   setupTabs();
+  $("#quit-button").addEventListener("click", quitGame);
   G.lang = savedLang();
   for (const radio of document.querySelectorAll("input[name=lang]")) {
     radio.addEventListener("change", async () => {

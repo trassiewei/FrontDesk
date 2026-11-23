@@ -40,13 +40,34 @@ def get(game_id: str) -> GameState | None:
     return None
 
 
+def kept() -> set[str]:
+    """Game ids listed in games/keep.txt (one per line) are never pruned or deleted, e.g. a demo game."""
+    try:
+        lines = (config.GAMES_DIR / "keep.txt").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return set()
+    return {line.split("#")[0].strip() for line in lines if valid_id(line.split("#")[0].strip())}
+
+
+def delete(game_id: str) -> bool:
+    """Remove a game's save and log (a game the player quit). Kept games stay."""
+    if not valid_id(game_id) or game_id in kept():
+        return False
+    (config.GAMES_DIR / f"{game_id}.json").unlink(missing_ok=True)
+    (config.LOGS_DIR / f"{game_id}.jsonl").unlink(missing_ok=True)
+    _games.pop(game_id, None)
+    _locks.pop(game_id, None)
+    return True
+
+
 def prune(now: float | None = None) -> list[str]:
     """Delete old saves and their LLM logs so they never pile up. A finished game is kept for a day (its end page and
     report can still be opened), an unfinished one for a few idle days, and never more than the newest N saves."""
     now = time.time() if now is None else now
     removed: list[str] = []
+    keep = kept()
     try:
-        saves = sorted((p for p in config.GAMES_DIR.glob("*.json") if valid_id(p.stem)),
+        saves = sorted((p for p in config.GAMES_DIR.glob("*.json") if valid_id(p.stem) and p.stem not in keep),
                        key=lambda p: p.stat().st_mtime, reverse=True)
     except OSError:
         return removed
@@ -65,7 +86,7 @@ def prune(now: float | None = None) -> list[str]:
             _locks.pop(path.stem, None)
     try:  # logs of games that were never saved (or already pruned)
         for log in config.LOGS_DIR.glob("*.jsonl"):
-            if valid_id(log.stem) and now - log.stat().st_mtime > config.IDLE_GAME_TTL \
+            if valid_id(log.stem) and log.stem not in keep and now - log.stat().st_mtime > config.IDLE_GAME_TTL \
                     and not (config.GAMES_DIR / f"{log.stem}.json").exists():
                 log.unlink(missing_ok=True)
     except OSError:

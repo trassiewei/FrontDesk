@@ -310,3 +310,16 @@ def test_old_saves_and_their_logs_are_pruned(monkeypatch):
     assert not (config.LOGS_DIR / "aaaaaaaaaaa2.jsonl").exists() and (config.LOGS_DIR / "aaaaaaaaaaa1.jsonl").exists()
     monkeypatch.setattr(config, "MAX_SAVED_GAMES", 1)
     assert storage.prune(now) == ["aaaaaaaaaaa3"]
+
+
+def test_quitting_a_game_deletes_its_save_but_a_kept_game_stays(client):
+    from app import config, storage
+    game = Game(client)
+    path = config.GAMES_DIR / f"{game.id}.json"
+    assert path.exists()
+    assert client.post(f"/api/game/{game.id}/quit").json() == {"deleted": True}
+    assert not path.exists() and client.get(f"/api/game/{game.id}").status_code == 404
+    kept = Game(client)
+    (config.GAMES_DIR / "keep.txt").write_text(f"{kept.id}  # the demo game\n")
+    assert client.post(f"/api/game/{kept.id}/quit").json() == {"deleted": False}
+    assert storage.prune(now=10**12) == [] and (config.GAMES_DIR / f"{kept.id}.json").exists()

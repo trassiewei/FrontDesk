@@ -258,6 +258,14 @@ def call_hangup(game_id: str) -> dict:
         return {"state": public_state(state), "call_ended": True, "end_reason": result["end_reason"]}
 
 
+@app.post("/api/game/{game_id}/quit")
+def quit_game(game_id: str) -> dict:
+    """The player left this game for a new one: its save and log go now instead of waiting to be pruned."""
+    if storage.get(game_id) is None:
+        raise HTTPException(404, "Game not found.")
+    return {"deleted": storage.delete(game_id)}
+
+
 @app.post("/api/game/{game_id}/flag")
 def flag(game_id: str) -> dict:
     with _turn(game_id) as state:
