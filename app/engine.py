@@ -520,6 +520,7 @@ def callback(state: GameState, target_id: str) -> dict:
     # A line that just rings out is a short hold: it costs the caller far less patience than a real check.
     call.patience -= 1 if result.kind in ("busy", "voicemail") else effects(state).callback_cost
     if result.kind == "confirmed":
+        call.verified = not own_number  # the caller's own number proves nothing; a directory entry does
         call.patience = max(call.patience, 1)  # a caller who was just vouched for waits to be put through
     if not call.is_con:
         _service_hit(state, "hold", config.CALLBACK_ANNOY_SERVICE)  # being put on hold and checked annoys a real caller
@@ -587,7 +588,8 @@ def transfer(state: GameState, target_id: str) -> dict:
     penalty = effects(state).it_transfer_penalty
     # A call on an internal extension cannot be spoofed, so it counts as verified for this rule.
     internal = call.caller_id.startswith("Ext ")
-    if penalty and employee_by_id(world, target_id).dept == "IT" and not call.callbacks and not internal:  # type: ignore[union-attr]
+    # Only a callback someone answered and vouched in counts: a line that rang out verified nothing.
+    if penalty and employee_by_id(world, target_id).dept == "IT" and not call.verified and not internal:  # type: ignore[union-attr]
         _security_hit(state, "it_transfer", -penalty)
         text += tr(" (Policy: an unverified transfer to IT was logged. −{penalty} Security.)").format(penalty=penalty)
     call.messages.append(Message(speaker="system", text=text, time=call.time))

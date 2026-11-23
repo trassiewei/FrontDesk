@@ -351,10 +351,22 @@ def test_it_verify_penalises_unverified_transfers_to_it_only(fake):
     state = start(fake)
     policy(state, "it_verify")
     take_con(state)
-    engine.callback(state, "E09")
+    engine.callback(state, "E09")  # whoever answers knows nothing about this caller: still unverified
+    before = state.security
+    out = engine.transfer(state, "E05")
+    assert state.security < before and "Policy" in out["result_text"]
+    state = start(fake)
+    policy(state, "it_verify")
+    call = engine.next_call(state)
+    while call.is_con:
+        engine.hang_up(state)
+        call = engine.next_call(state)
+    call.references.append("E09")
+    call.patience = 9
+    engine.callback(state, "E09")  # Ivy vouches for this caller
     before = state.security
     out = engine.transfer(state, "E05")  # verified first: no penalty
-    assert state.security == before and "Policy" not in out["result_text"]
+    assert call.verified and state.security == before and "Policy" not in out["result_text"]
     state2 = start(fake)
     policy(state2, "it_verify")
     take_con(state2)
