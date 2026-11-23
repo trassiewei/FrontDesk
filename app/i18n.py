@@ -94,9 +94,19 @@ LLM_NOTES = {
 }
 
 
+# The receptionist's directory shows these in Chinese, so spoken lines must use the same words.
+DEPT_GLOSSARY = ("Department names in Chinese, as the receptionist's directory shows them: Finance = 财务部, "
+                 "Accounts Payable = 应付账款, IT = IT 部, HR = 人事部, Sales = 销售部, Customer Service = 客服部, "
+                 "Executive = 总裁办, Operations = 运营部. Never leave a department or job title in English in "
+                 "Chinese text (say 财务部的 Bob, not Finance 的 Bob).")
+
+
 def llm_note(lang: str, role: str) -> str:
     """Extra system-prompt text for a role in a non-English game ('' in English)."""
-    return "\n\n" + LLM_NOTES[role] if lang == "zh" else ""
+    if lang != "zh":
+        return ""
+    glossary = " " + DEPT_GLOSSARY if role in ("caller", "planner", "casting", "reporter") else ""
+    return "\n\n" + LLM_NOTES[role] + glossary
 
 
 ZH: dict[str, str] = {

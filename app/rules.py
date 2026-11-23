@@ -1481,26 +1481,29 @@ def memo_signoff(text: str, world: World, rng: random.Random, lang: str = "en") 
     look-alike domain. Any sign-off the model wrote itself is dropped first."""
     body = _SIGNOFF.sub("", text.strip()).strip()
     zh = lang == "zh"
+    zh_dept = {"Finance": "财务部", "IT": "IT 部", "HR": "人事部", "Sales": "销售部", "Customer Service": "客服部",
+               "Executive": "总裁办", "Operations": "运营部", "Facilities": "行政后勤部", "Procurement": "采购部"}
+    dept_of = (lambda d: zh_dept.get(d, d)) if zh else (lambda d: d)
     depts = sorted({e.dept for e in world.employees})
     emp = rng.choice([e for e in world.employees if e.dept in ("IT", "HR", "Operations", "Finance")] or world.employees)
     first = emp.name.split()[0]
     kind = rng.choice(["dept", "stranger", "domain"])
     if kind == "dept":
         wrong = rng.choice([d for d in depts if d != emp.dept] + ["Facilities", "Procurement"])
-        line = f"—— {first}（{wrong}）" if zh else f"— {first} ({wrong})"
-        flaw = (f"署名是「{first}（{wrong}）」，但名录里的 {emp.name} 在 {emp.dept}" if zh else
+        line = f"—— {first}（{dept_of(wrong)}）" if zh else f"— {first} ({wrong})"
+        flaw = (f"署名是「{first}（{dept_of(wrong)}）」，但名录里的 {emp.name} 在{dept_of(emp.dept)}" if zh else
                 f"it was signed “{first} ({wrong})”, but {emp.name} works in {emp.dept}")
     elif kind == "stranger":
         directory = {e.name.split()[0].lower() for e in world.employees}
         name = rng.choice([n for n in _NAME_POOL if n.lower() not in directory])
-        line = f"—— {name}（{emp.dept}）" if zh else f"— {name} ({emp.dept})"
-        flaw = (f"署名是「{name}（{emp.dept}）」，但名录里没有叫 {name} 的人" if zh else
+        line = f"—— {name}（{dept_of(emp.dept)}）" if zh else f"— {name} ({emp.dept})"
+        flaw = (f"署名是「{name}（{dept_of(emp.dept)}）」，但名录里没有叫 {name} 的人" if zh else
                 f"it was signed “{name} ({emp.dept})”, but nobody called {name} is in the directory")
     else:
         site = world.company.website.split(".")[0]
         domain = rng.choice([f"{site}-group.com", f"{site}-inc.net", f"{site}.co"])
         address = f"{first.lower()}@{domain}"
-        line = (f"—— {first}（{emp.dept}）。如有疑问请发邮件至 {address}" if zh else
+        line = (f"—— {first}（{dept_of(emp.dept)}）。如有疑问请发邮件至 {address}" if zh else
                 f"— {first} ({emp.dept}). Questions to {address}")
         flaw = (f"联系邮箱 {address} 不是公司的域名（{world.company.website}）" if zh else
                 f"its contact address {address} is not on the company's domain ({world.company.website})")
