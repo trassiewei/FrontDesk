@@ -243,6 +243,7 @@ class Scenario(BaseModel):
     incident: Incident | None = None
     cutscenes: dict[str, str]  # keyed by outcome
     gambit: str = ""  # id of the con method in data/gambits.json
+    target: str = ""  # id of the kind of job (director.TARGETS), varied from game to game
     crew: str = ""  # who the crew is
     motive: str = ""  # who pays them, what for, and the deadline
     phases: list[str] = Field(default_factory=list)  # the crew's objective for each day

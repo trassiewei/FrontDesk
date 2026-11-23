@@ -31,6 +31,9 @@ async def lifespan(_: FastAPI):
         for problem in problems:
             log.warning("  - %s", problem)
         log.warning("Copy .env.example to .env, fill it in, then run: python scripts/check_llm.py")
+    removed = storage.prune()
+    if removed:
+        log.info("Pruned %d old saved games.", len(removed))
     yield
 
 
@@ -169,6 +172,7 @@ def _check_new_game_limit(request: Request) -> None:
 @app.post("/api/game")
 def create_game(body: NewGame, request: Request) -> dict:
     _check_new_game_limit(request)
+    storage.prune()
     state = engine.new_game(body.player_name, body.difficulty, lang=body.lang)
     storage.save(state)
     return {"game_id": state.game_id, "state": public_state(state), "briefing": engine.briefing(state)}

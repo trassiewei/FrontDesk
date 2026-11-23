@@ -36,6 +36,7 @@ YOUR PREVIOUS CALLS
 $history
 $debrief
 IDENTITIES THAT ARE BURNED (never reuse): $burned
+COVERS OTHER CREWS USED RECENTLY (overused: pick a different kind of caller and a different story): $recent_covers
 YOUR PREVIOUS NOTEBOOK PAGE
 $last_notebook
 

@@ -5,7 +5,7 @@ import logging
 import random
 import re
 
-from .. import config, i18n, llm, rules
+from .. import config, i18n, llm, rules, variety
 from ..models import GameState, LegitCall, LegitCastResult, World
 from ..world import employee_by_id, load_legit_calls, scenario_of
 from .common import public_info_text
@@ -50,7 +50,28 @@ def _kinds_text(rng: random.Random, state: GameState | None = None) -> str:
     fresh = [k for k in OUTSIDER_KINDS if not (k in _KIND_SIGNS and re.search(_KIND_SIGNS[k], cards))]
     if len(fresh) < 5:
         fresh = OUTSIDER_KINDS
+    # Kinds of caller recent games already had go to the back of the list: the next game tries other errands.
+    lately = " ".join(variety.recent(state.game_id, "legit")).lower() if state else ""
+    rested = [k for k in fresh if not _seen_lately(k, lately)]
+    if len(rested) >= 5:
+        fresh = rested
     return "; ".join(rng.sample(fresh, 5))
+
+
+# Errand words for kinds whose call card alone does not show them (checked against recent games' cards and goals).
+_LATELY_SIGNS = {
+    "a customer chasing a late order": r"\blate\b|delayed|overdue|hasn'?t arrived|not arrived|延误|没到|还没到|迟迟",
+    "a local charity asking about a sponsorship": r"charity|foundation|sponsor|fundrais|慈善|基金会|赞助|募捐",
+    "a trade-show organiser": r"expo|trade show|exhibit|booth|展会|展位|博览",
+    "a landlord's property manager": r"property|landlord|estates?\b|物业|房东|业主",
+    "a bank's business team with a routine query": r"\bbank|savings|credit union|银行",
+    "a customer with a damaged shipment": r"damaged|broken|crushed|损坏|破损",
+}
+
+
+def _seen_lately(kind: str, text: str) -> bool:
+    sign = _KIND_SIGNS.get(kind) or _LATELY_SIGNS.get(kind)
+    return bool(sign and text and re.search(sign, text))
 
 
 def _used_kinds(state: GameState) -> str:
@@ -104,9 +125,9 @@ def _door_cover(state: GameState, world: World, extra: bool) -> str:
     names = [f"{e.name} ({e.title})" for e in doors if e is not None and e.available]
     if not names:
         return ""
-    return (f" One of today's calls is an outsider with ordinary, legitimate business for {' or '.join(names)} (an "
-            "invoice, a payment, a contract or a delivery note, with its reference), who names that person as their "
-            "usual contact and asks to be put through.")
+    return (f" One of today's calls is an outsider with ordinary, legitimate business for {' or '.join(names)} (the "
+            "kind of matter that person handles, with its reference number), who names that person as their usual "
+            "contact and asks to be put through.")
 
 
 def cast_day(state: GameState, world: World, day: int, slots: list[int] | None = None,
@@ -143,7 +164,8 @@ def cast_day(state: GameState, world: World, day: int, slots: list[int] | None =
     calls = rules.clean_legit_calls(
         draft,  # type: ignore[arg-type]
         day=day, world=world, fallbacks=_fallbacks(state, day, cast),
-        taken=[c.caller_name for c in state.calls] + [c.caller_name for c in cast] + [state.player_name], rng=rng,
+        taken=([c.caller_name for c in state.calls] + [c.caller_name for c in cast] + [state.player_name]
+               + variety.recent(state.game_id, "names")), rng=rng,
         avoid=[c.caller_id for c in state.calls] + [c.caller_id for c in cast], slots=slots,
     )
     return _limit_temptations(calls, cast, diff.max_temptations)

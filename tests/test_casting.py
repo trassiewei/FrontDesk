@@ -428,7 +428,7 @@ def test_genuine_callers_draw_from_the_same_names_cons_do():
             day=1, world=load_world(), fallbacks=[c for c in load_legit_calls() if c.day == 1], taken=[],
             rng=random.Random(seed))
         names.add(calls[0].caller_name.split()[0])
-    assert len(names) > 5 and names & {"Dana", "Ellis", "Morgan", "Tessa"}
+    assert len(names) > 5 and names <= set(rules._NAME_POOL)
 
 
 def test_kinds_of_caller_already_heard_this_week_leave_the_idea_list(fake):

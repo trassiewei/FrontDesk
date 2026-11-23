@@ -17,6 +17,7 @@ HOW THE GAME RULES WORK (code enforces them; you only choose the content)
 - offstage_fact: one non-public fact id that would let the con artist reach the first door without the receptionist (an extension, say), or null.
 
 THIS GAME
+- The job (fixed for this game; build the whole con around it): $target
 - The crew's method: "$gambit_name". $gambit_summary
 - The kind of job it suits: $angle
 - $incident_rule
@@ -25,7 +26,7 @@ THIS GAME
 - Make the crew a character, not a faceless villain: give them a codename and a personality (crew), and a reason they are doing this NOW (motive: who pays them, what for, and a deadline that falls within the week). The deadline explains why they keep trying even after being brushed off.
 - phases: exactly three short strings, one per day, in order. Each says what the crew wants to have achieved by the end of that day, so that the three days add up to the method above (day 1 gentle and harmless, day 2 builds on it, day 3 strikes). Never list a goal on day 1 that needs facts they could not have yet.
 
-EXAMPLE (a different game — be original, do not copy it)
+EXAMPLE (a different game with a different job — be original, do not copy its story, crew or target)
 $example
 
 WRITING RULES

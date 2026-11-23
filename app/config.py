@@ -17,6 +17,11 @@ STATIC_DIR = ROOT / "static"
 
 load_dotenv(ROOT / ".env")
 
+# ---- Save retention: saves and their logs are pruned so they never pile up ----
+MAX_SAVED_GAMES = int(os.getenv("FRONTDESK_MAX_SAVED_GAMES", "50"))
+FINISHED_GAME_TTL = float(os.getenv("FRONTDESK_FINISHED_GAME_HOURS", "24")) * 3600
+IDLE_GAME_TTL = float(os.getenv("FRONTDESK_IDLE_GAME_HOURS", "72")) * 3600
+
 # ---- Game constants (Normal difficulty defaults) ----
 NUM_DAYS = 3
 DAY_NAMES = ["Monday, Nov 16", "Tuesday, Nov 17", "Wednesday, Nov 18"]

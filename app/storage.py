@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import threading
+import time
 
 from . import config
 from .models import GameState
@@ -37,6 +38,39 @@ def get(game_id: str) -> GameState | None:
         _games[game_id] = state
         return state
     return None
+
+
+def prune(now: float | None = None) -> list[str]:
+    """Delete old saves and their LLM logs so they never pile up. A finished game is kept for a day (its end page and
+    report can still be opened), an unfinished one for a few idle days, and never more than the newest N saves."""
+    now = time.time() if now is None else now
+    removed: list[str] = []
+    try:
+        saves = sorted((p for p in config.GAMES_DIR.glob("*.json") if valid_id(p.stem)),
+                       key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return removed
+    for rank, path in enumerate(saves):
+        try:
+            age = now - path.stat().st_mtime
+            finished = '"game_over": true' in path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if (rank >= config.MAX_SAVED_GAMES or age > config.IDLE_GAME_TTL
+                or (finished and age > config.FINISHED_GAME_TTL)):
+            removed.append(path.stem)
+            path.unlink(missing_ok=True)
+            (config.LOGS_DIR / f"{path.stem}.jsonl").unlink(missing_ok=True)
+            _games.pop(path.stem, None)
+            _locks.pop(path.stem, None)
+    try:  # logs of games that were never saved (or already pruned)
+        for log in config.LOGS_DIR.glob("*.jsonl"):
+            if valid_id(log.stem) and now - log.stat().st_mtime > config.IDLE_GAME_TTL \
+                    and not (config.GAMES_DIR / f"{log.stem}.json").exists():
+                log.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return removed
 
 
 def lock_for(game_id: str) -> threading.Lock:

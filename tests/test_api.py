@@ -281,3 +281,31 @@ def test_new_game_limit_per_ip(client, monkeypatch):
         assert client.post("/api/game", json={"player_name": "a", "difficulty": "easy"}).status_code == 200
     assert client.post("/api/game", json={"player_name": "a", "difficulty": "easy"}).status_code == 429
     main._new_games.clear()
+
+
+def test_old_saves_and_their_logs_are_pruned(monkeypatch):
+    import os
+    import time
+
+    from app import config, storage
+    config.GAMES_DIR.mkdir(parents=True, exist_ok=True)
+    config.LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    now = time.time()
+
+    def save(game_id, hours_ago, finished):
+        path = config.GAMES_DIR / f"{game_id}.json"
+        path.write_text('{\n "game_over": %s\n}' % ("true" if finished else "false"))
+        (config.LOGS_DIR / f"{game_id}.jsonl").write_text("{}")
+        os.utime(path, (now - hours_ago * 3600,) * 2)
+
+    save("aaaaaaaaaaa1", 2, True)      # finished an hour or two ago: kept
+    save("aaaaaaaaaaa2", 30, True)     # finished yesterday: pruned
+    save("aaaaaaaaaaa3", 30, False)    # unfinished, idle a day: kept
+    save("aaaaaaaaaaa4", 100, False)   # unfinished, idle four days: pruned
+    (config.GAMES_DIR / "recent.json").write_text("[]")
+    assert sorted(storage.prune(now)) == ["aaaaaaaaaaa2", "aaaaaaaaaaa4"]
+    left = sorted(p.name for p in config.GAMES_DIR.iterdir())
+    assert left == ["aaaaaaaaaaa1.json", "aaaaaaaaaaa3.json", "recent.json"]
+    assert not (config.LOGS_DIR / "aaaaaaaaaaa2.jsonl").exists() and (config.LOGS_DIR / "aaaaaaaaaaa1.jsonl").exists()
+    monkeypatch.setattr(config, "MAX_SAVED_GAMES", 1)
+    assert storage.prune(now) == ["aaaaaaaaaaa3"]

@@ -5,7 +5,7 @@ import json
 import logging
 import random
 
-from .. import config, i18n, llm, rules
+from .. import config, i18n, llm, rules, variety
 from ..models import Scenario, ScenarioResult, World
 from ..world import load_gambits, load_scenarios, localize_scenario
 
@@ -33,6 +33,31 @@ def _incident_rule(day: int | None) -> str:
     )
 
 
+# What the crew is after this time. The model, left alone, aims at Finance in nearly every game; the code picks
+# the job (and keeps it different from recent games), the director writes the story around it.
+TARGETS = [
+    ("payments", "divert money: get a supplier's bank details changed or a payment pushed through by Finance",
+     ["E02", "E03"]),
+    ("payroll", "get employee records or payroll data out of HR (for identity theft or a payroll redirect)",
+     ["E06"]),
+    ("it_access", "get a password reset or remote access set up by IT, as a foothold into the company's systems",
+     ["E05", "E04"]),
+    ("cargo", "steal freight: get the warehouse to release, reroute or hand over a shipment to the wrong truck",
+     ["E12"]),
+    ("executive", "get the CEO's office to act on a fake urgent request (a wire, a signature, a confidential "
+     "document) or hand over the CEO's private schedule", ["E11", "E10"]),
+    ("clients", "steal the client list or contract pricing from Sales for a competitor", ["E07", "E08"]),
+    ("customer_accounts", "take over a customer's account through Customer Service (change the delivery address "
+     "or contact details of a big customer's orders)", ["E09"]),
+]
+
+
+def pick_target(rng: random.Random, recent: list[str]) -> tuple[str, str, list[str]]:
+    lately = set(recent[-3:])
+    fresh = [t for t in TARGETS if t[0] not in lately] or TARGETS
+    return fresh[rng.randrange(len(fresh))]
+
+
 def design(game_id: str, world: World, difficulty: str, rng: random.Random, preset_id: str | None = None,
            lang: str = "en") -> Scenario:
     """The scenario for a new game. `preset_id` forces one of the data/scenarios.json presets (no LLM call)."""
@@ -44,7 +69,10 @@ def design(game_id: str, world: World, difficulty: str, rng: random.Random, pres
         return found
     fallback = presets[0]
     outsider_only = config.get_difficulty(difficulty).outsider_only
-    gambit = rng.choice([g for g in load_gambits() if not (outsider_only and g.insider)])
+    gambits = [g for g in load_gambits() if not (outsider_only and g.insider)]
+    lately = set(variety.recent(game_id, "gambit")[-3:])
+    gambit = rng.choice([g for g in gambits if g.id not in lately] or gambits)
+    target_id, job, target_doors = pick_target(rng, variety.recent(game_id, "target"))
     incident_day = rng.choice(config.INCIDENT_DAYS) if gambit.requires_incident else rules.incident_chance_roll(rng)
     example = presets[1]
     system = llm.render_prompt(
@@ -58,6 +86,7 @@ def design(game_id: str, world: World, difficulty: str, rng: random.Random, pres
         gambit_summary=gambit.summary,
         angle=gambit.angle,
         incident_rule=_incident_rule(incident_day),
+        target=f"{job}. Your doors must be among: {', '.join(target_doors)} (use the fitting ones).",
         example=json.dumps(
             {
                 "title": example.title, "premise": example.premise, "con_goal": example.con_goal,
@@ -78,4 +107,6 @@ def design(game_id: str, world: World, difficulty: str, rng: random.Random, pres
     scenario = rules.clean_scenario(draft, world=world, fallback=fallback, incident_day=incident_day, gambit=gambit.id)  # type: ignore[arg-type]
     if scenario is fallback:
         log.warning("Director output was unusable, using the default scenario.")
+    else:
+        scenario = scenario.model_copy(update={"target": target_id})
     return scenario

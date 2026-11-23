@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import markdown as markdown_lib
 
-from . import config, i18n, rules, summary
+from . import config, i18n, rules, summary, variety
 from .i18n import tr
 from .models import (
     CallerTurn,
@@ -180,7 +180,7 @@ def _enter_day(state: GameState, day: int) -> None:
         state.con_slots[day] = con_slots[:len(plan.calls)]
         legit_calls += casting.cast_day(state, world, day, slots=con_slots[len(plan.calls):], cast=legit_calls)
     # The planner already avoids its own earlier personas; this also keeps clear of every genuine caller.
-    earlier = [c.caller_name for c in state.calls]
+    earlier = [c.caller_name for c in state.calls] + variety.recent(state.game_id, "names")
     plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls] + earlier)
     if state.lang == "zh":
         plan, legit_calls = translator.localize_day(state, plan, legit_calls)
@@ -196,6 +196,7 @@ def _enter_day(state: GameState, day: int) -> None:
         hint = _rng(state, "recon_hint", day).choice(load_story()["recon_hints"])
         state.notices.append(Notice(day=day, kind="incident", id="recon_hint", title=hint["title"], text=hint["text"]))
     state.queue = _build_queue(state, plan, legit_calls, world)
+    variety.note(state)
     state.last_call_id = None
     state.replies_left = config.DAILY_REPLY_BUDGET  # the briefing already shows the new day's budgets
     state.callbacks_today = 0

@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import random
 
-from .. import config, i18n, llm, rules
+from .. import config, i18n, llm, rules, variety
 from ..models import GameState, PlannedCall, PlannerResult, World
 from ..world import (
     employee_by_id, fact_by_id, gambit_by_id, load_gambits, load_tactics, method_for, name_of, non_public_facts,
@@ -114,7 +114,7 @@ _MOVE_RULES = {
         "INVESTIGATOR (your second call, move = \"investigator\"): an outside fraud investigator (a bank's fraud team, "
         "a police financial-crime unit or a telecom's fraud desk; invent the organisation) following up on \"the "
         "suspicious call you had earlier today\" (the decoy rings first; never say \"this morning\" if it rang after noon). Their number was flagged; they want to know what the caller asked "
-        "and to warn whoever handles payments directly, which is your way to today's target or a transfer. Its "
+        "and to warn the person your crew is after (see your doors) directly, which is your way to a transfer. Its "
         "weakness: no outsider could know a call reached this desk. Make it calm, official and helpful."
     ),
     "memo": (
@@ -208,6 +208,12 @@ def crew_view(state: GameState, world: World, text: str) -> str:
     return rules.mask_unknown(text, world.facts, state.intel)
 
 
+def _recent_covers(state: GameState) -> str:
+    """Covers other games' crews used lately: models keep reaching for the same few (a benefits survey...)."""
+    covers = list(dict.fromkeys(variety.recent(state.game_id, "covers")))[-16:]
+    return "; ".join(covers) or "none"
+
+
 def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     """Cleaned plan for `day`, based on everything learned so far. Falls back to a fixed call on failure."""
     diff = config.get_difficulty(state.difficulty)
@@ -253,6 +259,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         tactics="\n".join(f"{t.id} | {t.name} | {t.description}" for t in tactics),
         history=history_text(state),
         burned=", ".join(state.burned_identities) or "none",
+        recent_covers=_recent_covers(state),
         last_notebook=state.notebooks.get(day - 1, "(none — this is your first day)"),
         skill_note=diff.skill_note,
         planner_note=diff.planner_note,
@@ -287,7 +294,8 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         )
 
     # The player's own name counts as taken: a caller called "Sam" phoning receptionist Sam is confusing.
-    used = [c.plan.persona_name for c in state.calls if c.is_con and c.plan] + [state.player_name]
+    used = ([c.plan.persona_name for c in state.calls if c.is_con and c.plan] + [state.player_name]
+            + variety.recent(state.game_id, "names"))
 
     def clean(raw: PlannerResult) -> PlannerResult:
         return rules.dedupe_personas(clean_plain(raw), world, used)

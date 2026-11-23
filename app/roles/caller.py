@@ -200,7 +200,7 @@ def move_text(state: GameState, call: CallRecord, world: World) -> str:
         lines.append(
             f"SPECIAL: your crew made a clumsy decoy call to this desk {when}. You pose as an outside fraud "
             "investigator following up on it: that caller's number is on your fraud watch list. Ask calmly what they "
-            "asked about and who handles payments here, so you can warn that person directly (or be put through). "
+            "asked about and who looks after that here, so you can warn that person directly (or be put through). "
             "You cannot explain how you know a call reached this desk: if asked, say your systems flagged it, "
             "and do not elaborate.")
     elif plan.move == "memo":

@@ -716,11 +716,24 @@ def clean_plan(
 
 # One shared pool for cons and genuine callers, drawn in a shuffled order: a fixed order, or a pool only cons use,
 # makes "Dana Hollis" a name that always means a con.
-_SURNAME_POOL = ["Hollis", "Prescott", "Varga", "Lindqvist", "Achebe", "Moreau", "Kowalski", "Tanaka", "Brennan",
-                 "Castillo", "Dunmore", "Iyer", "Fairley", "Oyelaran", "Petrov", "Quaid", "Ashby", "Nakamura",
-                 "Delacroix", "Mbeki", "Sorensen", "Gallagher", "Ruiz", "Whitcombe"]
+# Large pools: renamed callers draw from them, and so do callers renamed because a recent game already used the
+# name the model reached for (models favour a handful of names in every game).
+_SURNAME_POOL = ["Hollis", "Prescott", "Varga", "Lindqvist", "Achebe", "Moreau", "Tanaka", "Brennan", "Castillo",
+                 "Dunmore", "Iyer", "Fairley", "Oyelaran", "Petrov", "Quaid", "Ashby", "Delacroix", "Mbeki",
+                 "Sorensen", "Gallagher", "Ruiz", "Whitcombe", "Abernathy", "Bianchi", "Calder", "Dimitriou",
+                 "Eriksen", "Ferreira", "Galloway", "Haddad", "Ibarra", "Jansen", "Kaminski", "Laurent", "Mwangi",
+                 "Novak", "Okonjo", "Pellegrino", "Quintero", "Rasmussen", "Sato", "Thornbury", "Underwood",
+                 "Valdez", "Wakefield", "Yilmaz", "Zielinski", "Ahlberg", "Blackwood", "Costa", "Draper", "Esposito",
+                 "Fennimore", "Grant", "Hargreaves", "Ishikawa", "Kerrigan", "Lombardi", "MacAllister", "Nwosu",
+                 "Ostrowska", "Pham", "Rahman", "Sandoval", "Tremblay", "Vasquez", "Winslow", "Arslan", "Bergstrom",
+                 "Chadwick", "Duarte", "Ellison", "Farouk", "Gutierrez", "Holloway", "Ivanova", "Kimura", "Marchetti"]
 _NAME_POOL = ["Dana", "Ellis", "Morgan", "Tessa", "Brent", "Nora", "Wendy", "Claire", "Victor", "Zane", "Hugo", "Jade",
-              "Mia", "Owen", "Rita", "Sam", "Lena", "Omar", "Pablo", "Nina", "Gus", "Tara", "Ravi", "June"]
+              "Mia", "Owen", "Rita", "Sam", "Lena", "Omar", "Pablo", "Nina", "Gus", "Tara", "Ravi", "June", "Adele",
+              "Bruno", "Celia", "Dmitri", "Elif", "Felix", "Gemma", "Hamid", "Ines", "Jonah", "Keiko", "Luca",
+              "Marta", "Nikhil", "Odile", "Paolo", "Quinn", "Rosalind", "Soren", "Tomasz", "Ursula", "Vikram",
+              "Willa", "Yusuf", "Zora", "Anders", "Bea", "Cyrus", "Delphine", "Emeka", "Fiona", "Gideon", "Hana",
+              "Isaac", "Joanna", "Kofi", "Lorna", "Mateo", "Noor", "Oscar", "Petra", "Rufus", "Sanjay", "Thea",
+              "Uma", "Vera", "Wes", "Ximena", "Yara", "Agnes", "Basil", "Corinne", "Desmond", "Esme", "Florian"]
 
 
 def _shuffled(pool: list[str], key: str) -> list[str]:
