@@ -1156,6 +1156,27 @@ _VAGUE_ORG = re.compile(r"\b(a|an|some)\s+(\w+[\s-]+){0,3}(company|firm|agency|b
                         re.IGNORECASE)
 
 
+_OWNERS = [  # (words in what a caller needs, who in the directory handles it)
+    (r"\b(dock|deliver\w*|unload\w*|pick ?up|truck|driver|warehouse|pallets?)\b|装卸|卸货|送货|仓库|码头|提货", ["E12"]),
+    (r"\b(invoices?|payments?|paid|billing|remittance|statement|credit note|overcharg\w*)\b|发票|付款|账单|对账|多收",
+     ["E03", "E02"]),
+    (r"\b(late|delayed|missing|damaged|order status|tracking|complain\w*)\b|延误|没到|损坏|投诉|订单", ["E09"]),
+    (r"\b(job|applica\w*|hiring|recruit\w*|interview|reference letter|badge|temp)\b|招聘|应聘|求职|面试|推荐信", ["E06"]),
+    (r"\b(password|laptop|login|log in|network|IT support)\b|密码|电脑|登录", ["E05"]),
+    (r"\b(sponsor\w*|expo|trade show|booth|quotes?|pricing|rates?|new business)\b|赞助|展会|展位|报价", ["E07"]),
+    (r"\b(press|journalist|reporter|CEO|board meeting)\b|记者|采访|总裁|董事", ["E11"]),
+]
+
+
+def natural_owners(text: str) -> list[str]:
+    """Directory ids of who handles the kind of matter `text` describes (first match first)."""
+    out: list[str] = []
+    for pattern, ids in _OWNERS:
+        if re.search(pattern, text, re.IGNORECASE):
+            out += [i for i in ids if i not in out]
+    return out
+
+
 def _legit_from_draft(
     d: LegitDraft, *, day: int, slot: int, world: World, taken: set[str], pool: list[str],
     rng: random.Random, avoid: set[str], surnames: set[str] | None = None, surname_pool: list[str] | None = None,
@@ -1213,6 +1234,10 @@ def _legit_from_draft(
     fields["claims"] = zh_card(card_claims(fields["caller_name"], fields["claims"], world, fields["opening_line"]))
     reachable = [e.id for e in world.employees if e.available]
     accept = list(dict.fromkeys(i for i in d.accept_transfer_to if i in reachable))[:3]
+    if not accept and not emp:
+        # A draft can make a caller need something only the desk could answer ("directions to the dock"), which the
+        # receptionist has no way to know: the colleague who handles that kind of matter is always a right answer.
+        accept = [i for i in natural_owners(f"{fields['goal']} {fields['success']}") if i in reachable][:2]
     return LegitCall(
         id=f"G{day}S{slot}", day=day, slot=slot, claimed_identity=ident,
         caller_id=legit_caller_id(world, ident, fields["claims"], rng, avoid),

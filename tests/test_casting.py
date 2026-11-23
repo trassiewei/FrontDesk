@@ -453,3 +453,13 @@ def test_a_genuine_business_caller_must_name_their_company():
             day=1, world=load_world(), fallbacks=[c for c in load_legit_calls() if c.day == 1], taken=[],
             rng=random.Random(1))
         assert calls[0].caller_name != "Ann Lee"  # the vague draft gave way to a fixed call
+
+
+def test_a_genuine_caller_with_no_transfer_target_accepts_whoever_handles_their_matter():
+    d = draft(caller_name="Ruben Hale", claims="Ruben Hale, driver at Tamsin Haulage",
+              goal="Find the loading dock", success="Gets directions to the dock entrance", accept_transfer_to=[],
+              message_ok=False)
+    calls = rules.clean_legit_calls(LegitCastResult(calls=[LegitDraft(**d)]), day=1, world=load_world(),
+                                    fallbacks=[c for c in load_legit_calls() if c.day == 1], taken=[],
+                                    rng=random.Random(1))
+    assert calls[0].accept_transfer_to == ["E12"]
