@@ -447,7 +447,8 @@ def test_kinds_of_caller_already_heard_this_week_leave_the_idea_list(fake):
 
 
 def test_a_genuine_business_caller_must_name_their_company():
-    for claims in ("Ann Lee, account manager at a cloud company in Ashford", "Ann Lee，Ashford 那边一家云服务公司的经理"):
+    for claims in ("Ann Lee, account manager at a cloud company in Ashford", "Ann Lee，Ashford 那边一家云服务公司的经理",
+                   "Ann Lee, freight company on Hollis Street", "Ann Lee，Hollis Street 那边货运公司"):
         calls = rules.clean_legit_calls(
             LegitCastResult(calls=[LegitDraft(**draft(caller_name="Ann Lee", claims=claims))]),
             day=1, world=load_world(), fallbacks=[c for c in load_legit_calls() if c.day == 1], taken=[],

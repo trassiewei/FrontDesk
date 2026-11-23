@@ -1,7 +1,9 @@
 """Reporter role: post-incident report written after the game ends."""
 from __future__ import annotations
 
+import difflib
 import logging
+import re
 
 from .. import config, i18n, llm, summary
 from ..models import CallRecord, GameState, ReportResult, World
@@ -174,7 +176,57 @@ def write_report(state: GameState, world: World) -> ReportResult:
     )
     system += i18n.llm_note(state.lang, "reporter")
     try:
-        return llm.complete_json("reporter", system, llm.USER_TURN, ReportResult, state.game_id)  # type: ignore[return-value]
+        report = llm.complete_json("reporter", system, llm.USER_TURN, ReportResult, state.game_id)
     except llm.LLMError as exc:
         log.warning("Reporter LLM failed, using the plain report: %s", exc)
         return fallback_report(state, world)
+    # What really exists to quote: the words said on each call (not the crew's scripts or planned slips), the
+    # notebooks, the bulletin and the scenario, plus the cards and score labels.
+    sources = "\n".join([*(m.text for c in state.calls for m in c.messages), *(c.claims for c in state.calls),
+                         notebooks_text(state), notices_text(state), scenario_text(state),
+                         s["security_label"], s["service_label"], s["title_badge"]])
+    bad = invented_quotes(report.markdown, sources)  # type: ignore[union-attr]
+    if not bad:
+        return report  # type: ignore[return-value]
+    try:
+        retry = llm.complete_json(
+            "reporter", system, llm.USER_TURN, ReportResult, state.game_id,
+            extra_messages=[{"role": "assistant", "content": report.model_dump_json()}, {"role": "user", "content": (
+                "These quotes in your report were never said on any call (a crew's script or planned slip is not "
+                "something the caller said): "
+                + "; ".join(f'"{q}"' for q in bad[:6])
+                + ". Rewrite the report: quote only words that appear in the logs, or describe without quotation "
+                "marks. Return the complete JSON again.")}],
+        )
+    except llm.LLMError as exc:
+        log.warning("Reporter quote retry failed, keeping the first report: %s", exc)
+        return report  # type: ignore[return-value]
+    return retry if len(invented_quotes(retry.markdown, sources)) < len(bad) else report  # type: ignore[union-attr,return-value]
+
+
+_QUOTED = re.compile(r"“([^”\n]{1,240})”|「([^」\n]{1,240})」|『([^』\n]{1,240})』|\"([^\"\n]{1,240})\"")
+
+
+def _plain(text: str) -> str:
+    return re.sub(r"[\W_]+", "", text).lower()
+
+
+def _overlap(quote: str, line: str) -> float:
+    """Share of the quote's characters found, in order, in the line."""
+    blocks = difflib.SequenceMatcher(None, quote, line, autojunk=False).get_matching_blocks()
+    return sum(b.size for b in blocks if b.size >= 2) / len(quote)
+
+
+def invented_quotes(markdown: str, sources: str, at_least: float = 0.5) -> list[str]:
+    """Quoted passages in the report that match nothing the reporter was given (the logs, notebooks, notices and
+    scenario). A light paraphrase of a real line passes; a line nobody said does not."""
+    lines = [p for p in (_plain(line) for line in sources.splitlines()) if len(p) >= 4]
+    bad = []
+    for groups in _QUOTED.findall(markdown):
+        quote = next(g for g in groups if g)
+        q = _plain(quote)
+        if len(q) < 8:
+            continue  # a name, a title or a short phrase
+        if not any(q in line or _overlap(q, line) >= at_least for line in lines):
+            bad.append(quote)
+    return bad

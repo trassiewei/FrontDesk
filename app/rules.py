@@ -1156,8 +1156,11 @@ def _fit_surname(fields: dict[str, str], surnames: set[str], pool: list[str]) ->
 
 
 _VAGUE_ORG = re.compile(r"\b(a|an|some)\s+(\w+[\s-]+){0,3}(company|firm|agency|business|outfit|supplier|forwarder)\b"
-                        r"(?! called| named)|(一家|某家|某个|一个)[^，,。]{0,14}(公司|企业|机构|货代|代理|供应商|厂)",
+                        r"(?! called| named)|(一家|某家|某个|一个)[^，,。]{0,14}(公司|企业|机构|货代|代理|供应商|厂)"
+                        r"|(那边|这边|附近|街上)的?[^，,。A-Za-z]{0,10}(公司|企业|机构)$",
                         re.IGNORECASE)
+# "Bruno Ostrowska, freight company on Hollis Street": only lower-case words before "company" means no name.
+_VAGUE_ORG_EN = re.compile(r",\s*(?:[a-z]+\s+){0,3}(company|firm|outfit)\s+(on|in|over on|near|from|off)\s+[A-Z]")
 
 
 _OWNERS = [  # (words in what a caller needs, who in the directory handles it)
@@ -1212,7 +1215,7 @@ def _legit_from_draft(
                             rf"{re.escape(company)}\b|{re.escape(company)}\s*的(客户|供应商|合作方|访客|求职者)", fields["claims"], re.I)
     if not emp and not outsider_of and re.search(re.escape(company), fields["claims"] + " " + fields["caller_name"], re.I):
         return None  # an outsider "from HR at Trassiewei" is a colleague the directory has never heard of
-    if not emp and _VAGUE_ORG.search(fields["claims"]):
+    if not emp and (_VAGUE_ORG.search(fields["claims"]) or _VAGUE_ORG_EN.search(fields["claims"])):
         return None  # "a cloud company over in Ashford": a genuine business caller names their own company
     if not emp and claims_unlisted_staff(fields["caller_name"], fields["claims"], world):
         return None  # "Rebecca Lin, Operations": a colleague the directory and the department have never heard of
