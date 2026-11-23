@@ -289,3 +289,17 @@ def test_script_is_cleaned_and_shown_in_the_reveal():
     out = rules.clean_plan(PlannerResult(notebook="n", calls=[call]), world=load_world(), burned=[], known_facts=[],
                            tactic_ids=["small_ask"]).calls[0]
     assert out.beats == ["one", "two", "three", "four"] and len(out.if_refused) == config.MAX_SCRIPT_TEXT
+
+
+def test_a_genuine_caller_vouched_for_by_a_callback_stays_on_the_line(fake, monkeypatch):
+    monkeypatch.setitem(config.DIFFICULTIES, "hard", replace(config.DIFFICULTIES["hard"], callback_reach=1.0))
+    state = begin(fake, "hard")
+    call = engine.next_call(state)
+    while call.is_con:
+        engine.hang_up(state)
+        call = engine.next_call(state)
+    call.references.append("E09")
+    call.patience = 2  # less than a callback costs
+    out = engine.callback(state, "E09")
+    assert "legit" in out["callback_result"] or "know" in out["callback_result"]
+    assert not out["call_ended"] and call.patience >= 1 and state.phase == "CALL_ACTIVE"

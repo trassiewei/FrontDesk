@@ -510,6 +510,8 @@ def callback(state: GameState, target_id: str) -> dict:
     call.messages.append(Message(speaker="system", text=result.text, time=call.time))
     # A line that just rings out is a short hold: it costs the caller far less patience than a real check.
     call.patience -= 1 if result.kind in ("busy", "voicemail") else effects(state).callback_cost
+    if result.kind == "confirmed":
+        call.patience = max(call.patience, 1)  # a caller who was just vouched for waits to be put through
     if not call.is_con:
         _service_hit(state, "hold", config.CALLBACK_ANNOY_SERVICE)  # being put on hold and checked annoys a real caller
 
