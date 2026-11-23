@@ -113,7 +113,7 @@ _MOVE_RULES = {
     "investigator": (
         "INVESTIGATOR (your second call, move = \"investigator\"): an outside fraud investigator (a bank's fraud team, "
         "a police financial-crime unit or a telecom's fraud desk; invent the organisation) following up on \"the "
-        "suspicious call you had this morning\". Their number was flagged; they want to know what the caller asked "
+        "suspicious call you had earlier today\" (the decoy rings first; never say \"this morning\" if it rang after noon). Their number was flagged; they want to know what the caller asked "
         "and to warn whoever handles payments directly, which is your way to today's target or a transfer. Its "
         "weakness: no outsider could know a call reached this desk. Make it calm, official and helpful."
     ),
@@ -139,9 +139,39 @@ def moves_text(state: GameState, world: World, day: int) -> str:
                           f"details: {c.legit.knows}" for c in pool if c.legit)
     rules_text = [_MOVE_RULES[m].format(pool=pool_text) for m in moves if m != "echo" or pool]
     if not rules_text:
-        return ""
+        return strike_text(state, world)
     return ("\nSPECIAL MOVES TODAY (required; the other calls, if any, have move = \"\")\n"
-            + "\n".join(f"- {r}" for r in rules_text) + "\n")
+            + "\n".join(f"- {r}" for r in rules_text) + "\n" + strike_text(state, world))
+
+
+def strike_text(state: GameState, world: World) -> str:
+    """Hard: once the crew knows enough, it stops asking questions and hides among the desk's routine business.
+
+    A ready crew that keeps fishing ("is your finance lead in?") gives itself away; the dangerous call is the one
+    that sounds like every genuine caller who asks for the same person. Its weakness stays the same: it names a
+    contact who has never heard of it, so a callback to that person exposes it."""
+    diff = config.get_difficulty(state.difficulty)
+    scenario = scenario_of(state)
+    if not diff.debrief or not scenario.doors:
+        return ""
+    door = scenario.doors[0]
+    if not rules.check_breach(state.intel, diff.breach_threshold + door.bonus, state.it_alert, world.facts,
+                              scenario.gate_facts):
+        return ""
+    emp = employee_by_id(world, door.employee_id)
+    if emp is None:
+        return ""
+    return (
+        f"\nREADY TO STRIKE: you already know enough to be believed by {emp.name} ({emp.title}). Stop gathering "
+        f"facts. Every call today (special moves included) has one aim: to be put through to {emp.name}. Questions "
+        "about who is in, who covers for whom, systems or procedures are what got your callers noticed; ask none. "
+        "Instead, make each call indistinguishable from the routine genuine callers this desk puts through every "
+        f"day: an outside company with ordinary business that truly belongs on {emp.name}'s desk, a concrete "
+        f"reference number, {emp.name.split()[0]} named as the person you normally deal with, and the request to be "
+        "put through in the first or second line. If the receptionist hesitates or wants to check, agree calmly and "
+        f"wait. Remember the risk: {emp.name.split()[0]} has never heard of your caller, so a callback to them exposes "
+        "the call; spread the strike over different, unrelated callers.\n"
+    )
 
 
 def _doors_text(state: GameState, world: World) -> str:
@@ -272,12 +302,13 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     def finish(raw: PlannerResult, method: str) -> PlannerResult:
         done = clean(raw)
         if diff.outsider_only:
-            done = rules.drop_directory_claims(done, world)
+            done = rules.drop_directory_claims(done, world, exempt=[m for m in moves if m == "decoy"])
         done = rules.apply_moves(done, moves, pool)
         return done.model_copy(update={"method": method})
 
     cleaned = clean(result).model_copy(update={"method": chosen})  # type: ignore[arg-type]
-    bad = {c.persona_name: rules.outsider_violations(c, world) for c in cleaned.calls} if diff.outsider_only else {}
+    bad = {c.persona_name: rules.outsider_violations(c, world) for c in cleaned.calls
+           if not (c.move == "decoy" and "decoy" in moves)} if diff.outsider_only else {}
     bad = {name: ids for name, ids in bad.items() if ids}
     if not bad:
         plan = _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today))  # type: ignore[arg-type]

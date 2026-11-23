@@ -7,7 +7,7 @@ import re
 
 from .. import config, i18n, llm, rules
 from ..models import GameState, LegitCall, LegitCastResult, World
-from ..world import load_legit_calls, scenario_of
+from ..world import employee_by_id, load_legit_calls, scenario_of
 from .common import public_info_text
 from .director import _employees_text
 
@@ -64,7 +64,9 @@ def _vendors_text(world: World) -> str:
 
 
 def _history_text(state: GameState) -> str:
-    rows = [f"Day {c.day} | {c.caller_name} | {c.claims}" for c in state.calls if not c.is_con]
+    # The errand is listed too: two "where is my late shipment" callers in a week read as a script, not a city.
+    rows = [f"Day {c.day} | {c.caller_name} | {c.claims}" + (f" | errand: {c.legit.goal}" if c.legit else "")
+            for c in state.calls if not c.is_con]
     return "\n".join(rows) or "none yet"
 
 
@@ -93,6 +95,20 @@ def _fallbacks(state: GameState, day: int, cast: list[LegitCall]) -> list[LegitC
     return [c.model_copy(update={"day": day, "id": f"{c.id}x"}) for c in spare]
 
 
+def _door_cover(state: GameState, world: World, extra: bool) -> str:
+    """Hard: genuine business for the people the crew is after, every day. Turning away everyone who asks for them
+    is then no defence; the receptionist has to tell the real callers from the con."""
+    if extra or not config.get_difficulty(state.difficulty).debrief:
+        return ""
+    doors = [employee_by_id(world, d.employee_id) for d in scenario_of(state).doors]
+    names = [f"{e.name} ({e.title})" for e in doors if e is not None and e.available]
+    if not names:
+        return ""
+    return (f" One of today's calls is an outsider with ordinary, legitimate business for {' or '.join(names)} (an "
+            "invoice, a payment, a contract or a delivery note, with its reference), who names that person as their "
+            "usual contact and asks to be put through.")
+
+
 def cast_day(state: GameState, world: World, day: int, slots: list[int] | None = None,
              cast: list[LegitCall] = ()) -> list[LegitCall]:
     """The genuine calls for `day` (by default the three legit slots). `cast` holds calls already cast for the day,
@@ -116,7 +132,7 @@ def cast_day(state: GameState, world: World, day: int, slots: list[int] | None =
         history=_history_text(state) + "".join(f"\nDay {day} | {c.caller_name} | {c.claims} (already calling today)" for c in cast),
         slot_times=", ".join(config.SLOT_TIMES[s] for s in slots),
         count=len(slots),
-        style=diff.cast_note,
+        style=diff.cast_note + _door_cover(state, world, extra),
     )
     system += i18n.llm_note(state.lang, "casting")
     try:

@@ -8,7 +8,7 @@ import pytest
 
 from app import config, engine, rules, summary
 from app.main import public_state
-from app.models import MemoDraft, PlannedCall, PlannerResult
+from app.models import IntelRecord, MemoDraft, PlannedCall, PlannerResult
 from app.world import load_world
 from test_scenario import con, draft, fake, plan, take_con  # noqa: F401
 
@@ -184,3 +184,46 @@ def test_hard_hides_the_scores_until_the_game_is_over(fake):
     assert public_state(state)["security"] == 100 and not public_state(state)["scores_hidden"]
     finish_day(state)
     assert engine.end_day(state)["day_scores"] is not None
+
+
+# ------------------------------------------------------------------ playtest fixes: decoy, memo names, strike
+
+
+@pytest.mark.special_moves
+def test_a_decoy_may_pose_as_staff_without_the_outsider_rule_dropping_it(fake, monkeypatch):
+    pair = plan(dict(con(identity="E04", claims="Dave Davis, IT Lead"), persona_name="Dave Davis", move="decoy"),
+                dict(con(claims="Mia Ruiz, Coastal Bank fraud team"), persona_name="Mia Ruiz", move="investigator"))
+    monkeypatch.setattr(config, "FILL_CON_SLOTS", True)
+    state = begin(fake, "hard", pair, moves={1: ["decoy", "investigator"]}, monkeypatch=monkeypatch)
+    assert [c.move for c in state.planned[1].calls] == ["decoy", "investigator"]
+
+
+def test_an_investigator_without_its_decoy_is_dropped():
+    raw = PlannerResult(notebook="nb", calls=[pc("A", "investigator"), pc("B")])
+    done = rules.apply_moves(raw, ["decoy", "investigator"], [])
+    assert [c.persona_name for c in done.calls] == ["B"]
+
+
+def test_the_forged_memo_follows_its_callers_new_name():
+    world = load_world()
+    raw = PlannerResult(notebook="nb", calls=[pc("Dennis Kowalczyk", "memo")],
+                        memo=MemoDraft(title="Badge readers", text="Dennis Kowalczyk will phone reception. — Dave (IT)"))
+    done = rules.dedupe_personas(raw, world, ["Dennis Holbrook"])
+    new = done.calls[0].persona_name
+    assert new != "Dennis Kowalczyk" and new in done.memo.text and "Dennis" not in done.memo.text
+
+
+def test_a_ready_hard_crew_stops_fishing_and_hides_among_routine_callers(fake):
+    from app.roles import caller, casting, planner
+    world = load_world()
+    state = begin(fake, "hard")
+    assert planner.strike_text(state, world) == ""
+    state.intel = {f.id: IntelRecord(fact_id=f.id, day=1, time="night", call_id="recon", quote="", source="recon")
+                   for f in world.facts}
+    door = next(e for e in world.employees if e.id == state.scenario.doors[0].employee_id)
+    assert "READY TO STRIKE" in planner.strike_text(state, world) and door.name in planner.strike_text(state, world)
+    call = take_con(state)
+    assert "first or second line" in caller.closing_note(state, call, world)
+    assert door.name in casting._door_cover(state, world, False) and casting._door_cover(state, world, True) == ""
+    normal = begin(fake, "normal")
+    assert casting._door_cover(normal, world, False) == ""

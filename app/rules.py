@@ -806,12 +806,20 @@ def dedupe_personas(result: PlannerResult, world: World, used: Iterable[str]) ->
             "if_refused": swap(call.if_refused), "if_verified": swap(call.if_verified), "purpose": swap(call.purpose),
         }))
     swap = swapper(shared)
-    return result.model_copy(update={"calls": calls, "arc": swap(result.arc), "notebook": swap(result.notebook)})
+    memo = result.memo
+    if memo:
+        # The forged notice names the contractor who rings about it: it follows that caller's new name.
+        owner = next((mine for call, mine in zip(result.calls, own_renames) if call.move == "memo"), {})
+        memo_swap = swapper({**shared, **owner})
+        memo = memo.model_copy(update={"title": memo_swap(memo.title), "text": memo_swap(memo.text)})
+    return result.model_copy(update={"calls": calls, "arc": swap(result.arc), "notebook": swap(result.notebook),
+                                     "memo": memo})
 
 
-def drop_directory_claims(result: PlannerResult, world: World) -> PlannerResult:
-    """Keep only outsider calls, unless that would leave nothing (then keep the plan as it is)."""
-    good = [c for c in result.calls if not outsider_violations(c, world)]
+def drop_directory_claims(result: PlannerResult, world: World, exempt: Iterable[str] = ()) -> PlannerResult:
+    """Keep only outsider calls, unless that would leave nothing (then keep the plan as it is). Calls whose move is
+    in `exempt` stay: a decoy is meant to be a clumsy con, so it may claim to be staff."""
+    good = [c for c in result.calls if (c.move and c.move in exempt) or not outsider_violations(c, world)]
     return result.model_copy(update={"calls": good}) if good else result
 
 
@@ -1450,6 +1458,10 @@ def apply_moves(result: PlannerResult, moves: Iterable[str], pool: list[CallReco
             update["echo_of"] = ""
         calls.append(call.model_copy(update=update))
     order = {"decoy": 0, "investigator": 1}
+    if "investigator" in used and "decoy" not in used:
+        # The investigator follows up a call that never happened: it would only give itself away.
+        calls = [c for c in calls if c.move != "investigator"]
+        used.discard("investigator")
     if "decoy" in used and "investigator" in used:
         pair = sorted((c for c in calls if c.move in order), key=lambda c: order[c.move])
         rest = iter(pair)

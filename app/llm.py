@@ -4,6 +4,7 @@ No provider or model names live here: everything comes from environment variable
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -163,6 +164,19 @@ def _write_log(game_id: str, entry: dict) -> None:
 # ------------------------------------------------------------------ the public entry point
 
 
+_STOCK_DIGITS = re.compile(r"([A-Za-z]{0,6}[- #]?)(?<!\d)4471(?!\d)")
+
+
+def _fresh_digits(text: str, game_id: str) -> str:
+    """The model reaches for the same reference digits ("4471") in every game and for every caller, which reads as
+    a script. Each one is swapped for digits fixed by the game and the reference's prefix, so "CFP-4471" stays the
+    same reference all game while "KB-4471" becomes a different one."""
+    def swap(m: re.Match) -> str:
+        n = int(hashlib.sha256(f"{game_id}:{m.group(1).lower()}".encode()).hexdigest(), 16) % 9000 + 1000
+        return m.group(1) + str(n if n != 4471 else 5471)
+    return _STOCK_DIGITS.sub(swap, text)
+
+
 def complete_json(
     role: str,
     system: str,
@@ -180,7 +194,7 @@ def complete_json(
         raw, usage = _chat(role, messages)
         latency_ms = round((time.perf_counter() - started) * 1000)
         try:
-            result = schema.model_validate(json.loads(extract_json(raw)))
+            result = schema.model_validate(json.loads(_fresh_digits(extract_json(raw), game_id)))
             error = None
         except (ValueError, ValidationError) as exc:  # json.JSONDecodeError is a ValueError
             result, error = None, str(exc).replace("\n", " ")[:300]

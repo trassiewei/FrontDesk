@@ -274,3 +274,11 @@ def test_config_problems_flags_missing_and_placeholder_values(monkeypatch):
     assert any("caller" in p for p in problems) and any("extractor" in p for p in problems)
     assert not any("planner" in p for p in problems)
     assert not config.llm_configured()
+
+
+def test_stock_reference_digits_are_swapped_per_game_and_prefix():
+    from app.llm import _fresh_digits
+    out = _fresh_digits("CFP-4471, KB-4471, CFP-4471, 44712", "g1")
+    first, second, again, kept = [p.strip() for p in out.split(",")]
+    assert "4471" not in first + second and first == again and first != second and kept == "44712"
+    assert _fresh_digits("CFP-4471", "g2") != first

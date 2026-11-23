@@ -39,6 +39,15 @@ def closing_note(state: GameState, call: CallRecord, world: World) -> str:
             "with a hurried excuse that fits your story (something urgent). If the receptionist hesitates, push."
         )
     ready = rules.breach_ready(call, state.intel, state.it_alert, diff.breach_threshold, world.facts, scenario)
+    if ready and diff.debrief and not call.plan.move == "decoy":
+        # Hard: the strike sounds like routine business; a ready caller who keeps fishing gives itself away.
+        return (
+            f"Your plan: you now know enough to be believed. Your business is for {who}: in your first or second line, "
+            f"ask to be put through to {door_name}, as any routine caller with business for them would. Ask nothing "
+            "else about the company (who is in, who covers, systems). If the receptionist offers to put you through, "
+            "accept at once and stay on the line (end_call = false): the transfer happens on its own. If they want "
+            "to check you first, agree calmly and wait. If they say no, accept it politely and wrap up."
+        )
     if ready:
         return (
             f"Your plan: you now know enough to be believed. Steer the call toward asking to be put through to {who}, "

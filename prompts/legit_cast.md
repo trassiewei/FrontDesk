@@ -34,6 +34,7 @@ WRITING RULES
 - Everyone who works at the company is in the EMPLOYEES list. A caller who is not on it does not work there.
 - accept_transfer_to: employee ids (reachable ones) that would be the right person for this caller; [] if the call is only to pass on information. message_ok: true if leaving a message would truly satisfy them.
 - patience: 5 to 8; the more the caller is in a hurry, the lower.
+- Reference numbers (orders, invoices, policies) look random and differ from caller to caller: never reuse the digits of a reference already used this week, and never use 4471.
 - Do not write anything a con artist would need as a clue: no passwords, no codes.
 
 Respond with ONLY a JSON object:
