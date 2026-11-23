@@ -88,7 +88,7 @@ Every rule is ordinary deterministic code in `app/rules.py`: callback and transf
 - Every company, person, phone number and system in this game is fictional. Any resemblance to real ones is accidental.
 - The game is for raising awareness of social engineering. It does not target any real person or organisation.
 - Your conversation is sent to the LLM service configured in `.env`. Tell anyone who tests the game before they start, and use a provider you are comfortable with.
-- Game records (`games/`) and request logs (`logs/`) are stored only on your machine. The logs do not contain the API key. Both folders are git-ignored.
+- Game records (`games/`) and request logs (`logs/`) are stored only on your machine. The logs do not contain the API key. Both folders are git-ignored. They do not pile up: a finished game and its log are deleted a day after it ends, an unfinished one after three idle days, and at most 50 are kept (see the `FRONTDESK_*_GAME*` settings in `.env.example`). `games/recent.json` remembers which names, errands and con stories the last few games used, so the next game picks different ones.
 
 ## Evaluation
 
