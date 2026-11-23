@@ -146,6 +146,10 @@ class Leak(BaseModel):
     confidence: float
 
 
+class GoalCheck(BaseModel):
+    met: bool = False
+
+
 class ExtractorResult(BaseModel):
     leaks: list[Leak] = Field(default_factory=list)
     challenge: bool = False  # the receptionist openly doubted the caller's story (backs up the phrase patterns)

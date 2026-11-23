@@ -233,7 +233,8 @@ def test_health_reports_configuration(client):
     data = client.get("/api/health").json()
     assert data["llm_configured"] is True and data["base_url_host"] == "llm.test"
     assert data["models"] == {"caller": "test-fast", "extractor": "test-fast", "planner": "test-smart",
-                              "reporter": "test-smart", "director": "test-smart", "translator": "test-fast"}
+                              "reporter": "test-smart", "director": "test-smart", "translator": "test-fast",
+                              "judge": "test-fast"}
     assert "test-key-123" not in json.dumps(data)
 
 

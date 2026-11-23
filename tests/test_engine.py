@@ -967,3 +967,17 @@ def test_outsider_only_crews_cannot_switch_to_an_insider_method():
 
 def test_cards_that_describe_the_call_lose_the_description():
     assert rules.card_claims("Marcus Bell", "Marcus Bell, rescheduling an interview", None, "Hi, Marcus Bell here.") == "Marcus Bell"
+
+
+def test_hanging_up_on_a_genuine_caller_whose_need_was_met_is_not_a_failure(fake):
+    state = new(fake, plan(con()))
+    call = engine.next_call(state)
+    while call.is_con:
+        engine.hang_up(state)
+        call = engine.next_call(state)
+    fake.script("caller", {"say": "Oh, wrong number then. Sorry to bother you!"})
+    engine.say(state, "This is Trassiewei, a freight company — I think you have the wrong number.")
+    fake.script("judge", {"met": True})
+    engine.hang_up(state)
+    assert call.satisfied and call.goal_met
+    assert "wrong number" in fake.calls_for("judge")[-1]["messages"][0]["content"]

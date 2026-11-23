@@ -199,7 +199,7 @@ def get_difficulty(name: str) -> Difficulty:
 
 
 # ---- LLM parameters per role (spec §3.3) ----
-ROLES = ("caller", "extractor", "planner", "reporter", "director", "translator")
+ROLES = ("caller", "extractor", "planner", "reporter", "director", "translator", "judge")
 ROLE_PARAMS: dict[str, dict] = {
     "caller": {"tier": "fast", "temperature": 0.9, "max_tokens": 400},
     "extractor": {"tier": "fast", "temperature": 0.0, "max_tokens": 600},
@@ -207,6 +207,7 @@ ROLE_PARAMS: dict[str, dict] = {
     "reporter": {"tier": "smart", "temperature": 0.6, "max_tokens": 2500},
     "director": {"tier": "smart", "temperature": 1.0, "max_tokens": 1800},
     "translator": {"tier": "fast", "temperature": 0.2, "max_tokens": 3000},  # Chinese games only
+    "judge": {"tier": "fast", "temperature": 0.0, "max_tokens": 200},  # was a genuine caller's need met at hang-up?
 }
 
 

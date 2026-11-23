@@ -612,6 +612,10 @@ def take_message(state: GameState, note: str = "") -> dict:
 
 def hang_up(state: GameState) -> dict:
     call = _active(state)
+    if not call.is_con and not call.goal_met and any(m.speaker == "player" for m in call.messages):
+        # The caller model sometimes forgets to say its need was met ("wrong number? sorry to bother you"):
+        # hanging up then is a normal goodbye, not cutting a genuine caller off.
+        call.goal_met = caller.need_was_met(state, call)
     call.messages.append(Message(speaker="system", text=tr("You hung up."), time=call.time))
     _finish(state, call, "hung_up", "hung_up", satisfied=call.goal_met)
     return {"call_ended": True, "end_reason": "hung_up"}

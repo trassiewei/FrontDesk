@@ -169,6 +169,7 @@ def fake_llm(monkeypatch):
     fake = FakeLLM()
     # Unless a test scripts the director, the game falls back to the default preset scenario.
     fake.default("director", llm.LLMError("director not scripted"))
+    fake.default("judge", {"met": False})  # hanging up on a genuine caller counts as cutting them off
     monkeypatch.setattr(llm, "_chat", fake)
     return fake
 

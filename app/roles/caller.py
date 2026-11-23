@@ -5,7 +5,7 @@ import logging
 
 from .. import config, i18n, llm, rules
 from ..i18n import tr
-from ..models import CallerTurn, CallRecord, GameState, World
+from ..models import CallerTurn, CallRecord, GameState, GoalCheck, World
 from ..world import employee_by_id, fact_by_id, load_tactics, method_for, scenario_of, vendor_by_id
 from .common import intel_text, public_info_text, situation_text, transcript_text
 
@@ -355,3 +355,26 @@ def take_turn(state: GameState, call: CallRecord, world: World, system_note: str
     except llm.LLMError as exc:
         log.warning("Caller LLM failed, using fallback: %s", exc)
         return fallback_turn()
+
+
+def need_was_met(state: GameState, call: CallRecord) -> bool:
+    """When the receptionist hangs up on a genuine caller the caller model never marked as satisfied: had what the
+    caller needed already happened? (A wrong number told politely it is a wrong number did get what it called for.)
+    Errs on 'no' when unsure or when the model is unreachable."""
+    if call.is_con or call.legit is None:
+        return False
+    transcript = "\n".join(f"{m.speaker}: {m.text}" for m in call.messages if m.speaker in ("caller", "player"))
+    system = (
+        "You judge one phone call in a receptionist training game. A genuine caller phoned the front desk.\n"
+        f"What the caller wanted: {call.legit.goal}\n"
+        f"The caller is satisfied when: {call.legit.success}\n"
+        f"The call so far (the receptionist then hung up):\n{transcript}\n\n"
+        "Had everything the caller needed already happened before the receptionist hung up? Being promised a "
+        "transfer that never happened, or a message when a message would not satisfy them, is not enough. "
+        'Respond with ONLY a JSON object: {"met": true} or {"met": false}'
+    )
+    try:
+        return bool(llm.complete_json("judge", system, llm.USER_TURN, GoalCheck, state.game_id).met)  # type: ignore[union-attr]
+    except llm.LLMError as exc:
+        log.warning("Goal check failed, counting the caller as unsatisfied: %s", exc)
+        return False
