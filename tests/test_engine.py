@@ -809,6 +809,17 @@ def test_a_caught_out_con_still_fishing_after_the_retry_leaves(fake):
     assert out["call_ended"] and "?" not in out["caller_reply"]
 
 
+def test_a_challenge_only_the_extractor_noticed_still_stops_the_fishing(fake):
+    state = new(fake, plan(con()))
+    skip_legit(state)
+    engine.next_call(state)
+    assert not rules.is_challenge("Your story keeps changing.")
+    fake.script("extractor", {"leaks": [], "challenge": True})
+    fake.script("caller", {"say": "Sorry. So who signs off?"}, {"say": "Fair enough, I'll leave it there."})
+    out = engine.say(state, "Your story keeps changing.")
+    assert out["caller_reply"] == "Fair enough, I'll leave it there." and state.calls[-1].challenged
+
+
 def test_an_easy_con_bolts_when_caught_or_told_it_will_be_checked(fake):
     for line in ("There's nobody called Marcus in IT.", "Let me check with Leo first, one moment."):
         state = new(fake, plan(con()), difficulty="easy")

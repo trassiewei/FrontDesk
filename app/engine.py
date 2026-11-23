@@ -407,6 +407,14 @@ def say(state: GameState, text: str) -> dict:
                                        caller_said, text, state.lang)
         turn = caller_future.result()
         extracted = extractor_future.result()
+    if call.is_con and not dismissed and not call.challenged and extracted.challenge:
+        # The phrase patterns missed a challenge the extractor saw ("your story keeps changing"): the caller already
+        # answered without knowing, so the checks below make it close instead of fishing on.
+        call.challenged = True
+        note = ("The receptionist has just caught something in your story that does not fit. Do not ask your target "
+                "question again on this call: answer the point briefly and plausibly, then steer toward a polite close.")
+        if _diff(state).folds_when_caught:
+            bolts = True
     if call.is_con and call.challenged and not dismissed and not turn.end_call and _asks(turn.say):
         # Caught out, the model often apologises and then asks for the same thing reworded: one sharper retry.
         turn = caller.take_turn(state, call, world, note + " Your line must not contain a question or any request: "

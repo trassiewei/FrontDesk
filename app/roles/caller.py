@@ -169,7 +169,10 @@ def _now(state: GameState, call: CallRecord) -> str:
     day = config.DAY_NAMES[call.day - 1].split(",")[0]
     return (f"It is {call.time} on {day}. Anything you say about time must fit the clock: at 09:10 nothing has been "
             "going on \"all morning\", and before noon it is not the afternoon. If your brief mentions a time that "
-            "has already passed (\"after lunch\", \"around one\" in a call at 15:50), shift it so it is still ahead.")
+            "has already passed (\"after lunch\", \"around one\" in a call at 15:50), shift it so it is still ahead."
+            + (" It is the first day of the working week: you cannot have called \"several times this week\" or "
+               "been chasing something \"since Monday\"; earlier attempts, if any, were last week." if call.day == 1
+               else ""))
 
 
 def move_text(state: GameState, call: CallRecord, world: World) -> str:
