@@ -152,3 +152,23 @@ a.button:hover { border-color: var(--amber); }
 .tag.con { background: var(--red); color: #1b0a07; }
 .tag.legit { background: var(--green); color: #0c1b11; }
 .reveal-line { padding: 8px 14px; color: var(--muted); }
+
+/* print: the end page (incident report) on white paper; Ctrl+P / "Save as PDF" in any browser */
+@media print {
+  @page { size: A4; margin: 16mm 14mm; }
+  :root {
+    --bg: #fff; --bg-2: #fff; --bg-3: #f3f3f3; --line: #c9c9c9; --text: #1b1b1b; --muted: #555;
+    --amber: #9a5a00; --amber-dim: #c8a46a; --red: #b3261e; --green: #2e7d4f; --paper: #fbf5df; --paper-text: #3b3216;
+  }
+  html, body { background: #fff !important; color: var(--text); font-size: 10.5pt; }
+  .topbar, .banner, .toast, .end-buttons, button, .fade-in.notice { display: none !important; }
+  * { animation: none !important; transition: none !important; box-shadow: none !important; }
+  .end > * { max-width: none; }
+  .cutscene { padding: 8px 14px; font-size: 11.5pt; }
+  .badge, .reveal, .notebook-page, .stat, .stats, .intel-table tr { break-inside: avoid; }
+  .stats { grid-template-columns: repeat(4, 1fr); }
+  .section-title, .report h2 { break-after: avoid; }
+  .report { border: none; padding: 0; }
+  .tag.con { color: #fff; } .tag.legit { color: #fff; }
+  a { color: inherit; text-decoration: none; }
+}
