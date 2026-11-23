@@ -263,3 +263,10 @@ def test_a_striking_caller_slips_in_its_first_reply(fake):
     state.intel = {f.id: IntelRecord(fact_id=f.id, day=1, time="night", call_id="recon", quote="", source="recon")
                    for f in world.facts}
     assert caller.striking(state, call, world) and caller.slip_text(state, call, world).startswith("NOW")
+
+
+def test_pointing_at_a_forged_domain_or_a_changed_number_counts_as_a_challenge():
+    for line in ("That address is not our domain.", "You're on a different number than last time.",
+                 "通知留的邮箱不是我们公司的域名。", "您今天的号码跟上次的不一样。"):
+        assert rules.is_challenge(line), line
+    assert not rules.is_challenge("Sure, I'll put you through.")

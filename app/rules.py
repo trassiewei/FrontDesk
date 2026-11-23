@@ -990,6 +990,8 @@ _DISMISSAL = re.compile(
 # model: a con forced off the line by any "you said" would be a tell no genuine caller shares.
 _CHALLENGE = re.compile(
     r"\b(scam|scammer|con artist|phishing|fake|impostor|imposter|liar|lying)\b|"
+    r"\bnot (our|the company'?s) (email |e-mail )?domain\b|\b(different|new|another) number (than|from) (last time|before|monday|tuesday|yesterday)\b|"
+    r"不是我们(公司)?的(域名|邮箱)|(号码|电话)(跟|和)(上次|之前|昨天|周一|周二)(的)?不一样|"
     r"\byou (just )?said\b|\b(a (second|minute|moment) ago|earlier you)\b|\bwhich is it\b|"
     r"\b(does|did|do)(n'?t| not) (add up|match|make sense|sound right)\b|\bstory\b.{0,30}\b(odd|wrong|off)\b|\bwho told you\b|"
     r"\bhow (do|did) you know\b|\bnot who you say\b|\bsuspicious\b|\byou'?re not calling from\b|"
