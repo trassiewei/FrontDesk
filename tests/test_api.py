@@ -138,7 +138,7 @@ def test_nothing_secret_leaks_through_any_response(client, full_reach):
     state = game.state()
     assert set(state) == {"game_id", "player_name", "difficulty", "lang", "phase", "day", "day_name", "clock", "security",
                           "service", "calls_remaining_today", "replies_left_today", "callbacks_left_today", "active_call", "can_flag_last_call", "exposures",
-                          "bulletin", "scores_hidden",
+                          "bulletin", "scores_hidden", "call_log",
                           "game_over", "outcome"}
     assert state["security"] == 100 and state["service"] == 100  # scores only settle at day end
 

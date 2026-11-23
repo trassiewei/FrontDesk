@@ -158,8 +158,8 @@ ZH: dict[str, str] = {
     "reached this desk.":
         "假冒的反诈调查员，跟进刚才的诱饵来电。外人根本不可能知道前台刚接过那通电话。",
     "The bulletin notice “{title}” that morning was forged by the crew. Its flaw could be checked against "
-    "the directory.":
-        "当天早上公告栏里的「{title}」是团伙伪造的，它的破绽对照名录就能查出来。",
+    "the directory: {flaw}.":
+        "当天早上公告栏里的「{title}」是团伙伪造的，它的破绽对照名录就能查出来：{flaw}。",
     "{speaker}: '{caller}? Yes, I've dealt with them — but I thought that was all sorted. I'm not "
     "expecting anything more from them.'":
         "{speaker}：“{caller}？对，我跟他们打过交道，不过我以为那事已经办完了。我没在等他们的消息。”",

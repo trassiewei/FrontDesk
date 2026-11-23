@@ -115,7 +115,8 @@ def notices_text(state: GameState) -> str:
         return "(none)"
     return "\n".join(
         f"{config.DAY_NAMES[n.day - 1]} — {n.kind} — {n.title}: {n.text}"
-        + (" [FORGED by the con crew and slipped into the bulletin; the staff saw it as genuine]" if n.id == "memo" else "")
+        + (f" [FORGED by the con crew and slipped into the bulletin; the staff saw it as genuine. Its flaw: "
+           f"{state.memo_flaws.get(n.day, 'see the directory')}]" if n.id == "memo" else "")
         for n in sorted(state.notices, key=lambda n: n.day)
     )
 

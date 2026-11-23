@@ -342,6 +342,7 @@ class GameState(BaseModel):
     heat_log: dict[int, int] = Field(default_factory=dict)  # day -> exposures when that day was planned
     con_slots: dict[int, list[int]] = Field(default_factory=dict)  # which of the day's slots the con calls take
     moves: dict[int, list[str]] = Field(default_factory=dict)  # hard: day -> special moves the crew must play
+    memo_flaws: dict[int, str] = Field(default_factory=dict)  # hard: day -> what gives that day's forged notice away
     it_alert: bool = False
     scenario: Scenario | None = None  # None only in hand-built test states; use world.scenario_of(state)
     notices: list[Notice] = Field(default_factory=list)

@@ -87,6 +87,9 @@ def public_state(state: GameState) -> dict:
         "can_flag_last_call": state.phase == "BETWEEN_CALLS" and last is not None and not last.flagged,
         "exposures": state.exposures if state.game_over else None if hidden else state.settled_exposures,
         "bulletin": [{"day": n.day, "kind": n.kind, "title": n.title, "text": n.text} for n in state.notices],
+        # The switchboard's own log: who rang, when and from which number (never how the call really ended).
+        "call_log": [{"day": c.day, "time": c.time, "claims": c.claims, "caller_id": c.caller_id}
+                     for c in state.calls if c.id != state.active_call_id],
         "game_over": state.game_over,
         "outcome": state.outcome if state.game_over else None,
     }

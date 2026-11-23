@@ -87,7 +87,7 @@ MOVE_TEXTS = {
     "investigator": "A fake fraud investigator following up on the decoy. No outsider could have known a call "
                     "reached this desk.",
     "memo": "The bulletin notice “{title}” that morning was forged by the crew. Its flaw could be checked against "
-            "the directory.",
+            "the directory: {flaw}.",
 }
 
 
@@ -103,7 +103,8 @@ def move_text(state: GameState, call) -> str:
         return tr(MOVE_TEXTS["echo"]).format(caller=original.caller_name, day=original.day, time=original.time)
     if plan.move == "memo":
         memo = next((n for n in state.notices if n.day == call.day and n.id == "memo"), None)
-        return tr(MOVE_TEXTS["memo"]).format(title=memo.title) if memo else ""
+        flaw = state.memo_flaws.get(call.day, "")
+        return tr(MOVE_TEXTS["memo"]).format(title=memo.title, flaw=flaw).rstrip(":：. 。") if memo else ""
     return tr(MOVE_TEXTS[plan.move])
 
 

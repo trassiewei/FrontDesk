@@ -1470,6 +1470,43 @@ def apply_moves(result: PlannerResult, moves: Iterable[str], pool: list[CallReco
     return result.model_copy(update={"calls": calls, "memo": memo})
 
 
+_SIGNOFF = re.compile(r"\s*(—|--|——)[^—\n]{0,60}$")
+
+
+def memo_signoff(text: str, world: World, rng: random.Random, lang: str = "en") -> tuple[str, str]:
+    """Close the crew's forged notice with a sign-off that carries its one checkable flaw, and say what the flaw is.
+
+    The flaw is the player's fair way to catch the forgery, so the code writes it instead of trusting the model to:
+    a real first name under the wrong department, a sender nobody in the directory has, or a contact address on a
+    look-alike domain. Any sign-off the model wrote itself is dropped first."""
+    body = _SIGNOFF.sub("", text.strip()).strip()
+    zh = lang == "zh"
+    depts = sorted({e.dept for e in world.employees})
+    emp = rng.choice([e for e in world.employees if e.dept in ("IT", "HR", "Operations", "Finance")] or world.employees)
+    first = emp.name.split()[0]
+    kind = rng.choice(["dept", "stranger", "domain"])
+    if kind == "dept":
+        wrong = rng.choice([d for d in depts if d != emp.dept] + ["Facilities", "Procurement"])
+        line = f"—— {first}（{wrong}）" if zh else f"— {first} ({wrong})"
+        flaw = (f"署名是「{first}（{wrong}）」，但名录里的 {emp.name} 在 {emp.dept}" if zh else
+                f"it was signed “{first} ({wrong})”, but {emp.name} works in {emp.dept}")
+    elif kind == "stranger":
+        directory = {e.name.split()[0].lower() for e in world.employees}
+        name = rng.choice([n for n in _NAME_POOL if n.lower() not in directory])
+        line = f"—— {name}（{emp.dept}）" if zh else f"— {name} ({emp.dept})"
+        flaw = (f"署名是「{name}（{emp.dept}）」，但名录里没有叫 {name} 的人" if zh else
+                f"it was signed “{name} ({emp.dept})”, but nobody called {name} is in the directory")
+    else:
+        site = world.company.website.split(".")[0]
+        domain = rng.choice([f"{site}-group.com", f"{site}-inc.net", f"{site}.co"])
+        address = f"{first.lower()}@{domain}"
+        line = (f"—— {first}（{emp.dept}）。如有疑问请发邮件至 {address}" if zh else
+                f"— {first} ({emp.dept}). Questions to {address}")
+        flaw = (f"联系邮箱 {address} 不是公司的域名（{world.company.website}）" if zh else
+                f"its contact address {address} is not on the company's domain ({world.company.website})")
+    return f"{body}\n{line}", flaw
+
+
 def missing_moves(result: PlannerResult, moves: Iterable[str]) -> list[str]:
     have = {c.move for c in result.calls}
     return [m for m in moves if m not in have]

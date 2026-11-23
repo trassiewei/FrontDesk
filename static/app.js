@@ -69,7 +69,7 @@ const I18N = {
     yes_transfer: "Yes, transfer", back: "Back",
     click_name: "Click a name for numbers and notes.", f_ext: "Ext", f_mobile: "Mobile", f_empid: "Employee ID",
     f_status: "Status", f_note: "Note", f_phone: "Official phone", f_contact: "Contact", company: "Company",
-    main_line: "Main line {n}", sticky: "Sticky notes", internal: "Internal notes", bulletin: "Bulletin",
+    main_line: "Main line {n}", sticky: "Sticky notes", internal: "Internal notes", bulletin: "Bulletin", call_log: "Call log (caller ID)",
     day_n: "Day {n}", policy_update: "Policy update", heads_up: "Heads up", standing_policy: "Standing policy",
     playbook: "Playbook: how con artists work", sounds_like: "Sounds like", what_to_do: "What to do",
     end_caller: "— The caller hung up. —", end_patience: "— The caller lost patience and hung up. —",
@@ -117,7 +117,7 @@ const I18N = {
     yes_transfer: "确定转接", back: "返回",
     click_name: "点击名字查看号码和备注。", f_ext: "分机", f_mobile: "手机", f_empid: "工号",
     f_status: "状态", f_note: "备注", f_phone: "官方电话", f_contact: "联系人", company: "公司",
-    main_line: "总机 {n}", sticky: "便利贴", internal: "内部备忘", bulletin: "公告栏",
+    main_line: "总机 {n}", sticky: "便利贴", internal: "内部备忘", bulletin: "公告栏", call_log: "来电记录（来电显示）",
     day_n: "第 {n} 天", policy_update: "规定更新", heads_up: "注意", standing_policy: "常规守则",
     playbook: "骗术手册：骗子惯用的套路", sounds_like: "听起来像", what_to_do: "怎么应对",
     end_caller: "— 来电者挂断了。—", end_patience: "— 来电者没了耐心，挂断了。—",
@@ -486,7 +486,8 @@ function renderTabs() {
       el("br"), t("main_line", { n: co.main_number }),
       el("br"), Object.entries(co.general_emails || {}).map(([k, v]) => `${k}: ${v}`).join(" · ")),
     el("h3", {}, t("sticky")), ...w.sticky_notes.map((n) => el("div", { class: "sticky" }, n)),
-    el("h3", {}, t("internal")), el("ul", { class: "internal" }, w.internal_notes.map((n) => el("li", {}, n))));
+    el("h3", {}, t("internal")), el("ul", { class: "internal" }, w.internal_notes.map((n) => el("li", {}, n))),
+    ...callLog());
   const level = G.state ? G.state.difficulty : "normal";
   const bulletin = (G.state && G.state.bulletin) || [];
   const policyTab = [];
@@ -509,6 +510,13 @@ function renderTabs() {
       el("ul", { class: "internal" }, w.playbook.rules_of_thumb.map((n) => el("li", {}, n))));
   }
   $("#tab-policy").replaceChildren(...policyTab);
+}
+
+function callLog() {
+  const log = (G.state && G.state.call_log) || [];
+  if (!log.length) return [];
+  return [el("h3", {}, t("call_log")), el("ul", { class: "internal call-log" }, [...log].reverse().map((c) =>
+    el("li", {}, `${t("day_n", { n: c.day })} ${c.time} · ${c.claims} · ${c.caller_id}`)))];
 }
 
 function setupTabs() {

@@ -227,3 +227,27 @@ def test_a_ready_hard_crew_stops_fishing_and_hides_among_routine_callers(fake):
     assert door.name in casting._door_cover(state, world, False) and casting._door_cover(state, world, True) == ""
     normal = begin(fake, "normal")
     assert casting._door_cover(normal, world, False) == ""
+
+
+def test_the_code_signs_the_forged_memo_with_a_checkable_flaw():
+    world = load_world()
+    seen = set()
+    for seed in range(30):
+        text, flaw = rules.memo_signoff("Nimbus will phone reception today. — Dave (IT)", world, random.Random(seed))
+        body, line = text.rsplit("\n", 1)
+        assert body == "Nimbus will phone reception today." and line.startswith("— ") and flaw
+        seen.add("domain" if "@" in line else "stranger" if "nobody called" in flaw else "dept")
+    assert seen == {"dept", "stranger", "domain"}
+    text, flaw = rules.memo_signoff("Nimbus 今天会来电。", world, random.Random(1), "zh")
+    assert text.split("\n")[1].startswith("—— ") and ("名录" in flaw or "域名" in flaw)
+
+
+@pytest.mark.special_moves
+def test_the_end_page_names_the_memo_flaw(fake, monkeypatch):
+    memo_plan = plan(dict(con(claims="Alex, Nimbus Migrations"), move="memo"))
+    memo_plan["memo"] = {"title": "Nimbus", "text": "Nimbus will phone reception."}
+    state = begin(fake, "hard", memo_plan, moves={1: ["memo"]}, monkeypatch=monkeypatch)
+    call = take_con(state)
+    state.game_over, state.outcome = True, "survived"
+    row = next(r for r in summary.call_reveal(state, load_world()) if r["call_id"] == call.id)
+    assert state.memo_flaws[1] and state.memo_flaws[1] in row["special"]

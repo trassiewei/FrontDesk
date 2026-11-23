@@ -190,7 +190,8 @@ def _enter_day(state: GameState, day: int) -> None:
         state.methods[day] = plan.method
     if plan.memo:
         # The crew's forged notice sits among the real ones; only the end page says it was fake.
-        state.notices.append(Notice(day=day, kind="incident", id="memo", title=plan.memo.title, text=plan.memo.text))
+        text, state.memo_flaws[day] = rules.memo_signoff(plan.memo.text, world, _rng(state, "memo", day), state.lang)
+        state.notices.append(Notice(day=day, kind="incident", id="memo", title=plan.memo.title, text=text))
     if learned:
         hint = _rng(state, "recon_hint", day).choice(load_story()["recon_hints"])
         state.notices.append(Notice(day=day, kind="incident", id="recon_hint", title=hint["title"], text=hint["text"]))
