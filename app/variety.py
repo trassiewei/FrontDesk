@@ -29,14 +29,20 @@ def _load() -> list[dict]:
         return []
 
 
+def _staff(identity: str | None) -> bool:
+    return bool(identity and identity.startswith("E"))
+
+
 def note(state: GameState) -> None:
     """Record (or update) what this game has used so far."""
     calls = list(state.calls) + list(state.queue)
     scenario = state.scenario
     entry = {
         "id": state.game_id,
-        "names": sorted({c.caller_name for c in calls if c.caller_name and not c.claimed_identity}),
-        "legit": [f"{c.claims} | {c.legit.goal}" for c in calls if not c.is_con and c.legit and not c.claimed_identity],
+        # Employees are the same people every game; everyone else (a vendor's caller included) is invented.
+        "names": sorted({c.caller_name for c in calls if c.caller_name and not _staff(c.claimed_identity)}),
+        "legit": [f"{c.claims} | {c.legit.goal}" for c in calls
+                  if not c.is_con and c.legit and not _staff(c.claimed_identity)],
         "covers": [c.claims for c in calls if c.is_con],
         "target": scenario.target if scenario else "",
         "gambit": scenario.gambit if scenario else "",

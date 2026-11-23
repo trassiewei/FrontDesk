@@ -1212,6 +1212,26 @@ def _legit_from_draft(
     )
 
 
+def _fresh_fallback(call: LegitCall, world: World, taken: set[str], pool: list[str], surnames: set[str],
+                    surname_pool: list[str]) -> LegitCall:
+    """A fixed genuine call (used when a draft is unusable) gets a fresh name if this or a recent game already had
+    one like it; staff calls keep theirs."""
+    if call.claimed_identity and employee_by_id(world, call.claimed_identity):
+        return call
+    parts = call.caller_name.split()
+    mapping = {}
+    if parts and parts[0].lower() in taken and pool:
+        mapping[parts[0]] = pool.pop(0)
+    if len(parts) > 1 and parts[-1].lower() in surnames and surname_pool:
+        mapping[parts[-1]] = surname_pool.pop(0)
+    if not mapping:
+        return call
+    pattern = re.compile(_L + "(" + "|".join(re.escape(k) for k in mapping) + ")" + _R)
+    swap = lambda text: pattern.sub(lambda m: mapping[m.group(1)], text)  # noqa: E731
+    update = {k: swap(v) for k, v in call.model_dump().items() if isinstance(v, str) and k != "caller_id"}
+    return call.model_copy(update=update)
+
+
 def clean_legit_calls(
     result: LegitCastResult, *, day: int, world: World, fallbacks: Iterable[LegitCall], taken: Iterable[str],
     rng: random.Random, avoid: Iterable[str] = (), slots: Iterable[int] = config.LEGIT_SLOTS,
@@ -1235,7 +1255,8 @@ def clean_legit_calls(
             call = _legit_from_draft(result.calls[i], day=day, slot=slot, world=world, taken=used, pool=pool,
                                      rng=rng, avoid=avoid_set, surnames=surnames, surname_pool=surname_pool)
         if call is None and i < len(fallbacks):
-            call = fallbacks[i].model_copy(update={"slot": slot})
+            call = _fresh_fallback(fallbacks[i].model_copy(update={"slot": slot}), world, used, pool, surnames,
+                                   surname_pool)
         if call is not None:
             avoid_set.update(re.findall(r"555-\d{4}", call.caller_id))
             calls.append(call)

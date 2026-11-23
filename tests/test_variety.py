@@ -41,3 +41,17 @@ def test_the_job_reaches_the_director_and_is_kept_on_the_scenario(fake):
     state = new(fake)
     prompt = fake.calls_for("director")[0]["messages"][0]["content"]
     assert state.scenario.target and next(t[1] for t in director.TARGETS if t[0] == state.scenario.target) in prompt
+
+
+def test_a_fixed_fallback_caller_gets_a_fresh_name_when_a_recent_game_had_it():
+    from app import rules
+    from app.models import LegitCastResult
+    from app.world import load_legit_calls, load_world
+    fallbacks = [c for c in load_legit_calls() if c.day == 1]
+    janet = next(c for c in fallbacks if c.caller_name == "Janet Ortiz")
+    calls = rules.clean_legit_calls(LegitCastResult(calls=[]), day=1, world=load_world(), fallbacks=fallbacks,
+                                    taken=["Janet Ortiz", "Henry Hill"], rng=random.Random(1))
+    renamed = next(c for c in calls if c.slot == janet.slot)
+    assert "Janet" not in renamed.caller_name + renamed.claims + renamed.opening_line
+    assert "Ortiz" not in renamed.caller_name and renamed.caller_id == janet.caller_id
+    assert any(c.caller_name == "Henry Hill" for c in calls)  # staff keep their names
