@@ -180,7 +180,7 @@ def _enter_day(state: GameState, day: int) -> None:
         state.con_slots[day] = con_slots[:len(plan.calls)]
         legit_calls += casting.cast_day(state, world, day, slots=con_slots[len(plan.calls):], cast=legit_calls)
     # The planner already avoids its own earlier personas; this also keeps clear of every genuine caller.
-    earlier = [c.caller_name for c in state.calls] + variety.recent(state.game_id, "names")
+    earlier = [c.caller_name for c in state.calls] + variety.avoid_names(state.game_id)
     plan = rules.dedupe_personas(plan, world, [c.caller_name for c in legit_calls] + earlier)
     if state.lang == "zh":
         plan, legit_calls = translator.localize_day(state, plan, legit_calls)

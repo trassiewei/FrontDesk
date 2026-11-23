@@ -211,7 +211,23 @@ def crew_view(state: GameState, world: World, text: str) -> str:
 def _recent_covers(state: GameState) -> str:
     """Covers other games' crews used lately: models keep reaching for the same few (a benefits survey...)."""
     covers = list(dict.fromkeys(variety.recent(state.game_id, "covers")))[-16:]
-    return "; ".join(covers) or "none"
+    text = "; ".join(covers) or "none"
+    gambit = method_for(state, state.day)
+    method_kinds = variety.cover_kinds(f"{gambit.name} {gambit.summary}") if gambit else set()
+    banned = [k for k in variety.overused_covers(state.game_id) if k not in method_kinds]
+    if banned:
+        text += f". NEVER use any of these kinds of cover this game, under any name: {'; '.join(banned)}"
+    return text
+
+
+def drop_overused_covers(result: PlannerResult, banned: list[str]) -> PlannerResult:
+    """Code backstop for the prompt: an ordinary call wearing an overused cover is dropped (the slot is re-asked,
+    then given to a genuine caller), unless that would leave the plan empty. Special moves keep theirs."""
+    if not banned:
+        return result
+    keep = [c for c in result.calls
+            if c.move or not (variety.cover_kinds(f"{c.claims} {c.pretext}") & set(banned))]
+    return result.model_copy(update={"calls": keep}) if keep else result
 
 
 def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
@@ -295,7 +311,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
 
     # The player's own name counts as taken: a caller called "Sam" phoning receptionist Sam is confusing.
     used = ([c.plan.persona_name for c in state.calls if c.is_con and c.plan] + [state.player_name]
-            + variety.recent(state.game_id, "names"))
+            + variety.avoid_names(state.game_id))
 
     def clean(raw: PlannerResult) -> PlannerResult:
         return rules.dedupe_personas(clean_plain(raw), world, used)
@@ -305,8 +321,12 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
     if not pool:
         moves = [m for m in moves if m != "echo"]
 
+    # A cover the method itself is built on (an inspector for "The Surprise Inspector") stays allowed.
+    method_kinds = variety.cover_kinds(f"{gambit.name} {gambit.summary}") if gambit else set()
+    banned = [k for k in variety.overused_covers(state.game_id) if k not in method_kinds]
+
     def finish(raw: PlannerResult, method: str) -> PlannerResult:
-        done = clean(raw)
+        done = drop_overused_covers(clean(raw), banned)
         if diff.outsider_only:
             done = rules.drop_directory_claims(done, world, exempt=[m for m in moves if m == "decoy"])
         done = rules.apply_moves(done, moves, pool)
@@ -317,7 +337,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
            if not (c.move == "decoy" and "decoy" in moves)} if diff.outsider_only else {}
     bad = {name: ids for name, ids in bad.items() if ids}
     if not bad:
-        plan = _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today))  # type: ignore[arg-type]
+        plan = _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today), banned)  # type: ignore[arg-type]
         return _ensure_moves(state, system, result, plan, finish, moves)  # type: ignore[arg-type]
     named = "; ".join(f"{name} (pretends to be or works for {', '.join(name_of(world, i) or i for i in ids)})"
                       for name, ids in bad.items())
@@ -333,7 +353,7 @@ def plan_day(state: GameState, world: World, day: int) -> PlannerResult:
         result = retry
     except llm.LLMError as exc:
         log.warning("Planner retry failed, keeping the first plan: %s", exc)
-    plan = _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today))  # type: ignore[arg-type]
+    plan = _fill_slots(state, system, result, finish(result, chosen), finish, len(slots_today), banned)  # type: ignore[arg-type]
     return _ensure_moves(state, system, result, plan, finish, moves)  # type: ignore[arg-type]
 
 
@@ -357,7 +377,8 @@ def _ensure_moves(state: GameState, system: str, raw: PlannerResult, plan: Plann
     return better if len(rules.missing_moves(better, moves)) < len(missing) and better.calls else plan
 
 
-def _fill_slots(state: GameState, system: str, raw: PlannerResult, plan: PlannerResult, finish, wanted: int) -> PlannerResult:
+def _fill_slots(state: GameState, system: str, raw: PlannerResult, plan: PlannerResult, finish, wanted: int,
+                banned: list[str] = ()) -> PlannerResult:
     """The crew has a call time for every con slot. A plan that comes back short (the model planned fewer calls,
     or cleaning dropped one) is asked for once more; the engine fills any slot still empty with a genuine caller."""
     if not config.FILL_CON_SLOTS or len(plan.calls) >= wanted or raw.notebook == fallback_plan().notebook:
@@ -367,7 +388,8 @@ def _fill_slots(state: GameState, system: str, raw: PlannerResult, plan: Planner
             "planner", system, llm.USER_TURN, PlannerResult, state.game_id,
             extra_messages=[{"role": "assistant", "content": raw.model_dump_json()}, {"role": "user", "content": (
                 f"Your plan has {len(plan.calls)} usable call(s) but you have {wanted} call times today. Keep your "
-                f"method and plan exactly {wanted} calls, each a different persona, and return the complete JSON again.")}],
+                f"method and plan exactly {wanted} calls, each a different persona, and return the complete JSON again."
+                + (f" None of them may use these overused covers: {'; '.join(banned)}." if banned else ""))}],
         )
     except llm.LLMError as exc:
         log.warning("Planner fill retry failed, keeping the short plan: %s", exc)

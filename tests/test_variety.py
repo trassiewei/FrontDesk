@@ -15,13 +15,13 @@ def new(fake, *plans):
 
 
 def test_a_game_notes_what_it_used_and_the_next_game_avoids_those_names(fake):
-    first = new(fake, plan(dict(con(claims="Priya Raman, Kestrel Couriers"), persona_name="Priya Raman")))
-    assert "Priya Raman" in variety.recent("other", "names")
+    first = new(fake, plan(dict(con(claims="Hester Quill, Kestrel Couriers"), persona_name="Hester Quill")))
+    assert "Hester Quill" in variety.recent("other", "names")
     assert variety.recent(first.game_id, "names") == []  # a game never avoids itself
-    second = new(fake, plan(dict(con(claims="Priya Raman, Kestrel Couriers"), persona_name="Priya Raman")))
+    second = new(fake, plan(dict(con(claims="Hester Quill, Kestrel Couriers"), persona_name="Hester Quill")))
     con_names = [c.caller_name for c in second.queue if c.is_con]
-    assert con_names and all("Priya" not in n and "Raman" not in n for n in con_names)
-    assert all("Priya" not in c.claims for c in second.queue if c.is_con)
+    assert con_names and all("Hester" not in n and "Quill" not in n for n in con_names)
+    assert all("Hester" not in c.claims for c in second.queue if c.is_con)
 
 
 def test_only_the_last_few_games_count(fake):
@@ -55,3 +55,24 @@ def test_a_fixed_fallback_caller_gets_a_fresh_name_when_a_recent_game_had_it():
     assert "Janet" not in renamed.caller_name + renamed.claims + renamed.opening_line
     assert "Ortiz" not in renamed.caller_name and renamed.caller_id == janet.caller_id
     assert any(c.caller_name == "Henry Hill" for c in calls)  # staff keep their names
+
+
+def test_a_cover_two_recent_games_used_is_banned_and_dropped_from_plans(monkeypatch):
+    from app.models import PlannedCall, PlannerResult
+    from app.roles import planner
+    entries = [{"id": "g1", "covers": ["Ann Lee, Ridgeline Benefits Survey"]},
+               {"id": "g2", "covers": ["Bo Yu, Corbin Benefits Administration", "Cy Ng, Pennock Cargo Insurance"]}]
+    monkeypatch.setattr(variety, "_load", lambda: entries)
+    banned = variety.overused_covers("g3")
+    assert banned == ["a benefits, payroll or HR survey"]
+    def call(name, claims, move=""):
+        return PlannedCall(persona_name=name, claims=claims, pretext="p", tactic="t", opening_line="Hi.", move=move)
+    plan_ = PlannerResult(notebook="nb", calls=[call("Di", "Di Fox, Ashgrove Benefits Administration"),
+                                                call("Ed", "Ed Roe, Kestrel Couriers")])
+    assert [c.persona_name for c in planner.drop_overused_covers(plan_, banned).calls] == ["Ed"]
+    only = PlannerResult(notebook="nb", calls=[call("Di", "Di Fox, Ashgrove Benefits Administration")])
+    assert len(planner.drop_overused_covers(only, banned).calls) == 1  # never an empty plan
+
+
+def test_the_models_stock_names_are_always_renamed():
+    assert "Priya Raman" in variety.avoid_names("any")

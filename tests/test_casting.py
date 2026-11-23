@@ -80,7 +80,8 @@ def test_a_genuine_caller_is_satisfied_by_the_transfer_the_director_named(fake):
 
 def test_a_failed_casting_falls_back_to_the_fixed_calls(fake):
     state = start(fake, [llm.LLMError("boom")])
-    assert [c.caller_name for c in state.queue if not c.is_con] == ["Danny Ruiz", "Henry Hill", "Janet Ortiz"]
+    names = [c.caller_name for c in state.queue if not c.is_con]
+    assert names[:2] == ["Danny Ruiz", "Henry Hill"] and names[2].split()[0] != "Janet"  # a stock name is renamed
 
 
 def test_later_days_cast_again_and_see_who_already_called(fake):
